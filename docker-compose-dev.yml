@@ -9,30 +9,6 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U imagecore -d imagecore"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
-
-  backend:
-    build:
-      context: ./server
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-    depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
-
-  frontend:
-    build:
-      context: ./client
-    depends_on:
-      - backend
-    ports:
-      - "3000:3000"
 
 volumes:
   pgdata:

@@ -1,3 +1,4 @@
 .idea/
-
+.env
 out/
+server/src/main/resources/static/

@@ -1,10 +1,8 @@
 <template>
-  <NuxtLayout>
-    <NuxtPage />
-  </NuxtLayout>
+  whats good
 </template>
 
-<script>
+<script setup>
 
 </script>
 

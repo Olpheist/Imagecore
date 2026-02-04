@@ -1,10 +1,8 @@
 <template>
-  <NuxtLayout>
-    <NuxtPage />
-  </NuxtLayout>
+  index
 </template>
 
-<script>
+<script setup>
 
 </script>
 

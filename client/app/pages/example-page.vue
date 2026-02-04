@@ -1,5 +1,5 @@
 <template>
-  whats good
+  hello
 </template>
 
 <script setup>

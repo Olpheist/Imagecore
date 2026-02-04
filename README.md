@@ -15,7 +15,7 @@ npm run dev
 Directory: `server`
 
 
-Requires: Java 17
+Requires: Java 17, Docker
 
 1. Link or open the Gradle project
 2. Start the development database by running `docker-compose-dev.yml` as a container

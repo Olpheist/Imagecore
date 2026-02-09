@@ -1,4 +1,4 @@
-package com.green.imagecore.domain;
+package com.green.imagecore.entities;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -22,7 +22,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 320)
     private String email;
 
-    @Column(length = 100)
+    @Column(nullable = false, unique = true, length = 100)
     private String username;
 
     @Column(name = "password_hash", nullable = false, columnDefinition = "text")

@@ -1,4 +1,4 @@
-package com.green.imagecore.domain;
+package com.green.imagecore.entities;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;

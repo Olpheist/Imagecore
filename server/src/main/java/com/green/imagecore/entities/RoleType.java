@@ -1,4 +1,4 @@
-package com.green.imagecore.domain;
+package com.green.imagecore.entities;
 
 public enum RoleType {
     CLINICIAN,

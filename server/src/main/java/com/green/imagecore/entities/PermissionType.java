@@ -1,8 +1,9 @@
 package com.green.imagecore.entities;
 
 public enum PermissionType {
-    UPLOAD,
-    VIEW,
-    PHI,
-    RESULTS
+    IMAGE_UPLOAD,
+    IMAGE_VIEW,
+    PHI_VIEW,
+    RESULTS_VIEW,
+    TOOL_EXEC
 }

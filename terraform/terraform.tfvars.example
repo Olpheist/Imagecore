@@ -1,0 +1,31 @@
+# Copy this file to terraform.tfvars and fill in your values
+# terraform.tfvars should be added to .gitignore
+
+# General
+aws_region   = "us-east-1"
+project_name = "imagecore"
+environment  = "dev"
+
+# Networking
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+
+# ECR
+ecr_repository_name = "sep-imagecore"
+
+# RDS
+db_name             = "imagecoredb"
+db_username         = "admin"
+db_password         = "SECURE_PASSWORD"  # TODO: look into AWS Secrets Manager
+db_instance_class   = "db.t3.micro"
+db_allocated_storage = 20
+
+# EC2
+ec2_instance_type    = "t3.small"
+ec2_desired_capacity = 2
+
+# ECS
+container_port    = 8080
+ecs_desired_count = 2

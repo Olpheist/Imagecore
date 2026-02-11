@@ -19,3 +19,17 @@ logging:
     org.springframework.security: WARN
     org.hibernate.SQL: ERROR
     org.hibernate.orm.jdbc.bind: ERROR
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+
+
+server:
+  port: 8080

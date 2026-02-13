@@ -2,13 +2,14 @@ package com.green.imagecore.service;
 
 import com.green.imagecore.entities.User;
 import com.green.imagecore.repositories.UserRepository;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -32,17 +33,17 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public User getById(Long id) {
+    public User findById(Long id) {
         return userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
     }
 
     @Transactional(readOnly = true)
-    public User getByUsername(String username) {
-        return userRepository.findByUsername(username).orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
     }
 
     @Transactional(readOnly = true)
-    public User getByEmail(String email) {
+    public User findByEmail(String email) {
         return userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
     }
 }

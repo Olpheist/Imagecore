@@ -6,7 +6,7 @@ const getBaseUrl = () => {
         : '/api';
 }
 
-export async function useFetch<T = unknown>(
+export async function useApiFetch<T = unknown>(
     url: string,
     options: {
         method?: HttpMethod,

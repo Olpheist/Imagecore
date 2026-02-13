@@ -70,6 +70,9 @@ Review the output and type `yes` to confirm.
 
 The deployment script (`scripts/push_docker_image_to_ecr.sh`) automates the following steps:
 
+> [!NOTE]
+> The image tag in this script should match the `image_tag` variable in the `terraform.tfvars` file
+
 1. **Build** the Docker image for the target platform
 2. **Authenticate** with AWS ECR
 3. **Tag** the image with the ECR repository URL

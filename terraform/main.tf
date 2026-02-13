@@ -18,3 +18,75 @@ module "ecr" {
   environment     = var.environment
   repository_name = var.ecr_repository_name
 }
+
+# Networking Module - VPC, Subnets, Security Groups
+module "networking" {
+  source = "./modules/networking"
+
+  project_name         = var.project_name
+  environment          = var.environment
+  vpc_cidr             = var.vpc_cidr
+  availability_zones   = var.availability_zones
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+}
+
+# RDS Module - Database
+module "rds" {
+  source = "./modules/rds"
+  # postgres db engine is the default for this infra
+
+  project_name          = var.project_name
+  environment           = var.environment
+  vpc_id                = module.networking.vpc_id
+  private_subnet_ids    = module.networking.private_subnet_ids
+  app_security_group_id = module.networking.app_security_group_id
+
+  db_name           = var.db_name
+  db_username       = var.db_username
+  db_password       = var.db_password
+  db_instance_class = var.db_instance_class
+  allocated_storage = var.db_allocated_storage
+}
+
+# EC2 Module - ECS Cluster Instances
+module "ec2" {
+  source = "./modules/ec2"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  vpc_id                = module.networking.vpc_id
+  public_subnet_ids     = module.networking.public_subnet_ids
+  private_subnet_ids    = module.networking.private_subnet_ids
+  app_security_group_id = module.networking.app_security_group_id
+
+  instance_type    = var.ec2_instance_type
+  desired_capacity = var.ec2_desired_capacity
+  ecs_cluster_name = "${var.project_name}-${var.environment}-cluster"
+}
+
+# ECS Module - Container Orchestration
+module "ecs" {
+  source = "./modules/ecs"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  vpc_id                = module.networking.vpc_id
+  public_subnet_ids     = module.networking.public_subnet_ids
+  private_subnet_ids    = module.networking.private_subnet_ids
+  app_security_group_id = module.networking.app_security_group_id
+  alb_security_group_id = module.networking.alb_security_group_id
+
+  ecr_repository_url = module.ecr.repository_url
+  image_tag          = var.image_tag
+  container_port     = var.container_port
+  desired_count      = var.ecs_desired_count
+
+  # Database connection info
+  db_host     = module.rds.db_address
+  db_name     = var.db_name
+  db_username = var.db_username
+  db_password = var.db_password
+
+  depends_on = [module.ec2]
+}

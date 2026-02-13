@@ -5,6 +5,10 @@
         placeholder="Username"
     />
     <Input
+        v-model="email"
+        placeholder="Email"
+    />
+    <Input
         v-model="password"
         type="password"
         placeholder="Password"
@@ -13,7 +17,7 @@
         variant="success"
         @click="test"
     >
-      Login
+      Register
     </Button>
   </div>
 </template>
@@ -22,6 +26,7 @@
 import {ref} from 'vue';
 
 const username = ref('');
+const email = ref('');
 const password = ref('');
 
 </script>

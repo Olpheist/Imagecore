@@ -2,6 +2,10 @@
 
 # Project Setup
 
+IntelliJ + WSL users:
+- Ensure a Java SDK named exactly 17 exists in Project Structure → SDKs
+- Gradle toolchains require this exact name
+
 ## Frontend
 Directory: `client`
 

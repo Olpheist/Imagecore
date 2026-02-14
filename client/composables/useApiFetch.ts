@@ -10,16 +10,6 @@ const readCookie = (name: string): string | undefined => {
     return match ? decodeURIComponent(match[2]) : undefined;
 };
 
-const ensureCsrfCookie = async (): Promise<void> => {
-    const existing = readCookie("XSRF-TOKEN");
-    if (existing) return;
-
-    await fetch(`${getBaseUrl()}/auth/csrf`, {
-        method: "GET",
-        credentials: "include",
-    });
-};
-
 export async function useApiFetch<T = unknown>(
     url: string,
     options: {
@@ -28,33 +18,33 @@ export async function useApiFetch<T = unknown>(
         headers?: HeadersInit;
     } = {},
 ): Promise<T> {
-    const { method = "GET", body, headers = {} } = options;
+    const method = options.method ?? "GET";
 
+    const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        ...options.headers,
+    };
+
+    // Add CSRF token for non-GET requests
     if (method !== "GET") {
-        await ensureCsrfCookie();
-    }
+        await fetch(`${getBaseUrl()}/auth/csrf`, { credentials: "include" });
 
-    const xsrf = readCookie("XSRF-TOKEN");
+        const xsrf = readCookie("XSRF-TOKEN");
+        if (!xsrf) throw new Error("Failed to obtain CSRF token");
+
+        (headers as Record<string, string>)["X-XSRF-TOKEN"] = xsrf;
+    }
 
     const res = await fetch(`${getBaseUrl()}${url}`, {
         method,
-        headers: {
-            "Content-Type": "application/json",
-            ...(xsrf ? { "X-XSRF-TOKEN": xsrf } : {}),
-            ...headers,
-        },
-        body: body ? JSON.stringify(body) : undefined,
+        headers,
+        body: options.body ? JSON.stringify(options.body) : undefined,
         credentials: "include",
     });
 
     if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`API ${res.status}: ${text}`);
+        throw new Error(`API ${res.status}: ${await res.text()}`);
     }
 
-    if (res.status === 204) {
-        return undefined as T;
-    }
-
-    return (await res.json()) as T;
+    return res.status === 204 ? undefined as T : await res.json();
 }

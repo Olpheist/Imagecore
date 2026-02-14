@@ -8,6 +8,8 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -17,32 +19,23 @@ import java.io.IOException;
 public class RequestLogFilter implements Filter {
 
     @Override
-    public void doFilter(
-            ServletRequest request,
-            ServletResponse response,
-            FilterChain chain
-    ) throws IOException, ServletException {
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
 
-        HttpServletRequest req = (HttpServletRequest) request;
-        HttpServletResponse res = (HttpServletResponse) response;
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
 
-        long start = System.currentTimeMillis();
+        // Get authenticated user
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal()))
+                ? auth.getName()
+                : "anonymous";
 
-        log.info(">>> {} {} from {}",
-                req.getMethod(),
-                req.getRequestURI(),
-                req.getRemoteAddr()
-        );
+        log.info(">>> {} {} from {} [user: {}]",
+                httpRequest.getMethod(),
+                httpRequest.getRequestURI(),
+                httpRequest.getRemoteAddr(),
+                username);
 
         chain.doFilter(request, response);
-
-        long duration = System.currentTimeMillis() - start;
-
-        log.info("<<< {} {} -> {} ({}ms)",
-                req.getMethod(),
-                req.getRequestURI(),
-                res.getStatus(),
-                duration
-        );
     }
 }

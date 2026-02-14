@@ -11,7 +11,6 @@ import org.springframework.web.servlet.resource.PathResourceResolver;
 import java.io.IOException;
 
 @Configuration
-@Profile("prod")
 public class StaticResourceConfig implements WebMvcConfigurer {
 
     @Override

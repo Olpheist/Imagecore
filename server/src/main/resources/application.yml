@@ -16,5 +16,6 @@ logging:
     org.springframework: INFO
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
+    org.springframework.security: DEBUG
   pattern:
     console: "%clr([%d{HH:mm:ss.SSS}]){faint} %clr(%-5level) %clr(%logger){cyan} - %msg%n"

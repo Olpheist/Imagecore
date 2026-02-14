@@ -2,7 +2,10 @@ package com.green.imagecore.controller;
 
 import com.green.imagecore.entities.User;
 import com.green.imagecore.service.UserService;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -49,13 +52,13 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserResponse> register(@RequestBody RegisterRequest req) {
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest req) {
         User u = userService.register(req.email(), req.username(), req.password());
         return ResponseEntity.ok(new UserResponse(u.getId(), u.getEmail(), u.getUsername()));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<UserResponse> login(@RequestBody LoginRequest req, HttpServletRequest request) {
+    public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest req, HttpServletRequest request) {
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(req.username(), req.password())
         );
@@ -71,5 +74,23 @@ public class AuthController {
 
         User u = userService.findByUsername(req.username());
         return ResponseEntity.ok(new UserResponse(u.getId(), u.getEmail(), u.getUsername()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
+
+        SecurityContextHolder.clearContext();
+
+        if (request.getSession(false) != null) {
+            request.getSession(false).invalidate();
+        }
+
+        // delete JSESSIONID cookie
+        Cookie cookie = new Cookie("JSESSIONID", null);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+
+        return ResponseEntity.noContent().build();
     }
 }

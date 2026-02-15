@@ -1,5 +1,21 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: imagecore
   profiles:
     default: dev
+  output:
+    ansi:
+      enabled: always
+logging:
+  level:
+    root: INFO
+    com.green.imagecore: DEBUG
+    org.springframework: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%clr([%d{HH:mm:ss.SSS}]){faint} %clr(%-5level) %clr(%logger){cyan} - %msg%n"

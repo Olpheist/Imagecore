@@ -2,9 +2,7 @@ package com.green.imagecore.bdd;
 
 import io.cucumber.java.PendingException;
 import io.cucumber.java.en.*;
-import org.springframework.stereotype.Component;
 
-@Component
 public class JwtTokenClaimsSteps {
 
     @Given("a test user with id {long}, email {string}, username {string}, and roles:")

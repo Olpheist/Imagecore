@@ -2,12 +2,14 @@ package com.green.imagecore.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.resource.PathResourceResolver;
 
-@Profile("prod")
+import java.io.IOException;
+
 @Configuration
 public class StaticResourceConfig implements WebMvcConfigurer {
 
@@ -18,30 +20,16 @@ public class StaticResourceConfig implements WebMvcConfigurer {
                 .resourceChain(true)
                 .addResolver(new PathResourceResolver() {
                     @Override
-                    protected Resource getResource(String resourcePath, Resource location) {
-                        try {
-                            // exact file match first (js/css/images)
-                            Resource exact = location.createRelative(resourcePath);
-                            if (exact.exists() && exact.isReadable()) return exact;
+                    protected Resource getResource(String resourcePath, Resource location) throws IOException {
+                        Resource requestedResource = location.createRelative(resourcePath);
 
-                            // normalize
-                            String p = resourcePath;
-                            if (p == null || p.isBlank()) p = "index.html";
-
-                            // forward correct routes for production
-                            if (!p.contains(".") || p.endsWith("/")) {
-                                Resource index = location.createRelative(p + "/index.html");
-                                if (index.exists() && index.isReadable()) return index;
-                            }
-
-                            // custom 404 fallback from nuxt
-                            Resource notFound = location.createRelative("404.html");
-                            if (notFound.exists() && notFound.isReadable()) return notFound;
-
-                            return null;
-                        } catch (Exception e) {
-                            return null;
+                        // If file exists, serve it
+                        if (requestedResource.exists() && requestedResource.isReadable()) {
+                            return requestedResource;
                         }
+
+                        // Otherwise, fall back to 200.html (for SPA routing)
+                        return new ClassPathResource("/static/200.html");
                     }
                 });
     }

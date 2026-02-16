@@ -30,10 +30,19 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.session:spring-session-core'
+
 	implementation 'org.flywaydb:flyway-database-postgresql'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-flyway-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
@@ -45,6 +54,11 @@ dependencies {
 	testImplementation 'io.cucumber:cucumber-junit-platform-engine'
 	testImplementation 'io.cucumber:cucumber-spring'
 
+	testImplementation platform("org.testcontainers:testcontainers-bom:1.20.6")
+	testImplementation "org.testcontainers:junit-jupiter"
+	testImplementation "org.testcontainers:postgresql"
+	testImplementation "org.springframework.boot:spring-boot-testcontainers"
+
 	testImplementation 'org.junit.platform:junit-platform-suite-api'
 	testRuntimeOnly  'org.junit.platform:junit-platform-suite-engine'
 
@@ -53,6 +67,10 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	reports {
+		junitXml.required = true
+		html.required = true // Explicitly enable the HTML index.html
+	}
 
 	testLogging {
 		events 'passed', 'failed', 'skipped'

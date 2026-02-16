@@ -16,6 +16,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { setToken } from "~/utils/authToken";
+import { navigateTo } from "nuxt/app";
 
 type AuthResponse = {
   token: string;

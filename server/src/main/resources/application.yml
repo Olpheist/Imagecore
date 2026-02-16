@@ -1,5 +1,28 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: imagecore
   profiles:
     default: dev
+  output:
+    ansi:
+      enabled: always
+logging:
+  level:
+    root: INFO
+    com.green.imagecore: DEBUG
+    org.springframework: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%clr([%d{HH:mm:ss.SSS}]){faint} %clr(%-5level) %clr(%logger){cyan} - %msg%n"
+app:
+  jwt:
+    # Use a secure, 32+ character string in production
+    secret: ${JWT_SECRET:dev-secret-key-must-be-at-least-32-characters-long-for-hmac}
+    issuer: imagecore
+    access-ttl-minutes: 60
+    refresh-ttl-days: 7

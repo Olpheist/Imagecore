@@ -67,6 +67,10 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	reports {
+		junitXml.required = true
+		html.required = true // Explicitly enable the HTML index.html
+	}
 
 	testLogging {
 		events 'passed', 'failed', 'skipped'

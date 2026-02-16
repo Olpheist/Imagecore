@@ -53,7 +53,8 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/**").authenticated()
+                        .anyRequest().permitAll()
                 )
 
                 // Configure the app to treat incoming requests as Bearer tokens (JWT).
@@ -84,9 +85,6 @@ public class SecurityConfig {
 
         // Instruct Spring to look for the "roles" claim instead of the default "scp" or "scope".
         listConverter.setAuthoritiesClaimName("roles");
-
-        // Standardize the prefix to "ROLE_" so that hasRole('ADMIN') checks work as expected.
-        listConverter.setAuthorityPrefix("ROLE_");
 
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(listConverter);

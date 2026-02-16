@@ -19,7 +19,7 @@ import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PROPERTY_NAME;
 @IncludeEngines("cucumber")           // Instructs JUnit to use the Cucumber execution engine
 @SelectClasspathResource("features")  // Location of the .feature files
 @ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "com.green.imagecore.bdd") // Location of step definitions
-@ConfigurationParameter(key = PLUGIN_PROPERTY_NAME, value = "pretty") // Enables readable console output
+@ConfigurationParameter(key = PLUGIN_PROPERTY_NAME, value = "pretty, html:build/reports/cucumber/report.html") // Enables readable console output
 
 public class CucumberTest {
     /* * This class remains empty. Its sole purpose is to hold the annotations

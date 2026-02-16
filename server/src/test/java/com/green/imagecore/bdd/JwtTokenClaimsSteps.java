@@ -102,6 +102,7 @@ public class JwtTokenClaimsSteps {
      * Verifies that the 'roles' claim contains the expected authorities.
      */
     @Then("the token claim {string} should contain:")
+    @SuppressWarnings("unchecked") // Specifically target the List cast
     public void claim_should_contain(String claim, DataTable expectedRoles) {
         List<String> actualRoles = decodedClaims.get(claim, List.class);
         expectedRoles.asList().forEach(role -> assertTrue(actualRoles.contains(role)));

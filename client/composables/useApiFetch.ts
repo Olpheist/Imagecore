@@ -1,13 +1,12 @@
+import { process } from "std-env";
+import { clearToken, getToken } from "~/utils/authToken";
+import { isExpired } from "~/utils/jwt";
+import { navigateTo} from "nuxt/app";
+
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-const getBaseUrl = () => {
+const getBaseUrl = (): string => {
     return process.dev ? "http://localhost:8080/api" : "/api";
-};
-
-const readCookie = (name: string): string | undefined => {
-    if (typeof document === "undefined") return undefined;
-    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-    return match ? decodeURIComponent(match[2]) : undefined;
 };
 
 export async function useApiFetch<T = unknown>(
@@ -25,26 +24,33 @@ export async function useApiFetch<T = unknown>(
         ...options.headers,
     };
 
-    // Add CSRF token for non-GET requests
-    if (method !== "GET") {
-        await fetch(`${getBaseUrl()}/auth/csrf`, { credentials: "include" });
-
-        const xsrf = readCookie("XSRF-TOKEN");
-        if (!xsrf) throw new Error("Failed to obtain CSRF token");
-
-        (headers as Record<string, string>)["X-XSRF-TOKEN"] = xsrf;
+    const token = getToken();
+    if (token) {
+        if (isExpired(token)) {
+            clearToken();
+        } else {
+            (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+        }
     }
 
     const res = await fetch(`${getBaseUrl()}${url}`, {
         method,
         headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
-        credentials: "include",
+        body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
+
+    if (res.status === 401) {
+        clearToken();
+        await navigateTo("/login");
+    }
 
     if (!res.ok) {
         throw new Error(`API ${res.status}: ${await res.text()}`);
     }
 
-    return res.status === 204 ? undefined as T : await res.json();
+    if (res.status === 204) {
+        return undefined as T;
+    }
+
+    return (await res.json()) as T;
 }

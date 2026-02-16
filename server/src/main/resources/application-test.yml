@@ -1,7 +1,7 @@
 app:
   jwt:
     secret: test-secret-test-secret-test-secret-32chars
-    issuer: imagecore-test
+    issuer: imagecore
     access-ttl-minutes: 15
     refresh-ttl-days: 14
 

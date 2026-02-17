@@ -14,11 +14,13 @@ logging:
     root: INFO
     com.green.imagecore: DEBUG
     org.springframework: INFO
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.springframework.security.web.FilterChainProxy: WARN
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
-    org.springframework.security: DEBUG
   pattern:
-    console: "%clr([%d{HH:mm:ss.SSS}]){faint} %clr(%-5level) %clr(%logger){cyan} - %msg%n"
+    console: "%clr([%d{HH:mm:ss.SSS}]){faint} %clr(%-5level){bold} %clr([%X{user:-\\}]){yellow} %clr(%logger){cyan} - %msg%n"
 app:
   jwt:
     # Use a secure, 32+ character string in production

@@ -3,7 +3,12 @@
     <Input v-model="username" placeholder="Username" />
     <Input v-model="password" type="password" placeholder="Password" />
 
-    <Button variant="success" :disabled="loading" @click="onLogin">
+    <Button
+        variant="success"
+        :disabled="loading"
+        @click="onLogin"
+        hover
+    >
       {{ loading ? "Logging in..." : "Login" }}
     </Button>
 
@@ -17,13 +22,11 @@
 import { ref } from "vue";
 import { setToken } from "~/utils/authToken";
 import { navigateTo } from "nuxt/app";
+import type {AuthResponse} from "~/models/auth";
+import { useApiFetch } from "~/composables/useApiFetch";
+import { useUserStore } from "~/stores/userStore";
 
-type AuthResponse = {
-  token: string;
-  id: number;
-  email: string;
-  username: string;
-};
+const userStore = useUserStore();
 
 const username = ref("");
 const password = ref("");
@@ -41,9 +44,8 @@ const onLogin = async (): Promise<void> => {
     });
 
     setToken(resp.token);
+    await userStore.fetchMe();
 
-    // TODO: store user data in a store for later user
-    // TODO: also in register
     await navigateTo("/");
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "Login failed";

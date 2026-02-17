@@ -92,16 +92,6 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(token, u.getId(), u.getEmail(), u.getUsername()));
     }
 
-    /**
-     * Performs a stateless logout.
-     * Since no session is maintained on the server, this endpoint simply returns a success
-     * status. The client-side application must delete the JWT to effectively log out.
-     */
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout() {
-        return ResponseEntity.noContent().build();
-    }
-
     // Request Data Transfer Objects (DTOs)
 
     public record RegisterRequest(

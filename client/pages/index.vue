@@ -1,14 +1,22 @@
 <template>
-  {{ decoded }}
+  Welcome {{ user }}
+  <Button
+      @click="onLogout"
+      hover
+  >
+    Logout
+  </Button>
 </template>
 
-<script setup>
-import { ref } from "vue";
-import { getToken } from "~/utils/authToken";
-import { decodeToken } from "~/utils/jwt";
+<script setup lang="ts">
+import { useUserStore } from "~/stores/userStore";
 
-const token = getToken();
-const decoded = decodeToken(token);
+const userStore = useUserStore();
+const user = userStore.user;
+
+const onLogout = async () => {
+  await userStore.logout();
+}
 
 </script>
 

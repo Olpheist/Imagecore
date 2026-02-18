@@ -1,25 +1,57 @@
 <template>
-  <div class="max-w-sm space-y-3">
-    <Input v-model="username" placeholder="Username" />
-    <Input v-model="password" type="password" placeholder="Password" />
-
-    <Button
-        variant="success"
-        :disabled="loading"
-        @click="onLogin"
-        hover
-    >
-      {{ loading ? "Logging in..." : "Login" }}
-    </Button>
-
-    <p v-if="error" class="text-sm text-red-600">
-      {{ error }}
-    </p>
+  <div class="min-h-screen flex items-center justify-center bg-gray-50">
+    <Card variant="elevated" rounded class="w-full max-w-md">
+      <div class="space-y-6">
+        <div class="text-center">
+          <h1 class="text-2xl font-semibold">Welcome Back</h1>
+          <p class="text-sm text-gray-500 mt-1">
+            Sign in to your account
+          </p>
+        </div>
+        <div class="space-y-4">
+          <Input
+              v-model="username"
+              placeholder="Username"
+          />
+          <Input
+              v-model="password"
+              type="password"
+              placeholder="Password"
+          />
+        </div>
+        <Button
+            variant="success"
+            class="w-full"
+            :disabled="loading"
+            @click="onLogin"
+            hover
+            rounded
+        >
+          {{ loading ? "Logging in..." : "Login" }}
+        </Button>
+        <p
+            v-if="error"
+            class="text-sm text-red-600 text-center bg-red-50 border border-red-200 rounded-md p-2"
+        >
+          {{ error }}
+        </p>
+        <div class="text-center text-sm text-gray-600">
+          Don’t have an account?
+          <button
+              class="text-blue-600 hover:underline font-medium"
+              style="cursor: pointer;"
+              @click="onRegister"
+          >
+            Register
+          </button>
+        </div>
+      </div>
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { setToken } from "~/utils/authToken";
 import { navigateTo } from "nuxt/app";
 import type {AuthResponse} from "~/models/auth";
@@ -46,11 +78,19 @@ const onLogin = async (): Promise<void> => {
     setToken(resp.token);
     await userStore.fetchMe();
 
-    await navigateTo("/");
+    await navigateTo("/dashboard");
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "Login failed";
   } finally {
     loading.value = false;
   }
 };
+
+const onRegister = async (): Promise<void> => {
+  await navigateTo('/register');
+}
+
+watch([username, password], () => {
+  error.value = null;
+});
 </script>

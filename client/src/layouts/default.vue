@@ -1,9 +1,17 @@
 <template>
   <div>
-    <header>Header</header>
+    <Header />
     <main>
       <slot />
     </main>
     <footer>Footer</footer>
   </div>
 </template>
+
+<script setup lang="ts">
+
+</script>
+
+<style scoped>
+
+</style>

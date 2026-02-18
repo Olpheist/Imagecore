@@ -72,7 +72,7 @@ const onRegister = async (): Promise<void> => {
 
     setToken(resp.token);
     await userStore.fetchMe();
-    await navigateTo("/dashboard");
+    await navigateTo("/");
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "Register failed";
   } finally {

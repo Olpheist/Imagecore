@@ -4,23 +4,30 @@ import { isExpired } from "~/utils/jwt";
 // This is purely UX middleware, all routes are publicly accessible,
 // but you need to be authenticated to access any of the api routes
 export default defineNuxtRouteMiddleware((to) => {
-    const publicRoutes = ["/login", "/register"];
-    const token = getToken();
+    const authPages = ["/login", "/register"];   // these should redirect if logged in
+    const publicPages = ["/"];                   // public, but no redirect
 
-    // If user is authenticated and tries to access login/register -> redirect home
-    if (publicRoutes.includes(to.path)) {
-        if (token && !isExpired(token)) {
-            return navigateTo("/");
+    const token = getToken();
+    const authed = !!token && !isExpired(token);
+
+    // If authed and on login/register -> send to dashboard
+    if (authPages.includes(to.path)) {
+        if (authed) {
+            return navigateTo("/dashboard");
         }
         return;
     }
 
-    // No token -> go to login
+    // Allow public pages for everyone
+    if (publicPages.includes(to.path)) {
+        return;
+    }
+
+    // Protected routes below this point
     if (!token) {
         return navigateTo("/login");
     }
 
-    // Expired token -> clear + go to login
     if (isExpired(token)) {
         clearToken();
         return navigateTo("/login");

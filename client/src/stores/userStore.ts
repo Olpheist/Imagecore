@@ -53,7 +53,7 @@ export const useUserStore = defineStore("user", {
 
         async logout(): Promise<void> {
             this.user = null;
-            await navigateTo("/login");
+            await navigateTo("/");
             clearToken();
         },
     },

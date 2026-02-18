@@ -46,4 +46,9 @@ public class UserService {
     public User findByEmail(String email) {
         return userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
     }
+
+    @Transactional(readOnly = true)
+    public User findByUsernameWithRoles(String username) {
+        return userRepository.findByUsernameWithRoles(username).orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+    }
 }

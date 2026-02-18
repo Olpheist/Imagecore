@@ -1,10 +1,10 @@
 export interface DecodedJwt {
-    sub?: string;
-    uid?: string;
-    roles?: string[];
-    iat?: number;
-    exp?: number;
-    iss?: string;
+    sub: string;
+    uid: string;
+    roles: string[];
+    iat: number;
+    exp: number;
+    iss: string;
     [key: string]: unknown;
 }
 

@@ -13,4 +13,9 @@ spring:
 
 logging:
   level:
+    root: INFO
     com.green.imagecore: INFO
+    org.springframework: WARN
+    org.springframework.security: WARN
+    org.hibernate.SQL: ERROR
+    org.hibernate.orm.jdbc.bind: ERROR

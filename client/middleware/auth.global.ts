@@ -5,20 +5,22 @@ import { isExpired } from "~/utils/jwt";
 // but you need to be authenticated to access any of the api routes
 export default defineNuxtRouteMiddleware((to) => {
     const publicRoutes = ["/login", "/register"];
+    const token = getToken();
 
-    // Allow public routes
+    // If user is authenticated and tries to access login/register -> redirect home
     if (publicRoutes.includes(to.path)) {
+        if (token && !isExpired(token)) {
+            return navigateTo("/");
+        }
         return;
     }
 
-    const token = getToken();
-
-    // No token → go to login
+    // No token -> go to login
     if (!token) {
         return navigateTo("/login");
     }
 
-    // Expired token → clear + go to login
+    // Expired token -> clear + go to login
     if (isExpired(token)) {
         clearToken();
         return navigateTo("/login");

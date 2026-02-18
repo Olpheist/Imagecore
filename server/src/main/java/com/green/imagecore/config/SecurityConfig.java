@@ -41,7 +41,7 @@ public class SecurityConfig {
      * the application as an OAuth2 Resource Server to handle Bearer tokens.
      */
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, RequestLogFilter requestLogFilter) throws Exception {
         return http
                 .cors(Customizer.withDefaults())
                 // CSRF is disabled because JWTs are passed via headers,
@@ -61,6 +61,9 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 )
+
+                // add request log filter after auth to get user info
+                .addFilterAfter(requestLogFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
                 .build();
     }
 

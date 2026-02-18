@@ -4,7 +4,12 @@
     <Input v-model="email" placeholder="Email" />
     <Input v-model="password" type="password" placeholder="Password" />
 
-    <Button variant="success" :disabled="loading" @click="onRegister">
+    <Button
+        variant="success"
+        :disabled="loading"
+        @click="onRegister"
+        hover
+    >
       {{ loading ? "Creating..." : "Register" }}
     </Button>
 
@@ -16,14 +21,13 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
+import { navigateTo } from "nuxt/app";
 import { setToken } from "~/utils/authToken";
+import type {AuthResponse} from "~/models/auth";
+import { useApiFetch } from "~/composables/useApiFetch";
+import { useUserStore } from "~/stores/userStore";
 
-type AuthResponse = {
-  token: string;
-  id: number;
-  email: string;
-  username: string;
-};
+const userStore = useUserStore();
 
 const username = ref("");
 const email = ref("");
@@ -42,6 +46,8 @@ const onRegister = async (): Promise<void> => {
     });
 
     setToken(resp.token);
+    await userStore.fetchMe();
+
     await navigateTo("/");
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : "Register failed";

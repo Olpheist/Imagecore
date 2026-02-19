@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'jacoco'
 	id 'org.springframework.boot' version '4.0.2'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -65,6 +66,10 @@ dependencies {
 	testRuntimeOnly  'org.junit.platform:junit-platform-launcher'
 }
 
+jacoco {
+	toolVersion = "0.8.12"
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 	reports {
@@ -72,9 +77,34 @@ tasks.named('test') {
 		html.required = true // Explicitly enable the HTML index.html
 	}
 
+	jvmArgs "-Xshare:off"
+
+	//code coverage report generation after tests finish
+	finalizedBy jacocoTestReport
+
 	testLogging {
 		events 'passed', 'failed', 'skipped'
 		exceptionFormat 'full'
 		showStandardStreams true
+	}
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = true
+		csv.required = false
+	}
+
+	//exclude generated code and config files from coverage
+	afterEvaluate {
+		classDirectories.setFrom(files(classDirectories.files.collect {
+			fileTree(dir: it, exclude: [
+					'com/green/imagecore/config/**',
+					'com/green/imagecore/dto/**',
+					'com/green/imagecore/entities/**'
+			])
+		}))
 	}
 }

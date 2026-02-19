@@ -1,5 +1,5 @@
 <template>
-  <footer class="w-full border-t border-gray-200 bg-white">
+  <footer class="w-full border-t border-slate-200 bg-slate-100">
     <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between text-sm text-gray-600">
       <div>
         © {{ year }} ImageCore. All rights reserved.

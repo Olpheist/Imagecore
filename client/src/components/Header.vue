@@ -1,10 +1,12 @@
 <template>
-  <header class="w-full bg-white border-b border-gray-200 shadow-sm">
+  <header class="w-full bg-slate-900 text-white shadow-sm">
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <slot name="logo">
-          <div class="w-8 h-8 bg-green-600 rounded-md"></div>
-        </slot>
+        <NuxtLink to="/">
+          <slot name="logo">
+            <div class="w-8 h-8 bg-emerald-600 rounded-md"></div>
+          </slot>
+        </NuxtLink>
         <NuxtLink
             to="/"
             class="text-xl font-semibold tracking-tight hover:opacity-80 transition"
@@ -12,18 +14,21 @@
           ImageCore
         </NuxtLink>
       </div>
+
       <div class="flex items-center gap-4">
         <template v-if="userStore.isLoggedIn">
           <DropdownMenu align="right" widthClass="w-44">
             <template #trigger="{ open }">
               <button
                   type="button"
-                  class="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 font-medium"
+                  class="flex items-center gap-2 text-sm font-medium text-white/90 hover:text-white hover:bg-white/10 px-3 py-2 rounded-md transition"
                   aria-haspopup="menu"
                   :aria-expanded="open"
                   style="cursor: pointer"
               >
-                Welcome, {{ userStore.user?.username }}
+                <span class="text-white/70">Welcome,</span>
+                <span class="text-white">{{ userStore.user?.username }}</span>
+
                 <svg
                     class="w-4 h-4 transition-transform duration-200"
                     :class="{ 'rotate-180': open }"
@@ -39,16 +44,17 @@
             <template #menu="{ close }">
               <button
                   type="button"
-                  class="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-100"
+                  class="w-full text-left px-3 py-2 text-sm text-slate-900 hover:bg-slate-100"
                   role="menuitem"
                   @click="goDashboard(close)"
                   style="cursor: pointer"
               >
                 Dashboard
               </button>
+
               <button
                   type="button"
-                  class="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-100 text-red-600"
+                  class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-slate-100"
                   role="menuitem"
                   @click="handleLogout(close)"
                   style="cursor: pointer"
@@ -59,12 +65,7 @@
           </DropdownMenu>
         </template>
         <template v-else>
-          <Button
-              variant="success"
-              @click="navigateTo('/login')"
-              hover
-              rounded
-          >
+          <Button variant="success" @click="navigateTo('/login')" hover rounded>
             Login
           </Button>
         </template>

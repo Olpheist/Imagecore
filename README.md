@@ -42,4 +42,4 @@ You can view the application locally at [http://localhost:8080](http://localhost
 
 ## Licensing
 
-For more information regarding use and commercialabilty of this software, you can view the license at [`LICENSE`](LICENSE)
+For more information regarding use and commercialisation of this software, you can view the license at [`LICENSE`](LICENSE)

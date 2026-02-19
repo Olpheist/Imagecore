@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50">
+  <div class="min-h-screen flex items-center justify-center">
     <Card variant="elevated" rounded class="w-full max-w-md">
       <div class="space-y-6">
         <div class="text-center">

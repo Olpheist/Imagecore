@@ -25,6 +25,20 @@ Requires: Java 17, Docker
 2. Start the development database by running `docker-compose-dev.yml` as a container
 3. Run the Spring Boot application from the Gradle project
 
+## Running the Project
+To run the application and database locally, you can simply run the following command from the root of the repository
+
+```shell
+bash scripts/run_application.sh
+```
+
+This script checks to ensure you have the necessary dependencies, builds the frontend, and starts the postgres and application server.
+
+You can view the application locally at [http://localhost:8080](http://localhost:8080)
+
+> [!NOTE]
+> If you have another application running on port 8080, stop that process before running this application.
+
 
 ## Licensing
 

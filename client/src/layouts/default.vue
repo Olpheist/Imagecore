@@ -1,10 +1,10 @@
 <template>
-  <div>
+  <div class="min-h-screen flex flex-col">
     <Header />
-    <main>
+    <main class="flex-1">
       <slot />
     </main>
-    <footer>Footer</footer>
+    <Footer />
   </div>
 </template>
 

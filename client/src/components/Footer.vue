@@ -1,0 +1,31 @@
+<template>
+  <footer class="w-full border-t border-gray-200 bg-white">
+    <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between text-sm text-gray-600">
+      <div>
+        © {{ year }} ImageCore. All rights reserved.
+      </div>
+      <div class="flex items-center gap-6 mt-3 sm:mt-0">
+        <NuxtLink
+            class="hover:text-gray-900 transition"
+        >
+          Privacy
+        </NuxtLink>
+
+        <NuxtLink
+            class="hover:text-gray-900 transition"
+        >
+          Terms
+        </NuxtLink>
+      </div>
+
+    </div>
+  </footer>
+</template>
+
+<script setup lang="ts">
+const year = new Date().getFullYear();
+</script>
+
+<style scoped>
+
+</style>

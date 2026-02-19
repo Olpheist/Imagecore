@@ -1,5 +1,7 @@
 <template>
-  Welcome {{ user }}
+  <div class="p-4">
+    <UserProfile :user="user"/>
+  </div>
 </template>
 
 <script setup lang="ts">

@@ -24,3 +24,8 @@ Requires: Java 17, Docker
 1. Link or open the Gradle project
 2. Start the development database by running `docker-compose-dev.yml` as a container
 3. Run the Spring Boot application from the Gradle project
+
+
+## Licensing
+
+For more information regarding use and commercialabilty of this software, you can view the license at [`LICENSE`](LICENSE)

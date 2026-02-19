@@ -1,8 +1,9 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/imagecore
-    username: imagecore
-    password: imagecore
+    # if these env vars aren't provided (like in docker-compose) fall back to defaults
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/imagecore}
+    username: ${SPRING_DATASOURCE_USERNAME:imagecore}
+    password: ${SPRING_DATASOURCE_PASSWORD:imagecore}
   jpa:
     hibernate:
       ddl-auto: validate

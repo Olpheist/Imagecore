@@ -1,6 +1,19 @@
 services:
+  application:
+    build:
+      context: server
+      dockerfile: Dockerfile
+    container_name: imagecore-dev
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/imagecore
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
   db:
     image: postgres:16
+    container_name: imagecore-dev-db
     environment:
       POSTGRES_DB: imagecore
       POSTGRES_USER: imagecore
@@ -12,3 +25,8 @@ services:
 
 volumes:
   pgdata:
+
+networks:
+  imagecore-network:
+    name: imagecore-network
+    driver: bridge

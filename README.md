@@ -26,15 +26,49 @@ Requires: Java 17, Docker
 3. Run the Spring Boot application from the Gradle project
 
 ## Running the Project
+
 To run the application and database locally, you can simply run the following command from the root of the repository
 
 ```shell
 bash scripts/run_application.sh
 ```
+The `run_application.sh` script is designed to orchestrate the startup of both the Spring Boot backend and the Nuxt frontend. Because it is a Bash script, it requires a Unix-like environment to function correctly.
 
 This script checks to ensure you have the necessary dependencies, builds the frontend, and starts the postgres and application server.
 
 You can view the application locally at [http://localhost:8080](http://localhost:8080)
+
+
+**Prerequisites by Operating System**
+
+| System  | Tool Required  | Execution Command  |
+|---|---|---|
+| Windows  | WSL2 (Ubuntu) or Git Bash  | `bash scripts/run_application.sh`  |
+| Linux / macOS  | Native Terminal  | `bash scripts/run_application.sh`  |
+
+> [!NOTE]
+> If you have another application running on port 8080, stop that process before running this application.
+
+
+If you created or edited the script on Windows, it likely contains hidden Carriage Return characters `'\r'` that will cause the script to fail in Bash.
+
+**Symptoms of the error if encountered:**  
+`scripts/run_application.sh: line 2: $'\r': command not found`  
+`set: pipefail: invalid option name`
+
+**To fix:**  
+You must convert the file from CRLF to LF (two options)   
+Via Command Line (WSL/Git Bash):
+```
+sudo apt install dos2unix  # If not installed
+dos2unix scripts/run_application.sh
+```
+**Via IDE:**  
+Open the script  
+Click CRLF in the bottom-right status bar  
+Select LF  
+Save the file
+
 
 > [!NOTE]
 > If you have another application running on port 8080, stop that process before running this application.

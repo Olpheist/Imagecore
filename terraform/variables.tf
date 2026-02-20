@@ -8,23 +8,26 @@ variable "aws_region" {
 variable "project_name" {
   description = "Project name used for resource naming"
   type        = string
+  default = "imagecore"
 }
 
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
+  default     = "dev"
 }
 
 # ECR Configuration
 variable "ecr_repository_name" {
   description = "Name of the ECR repository"
   type        = string
+  default     = "sep-imagecore"
 }
 
 variable "image_tag" {
   description = "Image tag for the latest application docker image"
   type        = string
-  default     = "v1.0.1"
+  default     = "v1.0.3"
 }
 
 # Networking Configuration
@@ -56,6 +59,7 @@ variable "private_subnet_cidrs" {
 variable "db_name" {
   description = "Database name"
   type        = string
+  default     = "imagecoredb"
 }
 
 variable "db_username" {

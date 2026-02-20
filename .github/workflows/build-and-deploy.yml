@@ -117,3 +117,6 @@ jobs:
         run: terraform apply -auto-approve
         env:
           TF_VAR_image_tag: ${{ needs.build.outputs.image_tag }}
+          # these are marked as sensitive variables in tf so they should not appear in logs
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_db_username: ${{ secrets.DB_USERNAME }}

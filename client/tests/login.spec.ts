@@ -68,6 +68,8 @@ test("login success: mocks backend + header flips", async ({ page }) => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page).not.toHaveURL(/\/login$/);
 
+    await expect(page).not.toHaveURL(/\/login122112$/);
+
     await expect(page.getByText("Welcome,")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("testuser")).toBeVisible({ timeout: 10000 });
 });

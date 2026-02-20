@@ -38,6 +38,12 @@ This script checks to ensure you have the necessary dependencies, builds the fro
 
 You can view the application locally at [http://localhost:8080](http://localhost:8080)
 
+## Application Navigation Flow
+
+1. From the landing page, click **Login**.
+2. On the login page, select **Register**.
+3. After successfully registering, you are redirected back to the **Landing Page**.
+4. Open the **top-right navigation menu** and select **Dashboard** to access your dashboard.
 
 **Prerequisites by Operating System**
 
@@ -68,10 +74,6 @@ Open the script
 Click CRLF in the bottom-right status bar  
 Select LF  
 Save the file
-
-
-> [!NOTE]
-> If you have another application running on port 8080, stop that process before running this application.
 
 
 ## Licensing

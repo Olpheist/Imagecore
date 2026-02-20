@@ -133,7 +133,7 @@ public class JwtTokenClaimsSteps {
      */
     @When("I tamper with the token")
     public void i_tamper_with_the_token() {
-        this.jwtToken = jwtToken.substring(0, jwtToken.length() - 1) + "X";
+        this.jwtToken = jwtToken.substring(0, jwtToken.length() / 2);
         tryDecode(jwtToken);
     }
 

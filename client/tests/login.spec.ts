@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { makeJwt } from "./util";
 
 const mockMeUser = {
     id: "1",
@@ -17,22 +18,6 @@ test.beforeEach(async ({ page, context }) => {
 
 const getFormLoginButton = (page: any) =>
     page.getByRole("main").getByRole("button", { name: /^login$/i });
-
-const makeJwt = (): string => {
-    const base64url = (obj: object) =>
-        btoa(JSON.stringify(obj))
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=+$/, "");
-
-    const header = base64url({ alg: "none", typ: "JWT" });
-    const payload = base64url({
-        sub: "1",
-        exp: Math.floor(Date.now() / 1000) + 60 * 60,
-    });
-
-    return `${header}.${payload}.`;
-};
 
 test("login page renders", async ({ page }) => {
     await page.goto("/login");

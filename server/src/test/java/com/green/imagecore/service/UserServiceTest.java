@@ -1,6 +1,7 @@
 package com.green.imagecore.service;
 
 import com.green.imagecore.entities.User;
+import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,7 +90,7 @@ class UserServiceTest {
     void findById_ThrowsException_WhenNotFound() {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class, () -> userService.findById(99L));
+        assertThrows(ResourceNotFoundException.class, () -> userService.findById(99L));
     }
 
     @Test
@@ -107,7 +108,7 @@ class UserServiceTest {
     void findByUsername_ThrowsException_WhenNotFound() {
         when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-        assertThrows(UsernameNotFoundException.class, () -> userService.findByUsername("ghost"));
+        assertThrows(ResourceNotFoundException.class, () -> userService.findByUsername("ghost"));
     }
 
     @Test
@@ -125,7 +126,7 @@ class UserServiceTest {
     void findByEmail_ThrowsException_WhenNotFound() {
         when(userRepository.findByEmail("none@test.com")).thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class, () -> userService.findByEmail("none@test.com"));
+        assertThrows(ResourceNotFoundException.class, () -> userService.findByEmail("none@test.com"));
     }
 
     @Test
@@ -143,6 +144,6 @@ class UserServiceTest {
     void findByUsernameWithRoles_ThrowsException_WhenNotFound() {
         when(userRepository.findByUsernameWithRoles("missing")).thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class, () -> userService.findByUsernameWithRoles("missing"));
+        assertThrows(ResourceNotFoundException.class, () -> userService.findByUsernameWithRoles("missing"));
     }
 }

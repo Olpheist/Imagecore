@@ -1,6 +1,6 @@
 package com.green.imagecore.bdd;
 
-import com.green.imagecore.security.JwtService;
+import com.green.imagecore.service.JwtService;
 import io.cucumber.datatable.DataTable;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;

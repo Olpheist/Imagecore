@@ -1,4 +1,4 @@
-package com.green.imagecore.security;
+package com.green.imagecore.service;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;

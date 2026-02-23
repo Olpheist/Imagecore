@@ -2,7 +2,7 @@ package com.green.imagecore.controller;
 
 import com.green.imagecore.entities.User;
 import com.green.imagecore.service.UserService;
-import com.green.imagecore.security.JwtService;
+import com.green.imagecore.service.JwtService;
 import com.green.imagecore.service.UserAuthenticationService; // Crucial import
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;

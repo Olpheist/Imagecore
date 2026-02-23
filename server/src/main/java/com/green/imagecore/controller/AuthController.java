@@ -56,7 +56,7 @@ public class AuthController {
 
         // Convert the domain entity into a Security UserDetails object to ensure
         // that all granted authorities/roles are correctly formatted for the JWT.
-        UserDetails userDetails = userAuthenticationService.loadUserByUsername(u.getUsername());
+        UserDetails userDetails = userAuthenticationService.toUserDetails(u);
 
         // Issue the token containing the user's ID and assigned roles
         String token = jwtService.generateToken(userDetails, u.getId().toString());

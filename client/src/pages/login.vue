@@ -29,12 +29,7 @@
         >
           {{ loading ? "Logging in..." : "Login" }}
         </Button>
-        <p
-            v-if="error"
-            class="text-sm text-red-600 text-center bg-red-50 border border-red-200 rounded-md p-2"
-        >
-          {{ error }}
-        </p>
+        <Error :error="error" dismissible @close="error = null" />
         <div class="text-center text-sm text-gray-600">
           Don’t have an account?
           <button
@@ -57,12 +52,13 @@ import { navigateTo } from "nuxt/app";
 import type {AuthResponse} from "~/models/auth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useUserStore } from "~/stores/userStore";
+import type {ApiError} from "~/models/error";
 
 const userStore = useUserStore();
 
 const username = ref("");
 const password = ref("");
-const error = ref<string | null>(null);
+const error = ref<ApiError | null>(null);
 const loading = ref(false);
 
 const onLogin = async (): Promise<void> => {
@@ -80,7 +76,7 @@ const onLogin = async (): Promise<void> => {
 
     await navigateTo("/");
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : "Login failed";
+    error.value = e as ApiError;
   } finally {
     loading.value = false;
   }

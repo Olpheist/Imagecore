@@ -1,7 +1,7 @@
 package com.green.imagecore.bdd;
 
 import com.green.imagecore.entities.User;
-import com.green.imagecore.security.JwtService;
+import com.green.imagecore.service.JwtService;
 import com.green.imagecore.service.UserService;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;

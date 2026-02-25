@@ -2,7 +2,7 @@ package com.green.imagecore.controller;
 
 import com.green.imagecore.entities.User;
 import com.green.imagecore.service.UserService;
-import com.green.imagecore.security.JwtService;
+import com.green.imagecore.service.JwtService;
 import com.green.imagecore.service.UserAuthenticationService; // Crucial import
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -56,7 +56,7 @@ public class AuthController {
 
         // Convert the domain entity into a Security UserDetails object to ensure
         // that all granted authorities/roles are correctly formatted for the JWT.
-        UserDetails userDetails = userAuthenticationService.loadUserByUsername(u.getUsername());
+        UserDetails userDetails = userAuthenticationService.toUserDetails(u);
 
         // Issue the token containing the user's ID and assigned roles
         String token = jwtService.generateToken(userDetails, u.getId().toString());

@@ -2,7 +2,7 @@ package com.green.imagecore.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.green.imagecore.entities.User;
-import com.green.imagecore.security.JwtService;
+import com.green.imagecore.service.JwtService;
 import com.green.imagecore.service.UserService;
 import com.green.imagecore.service.UserAuthenticationService;
 import org.junit.jupiter.api.BeforeEach;

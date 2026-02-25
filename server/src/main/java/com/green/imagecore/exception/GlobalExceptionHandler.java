@@ -107,6 +107,21 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // 403
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(
+            BadCredentialsException ex,
+            HttpServletRequest request
+    ) {
+
+        return build(
+                HttpStatus.UNAUTHORIZED,
+                "Access denied",
+                request.getRequestURI(),
+                null
+        );
+    }
+
     // 500 - fallback
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(

@@ -100,6 +100,7 @@
         </div>
       </template>
     </Modal>
+    <Error :error="error" dismissible @close="error = null" />
   </div>
 </template>
 
@@ -108,12 +109,15 @@ import type {UserDto} from "~/models/user";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useUserStore } from "~/stores/userStore";
 import type {RoleDto} from "~/models/role";
+import {ref} from "vue";
+import type {ApiError} from "~/models/error";
 const userStore = useUserStore();
 
 definePageMeta({ layout: "admin" });
 
-const users = await useApiFetch<UserDto[]>("/users");
-const roles = await useApiFetch<RoleDto[]>("/roles");
+const users = ref(await useApiFetch<UserDto[]>("/users") ?? []);
+const roles = ref(await useApiFetch<RoleDto[]>("/roles") ?? []);
+const error = ref<ApiError | null>(null);
 
 const showEditModal = ref(false);
 type EditModalForm = {
@@ -155,7 +159,25 @@ function handleEdit(row: UserDto) {
 }
 
 async function saveRoles(): Promise<void> {
+  try {
+    const id = editModalForm.value.userId;
+    const ids = editModalForm.value.roleIds;
 
+    const updated = await useApiFetch<UserDto>(`/users/${id}/roles`, {
+      method: "PUT",
+      body: { roleIds: ids }
+    });
+
+    const idx = users.value.findIndex((u) => u.id === updated.id);
+    if (idx !== -1) {
+      // replace the row so it updates immediately
+      users.value[idx] = updated;
+    }
+  } catch (e: unknown) {
+    error.value = e as ApiError;
+  } finally {
+    showEditModal.value = false;
+  }
 }
 
 function handleDelete(row: UserDto) {

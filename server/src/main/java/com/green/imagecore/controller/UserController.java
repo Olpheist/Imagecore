@@ -38,13 +38,13 @@ public class UserController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/roles")
-    public ResponseEntity<Void> updateRoles(@PathVariable Long id, @RequestBody UpdateRolesRequest request) {
+    public ResponseEntity<UserDto> updateRoles(@PathVariable Long id, @RequestBody UpdateRolesRequest request) {
+        User user = userService.updateUserRoles(id, request.roleIds);
 
-
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(UserMapper.toDto(user));
     }
 
     public record UpdateRolesRequest(
-            @NotBlank List<Long> roleIds
+            List<Long> roleIds
     ) {}
 }

@@ -1,7 +1,10 @@
 package com.green.imagecore.service;
 
+import com.green.imagecore.entities.Role;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.entities.UserRole;
 import com.green.imagecore.exception.ResourceNotFoundException;
+import com.green.imagecore.repositories.RoleRepository;
 import com.green.imagecore.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -9,14 +12,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -60,5 +63,35 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<User> findAllWithRoles() {
         return userRepository.findAllWithRoles();
+    }
+
+    @Transactional
+    public User updateUserRoles(Long userId, List<Long> roleIds) {
+        User user = userRepository.findByIdWithRoles(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        List<Long> requested = (roleIds == null) ? List.of() : roleIds;
+        List<Role> roles = roleRepository.findAllById(requested);
+        if (roles.size() != requested.size()) {
+            throw new IllegalArgumentException("Invalid roleIds");
+        }
+
+        Set<Long> requestedIds = new HashSet<>(requested);
+
+        // remove only the ones not requested anymore
+        user.getUserRoles().removeIf(ur -> !requestedIds.contains(ur.getRole().getId()));
+
+        // add missing ones
+        Set<Long> currentIds = user.getUserRoles().stream()
+                .map(ur -> ur.getRole().getId())
+                .collect(Collectors.toSet());
+
+        for (Role role : roles) {
+            if (!currentIds.contains(role.getId())) {
+                user.getUserRoles().add(new UserRole(user, role));
+            }
+        }
+
+        return user;
     }
 }

@@ -88,6 +88,7 @@ public class SecurityConfig {
 
         // Instruct Spring to look for the "roles" claim instead of the default "scp" or "scope".
         listConverter.setAuthoritiesClaimName("roles");
+        listConverter.setAuthorityPrefix("");
 
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(listConverter);

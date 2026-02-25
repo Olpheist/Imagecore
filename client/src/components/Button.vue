@@ -1,5 +1,6 @@
 <template>
   <button
+      :type="type"
       :class="classes"
       :disabled="disabled"
       v-bind="$attrs"
@@ -9,56 +10,68 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed } from "vue";
 
-type Variant =
-    | 'primary'
-    | 'secondary'
-    | 'danger'
-    | 'success';
+type Variant = "primary" | "secondary" | "danger" | "success";
+type Size = "sm" | "md" | "lg";
+type ButtonType = "button" | "submit" | "reset";
 
-const props = defineProps<{
-  variant?: Variant;
-  disabled?: boolean;
-  hover?: boolean;
-  rounded?: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+      variant?: Variant;
+      size?: Size;
+      type?: ButtonType;
+      disabled?: boolean;
+      hover?: boolean;
+      rounded?: boolean;
+    }>(),
+    {
+      variant: "primary",
+      size: "md",
+      type: "button",
+      disabled: false,
+      hover: true,
+      rounded: false,
+    }
+);
 
-const variant = props.variant ?? 'primary';
-
-// build classes based on props
 const classes = computed(() => {
   const base =
-      'px-4 py-2 text-sm font-medium transition-colors duration-150';
+      "font-medium transition-colors duration-150 inline-flex items-center justify-center";
 
-  const roundedClass = props.rounded
-      ? 'rounded-md'
-      : '';
+  const roundedClass = props.rounded ? "rounded-md" : "";
 
   const disabledClass = props.disabled
-      ? 'opacity-50 cursor-not-allowed'
-      : 'cursor-pointer';
+      ? "opacity-50 cursor-not-allowed"
+      : "cursor-pointer";
 
-  const hoverClass =
-      props.hover === false || props.disabled
-          ? ''
-          : 'hover:brightness-110';
+  const hoverClass = !props.hover || props.disabled ? "" : "hover:brightness-110";
+
+  const sizeClasses: Record<Size, string> = {
+    sm: "px-3 py-1.5 text-xs",
+    md: "px-4 py-2 text-sm",
+    lg: "px-5 py-3 text-base",
+  };
 
   const variants: Record<Variant, string> = {
-    primary: 'bg-blue-600 text-white',
-    secondary: 'bg-gray-200 text-gray-900',
-    danger: 'bg-red-600 text-white',
-    success: 'bg-green-600 text-white'
+    primary: "bg-blue-600 text-white",
+    secondary: "bg-gray-200 text-gray-900",
+    danger: "bg-red-600 text-white",
+    success: "bg-green-600 text-white",
   };
 
   return [
     base,
+    sizeClasses[props.size],
     roundedClass,
     disabledClass,
     hoverClass,
-    variants[variant]
+    variants[props.variant],
   ]
       .filter(Boolean)
-      .join(' ');
+      .join(" ");
 });
+
+const type = computed<ButtonType>(() => props.type);
+const disabled = computed(() => props.disabled);
 </script>

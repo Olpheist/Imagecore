@@ -4,6 +4,7 @@ import com.green.imagecore.dto.UserDto;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.mapper.UserMapper;
 import com.green.imagecore.service.UserService;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,4 +35,16 @@ public class UserController {
                 .map(UserMapper::toDto)
                 .toList();
     }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}/roles")
+    public ResponseEntity<Void> updateRoles(@PathVariable Long id, @RequestBody UpdateRolesRequest request) {
+
+
+        return ResponseEntity.noContent().build();
+    }
+
+    public record UpdateRolesRequest(
+            @NotBlank List<Long> roleIds
+    ) {}
 }

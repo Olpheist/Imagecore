@@ -5,7 +5,7 @@
         <h1 class="text-2xl font-semibold text-slate-900 tracking-tight">Users</h1>
         <p class="text-slate-500 mt-1 text-sm">View and manage user accounts.</p>
       </div>
-      <div class="text-xs text-slate-400 bg-white border border-slate-200 rounded-lg px-3 py-1.5 self-center">
+      <div class="text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-1.5 self-center">
         {{ users.length }} total
       </div>
     </div>

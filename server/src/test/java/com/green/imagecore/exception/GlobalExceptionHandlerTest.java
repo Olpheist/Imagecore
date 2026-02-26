@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -17,6 +18,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 import java.util.Set;
@@ -166,6 +168,26 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals("Access denied", response.getBody().message());
         assertNull(response.getBody().details());
+    }
+
+    // --- 404 NoResourceFound (static / unknown route) ---
+
+    @Test
+    void handleNoResourceFound_Returns404WithGenericNotFoundMessage() {
+        NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "/does-not-exist", null);
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleNoResourceFound(ex, request);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        assertEquals(404, response.getBody().status());
+        assertEquals("Not Found", response.getBody().error());
+        assertEquals("Not found", response.getBody().message());
+        assertEquals("/api/test", response.getBody().path());
+        assertNull(response.getBody().details());
+        assertNotNull(response.getBody().timestamp());
     }
 
     // --- 500 ---

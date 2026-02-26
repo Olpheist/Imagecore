@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.List;
@@ -31,6 +32,20 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.NOT_FOUND,
                 ex.getMessage(),
+                request.getRequestURI(),
+                null
+        );
+    }
+
+    // this is for static files
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(
+            NoResourceFoundException ex,
+            HttpServletRequest request
+    ) {
+        return build(
+                HttpStatus.NOT_FOUND,
+                "Not found",
                 request.getRequestURI(),
                 null
         );

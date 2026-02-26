@@ -1,7 +1,11 @@
 package com.green.imagecore.service;
 
+import com.green.imagecore.entities.Role;
+import com.green.imagecore.entities.RoleType;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.entities.UserRole;
 import com.green.imagecore.exception.ResourceNotFoundException;
+import com.green.imagecore.repositories.RoleRepository;
 import com.green.imagecore.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,7 +15,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +36,9 @@ class UserServiceTest {
 
     @InjectMocks
     private UserService userService;
+
+    @Mock
+    private RoleRepository roleRepository;
 
     @Test
     void register_Success() {
@@ -145,5 +156,119 @@ class UserServiceTest {
         when(userRepository.findByUsernameWithRoles("missing")).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> userService.findByUsernameWithRoles("missing"));
+    }
+
+    // --- findAllWithRoles ---
+
+    @Test
+    void findAllWithRoles_ReturnsList() {
+        User user1 = new User();
+        user1.setId(1L);
+        User user2 = new User();
+        user2.setId(2L);
+
+        when(userRepository.findAllWithRoles()).thenReturn(List.of(user1, user2));
+
+        List<User> result = userService.findAllWithRoles();
+
+        assertEquals(2, result.size());
+        verify(userRepository).findAllWithRoles();
+    }
+
+    @Test
+    void findAllWithRoles_ReturnsEmptyList_WhenNoUsers() {
+        when(userRepository.findAllWithRoles()).thenReturn(List.of());
+
+        List<User> result = userService.findAllWithRoles();
+
+        assertTrue(result.isEmpty());
+    }
+
+    // --- updateUserRoles ---
+
+    @Test
+    void updateUserRoles_Success() {
+        Role adminRole = new Role();
+        adminRole.setId(1L);
+        adminRole.setName(RoleType.ADMIN);
+
+        User user = new User();
+        user.setId(1L);
+        user.setUserRoles(new HashSet<>());
+
+        when(userRepository.findByIdWithRoles(1L)).thenReturn(Optional.of(user));
+        when(roleRepository.findAllById(List.of(1L))).thenReturn(List.of(adminRole));
+
+        User result = userService.updateUserRoles(1L, List.of(1L));
+
+        assertEquals(1, result.getUserRoles().size());
+    }
+
+    @Test
+    void updateUserRoles_ThrowsException_WhenUserNotFound() {
+        when(userRepository.findByIdWithRoles(99L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                userService.updateUserRoles(99L, List.of(1L))
+        );
+    }
+
+    @Test
+    void updateUserRoles_ThrowsException_WhenInvalidRoleId() {
+        User user = new User();
+        user.setId(1L);
+        user.setUserRoles(new HashSet<>());
+
+        when(userRepository.findByIdWithRoles(1L)).thenReturn(Optional.of(user));
+        when(roleRepository.findAllById(List.of(99L))).thenReturn(List.of()); // role not found
+
+        assertThrows(IllegalArgumentException.class, () ->
+                userService.updateUserRoles(1L, List.of(99L))
+        );
+    }
+
+    @Test
+    void updateUserRoles_NullRoleIds_ClearsAllRoles() {
+        Role existingRole = new Role();
+        existingRole.setId(1L);
+        existingRole.setName(RoleType.ADMIN);
+
+        User user = new User();
+        user.setId(1L);
+        user.setUserRoles(new HashSet<>(Set.of(new UserRole(user, existingRole))));
+
+        when(userRepository.findByIdWithRoles(1L)).thenReturn(Optional.of(user));
+        when(roleRepository.findAllById(List.of())).thenReturn(List.of());
+
+        User result = userService.updateUserRoles(1L, null);
+
+        assertTrue(result.getUserRoles().isEmpty());
+    }
+
+    @Test
+    void updateUserRoles_RemovesOldRoles_AddsNewOnes() {
+        Role oldRole = new Role();
+        oldRole.setId(1L);
+        oldRole.setName(RoleType.CLINICIAN);
+
+        Role newRole = new Role();
+        newRole.setId(2L);
+        newRole.setName(RoleType.ADMIN);
+
+        User user = new User();
+        user.setId(1L);
+        user.setUserRoles(new HashSet<>(Set.of(new UserRole(user, oldRole))));
+
+        when(userRepository.findByIdWithRoles(1L)).thenReturn(Optional.of(user));
+        when(roleRepository.findAllById(List.of(2L))).thenReturn(List.of(newRole));
+
+        User result = userService.updateUserRoles(1L, List.of(2L));
+
+        Set<Long> resultRoleIds = result.getUserRoles().stream()
+                .map(ur -> ur.getRole().getId())
+                .collect(Collectors.toSet());
+
+        assertFalse(resultRoleIds.contains(1L)); // old role removed
+        assertTrue(resultRoleIds.contains(2L));  // new role added
     }
 }

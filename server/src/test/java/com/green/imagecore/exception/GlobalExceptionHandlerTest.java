@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -151,6 +152,20 @@ class GlobalExceptionHandlerTest {
         // Original message must never be exposed
         assertNotEquals(ex.getMessage(), response.getBody().message());
         assertEquals("Invalid username or password", response.getBody().message());
+    }
+
+    // 403
+
+    @Test
+    void handleAccessDenied_Returns403() {
+        AccessDeniedException ex = new AccessDeniedException("Access denied");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleAccessDenied(ex, request);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals("Access denied", response.getBody().message());
+        assertNull(response.getBody().details());
     }
 
     // --- 500 ---

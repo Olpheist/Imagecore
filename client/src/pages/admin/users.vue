@@ -1,5 +1,5 @@
 <template>
-  <div v-if="userStore.isAdmin">
+  <div>
     <div class="mb-6 flex items-start justify-between">
       <div>
         <h1 class="text-2xl font-semibold text-slate-900 tracking-tight">Users</h1>
@@ -107,11 +107,9 @@
 <script setup lang="ts">
 import type {UserDto} from "~/models/user";
 import { useApiFetch } from "~/composables/useApiFetch";
-import { useUserStore } from "~/stores/userStore";
 import type {RoleDto} from "~/models/role";
 import {ref} from "vue";
 import type {ApiError} from "~/models/error";
-const userStore = useUserStore();
 
 definePageMeta({ layout: "admin" });
 

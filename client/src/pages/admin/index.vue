@@ -1,5 +1,5 @@
 <template>
-  <div v-if="userStore.isAdmin">
+  <div>
     <div class="mb-8">
       <h1 class="text-2xl font-semibold text-slate-900 tracking-tight">Dashboard</h1>
       <p class="text-slate-500 mt-1 text-sm">System management and oversight tools.</p>
@@ -38,9 +38,6 @@
 </template>
 
 <script setup lang="ts">
-import { useUserStore } from "~/stores/userStore";
-const userStore = useUserStore();
-
 definePageMeta({ layout: "admin" });
 </script>
 

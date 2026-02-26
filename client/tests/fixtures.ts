@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from "@playwright/test";
-import { TOKEN_KEY } from "../src/utils/authToken";
+import { TOKEN_KEY } from "./mocks";
 
 type Fixtures = {
     clearStorage: () => Promise<void>;

@@ -1,6 +1,6 @@
 <template>
+  <Header />
   <div v-if="userStore.isAdmin" class="min-h-screen flex flex-col bg-slate-50">
-    <Header />
 
     <div class="flex flex-1">
       <aside class="w-64 bg-white border-r border-slate-100 flex flex-col">
@@ -41,7 +41,6 @@
       </main>
     </div>
 
-    <Footer />
   </div>
   <div v-else class="min-h-screen flex items-center justify-center bg-slate-50">
     <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-10 text-center max-w-md w-full">
@@ -71,6 +70,7 @@
 
     </div>
   </div>
+  <Footer />
 </template>
 
 <script setup lang="ts">

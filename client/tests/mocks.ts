@@ -1,8 +1,10 @@
+export const TOKEN_KEY = "imagecore.jwt";
+
 export const mockMeUser = {
     id: "1",
     username: "testuser",
     email: "test@example.com",
-    userRoles: [{ roleName: "USER" }],
+    userRoles: [{ roleName: "PATIENT", roleId: 1 }]
 };
 
 export const makeJwt = (expSecondsFromNow = 3600): string => {

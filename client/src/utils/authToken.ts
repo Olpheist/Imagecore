@@ -1,4 +1,4 @@
-const TOKEN_KEY = "imagecore.jwt";
+export const TOKEN_KEY = "imagecore.jwt";
 
 export function getToken(): string | undefined {
     if (typeof window === "undefined") return undefined;

@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+WORKDIR /work
+
+# libfreetype is required by reportlab
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libfreetype6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project definition first so dependency layer is cached separately
+COPY pyproject.toml pyproject.toml
+COPY README.md README.md
+
+# Copy source
+COPY src/ src/
+
+# Install the package and its dependencies
+RUN pip install --no-cache-dir .
+
+# Output directory — mount a host volume here to retrieve results
+VOLUME ["/work/output"]
+
+ENTRYPOINT ["image-pipeline"]
+CMD ["--help"]

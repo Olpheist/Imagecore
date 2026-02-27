@@ -90,13 +90,13 @@ variable "db_allocated_storage" {
 variable "ec2_instance_type" {
   description = "EC2 instance type for ECS cluster"
   type        = string
-  default     = "t3.small"
+  default     = "t3.micro"
 }
 
 variable "ec2_desired_capacity" {
   description = "Desired number of EC2 instances"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 # ECS Configuration
@@ -109,5 +109,5 @@ variable "container_port" {
 variable "ecs_desired_count" {
   description = "Desired number of ECS tasks"
   type        = number
-  default     = 2
+  default     = 1
 }

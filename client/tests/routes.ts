@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { mockMeUser } from "./mocks";
+import { mockMeUser, mockTools } from "./mocks";
 
 export const mockLogin = async (page: Page, token: string): Promise<void> => {
     await page.route("**/api/auth/login**", async (route) => {
@@ -118,6 +118,61 @@ export const mockUpdateUserRolesFailure = async (
             status,
             contentType: "application/json",
             body: JSON.stringify({ message: "Update failed" }),
+        });
+    });
+};
+
+
+// tools routes
+
+export const mockToolsGet = async (page: any, tools = mockTools, status = 200): Promise<void> => {
+    await page.route("**/api/tools", async (route: any, request: any) => {
+        if (request.method() !== "GET") {
+            await route.continue();
+            return;
+        }
+        await route.fulfill({
+            status,
+            contentType: "application/json",
+            body: JSON.stringify(tools),
+        });
+    });
+};
+
+export const mockToolsAll = async (
+    page: any,
+    tools = mockTools,
+    getStatus = 200,
+    postResponse: unknown = null,
+    postStatus = 200,
+): Promise<void> => {
+    await page.route("**/api/tools", async (route: any, request: any) => {
+        if (request.method() === "POST") {
+            await route.fulfill({
+                status: postStatus,
+                contentType: "application/json",
+                body: JSON.stringify(postResponse),
+            });
+        } else {
+            await route.fulfill({
+                status: getStatus,
+                contentType: "application/json",
+                body: JSON.stringify(tools),
+            });
+        }
+    });
+};
+
+export const mockToolsDelete = async (page: any, toolId: number, status = 204): Promise<void> => {
+    await page.route(`**/api/tools/${toolId}`, async (route: any, request: any) => {
+        if (request.method() !== "DELETE") {
+            await route.continue();
+            return;
+        }
+        await route.fulfill({
+            status,
+            contentType: "application/json",
+            body: status === 204 ? "" : JSON.stringify({ message: "Failed to delete tool" }),
         });
     });
 };

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+
+[project]
+name = "image-pipeline"
+version = "0.1.0"
+description = "Extract the middle slice of a medical image and produce a formatted PDF report."
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "itk>=5.4.5",
+    "Pillow>=10.0",
+    "numpy>=1.24",
+    "reportlab>=4.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.4"]
+
+[project.scripts]
+image-pipeline = "image_pipeline.pipeline:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

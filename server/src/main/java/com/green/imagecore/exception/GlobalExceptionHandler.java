@@ -122,6 +122,21 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // 403
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request
+    ) {
+
+        return build(
+                HttpStatus.FORBIDDEN,
+                "Access denied",
+                request.getRequestURI(),
+                null
+        );
+    }
+
     // 500 - fallback
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(

@@ -15,8 +15,8 @@ export const useUserStore = defineStore("user", {
     getters: {
         isLoggedIn: (s) => !!s.user,
         roles: (s) => (s.user?.userRoles ?? []).map((r) => r.roleName),
-        hasRole: (s) => (roleName: string) =>
-            (s.user?.userRoles ?? []).some((r) => r.roleName === roleName),
+        hasRole: (s) => (roleName: string) => (s.user?.userRoles ?? []).some((r) => r.roleName === roleName),
+        isAdmin: (s) => (s.user?.userRoles ?? []).some((r) => r.roleName === "ADMIN")
     },
 
     actions: {
@@ -36,7 +36,7 @@ export const useUserStore = defineStore("user", {
 
             this.loading = true;
             try {
-                this.user = await useApiFetch<UserDto>("/user/me", {method: "GET"});
+                this.user = await useApiFetch<UserDto>("/users/me", {method: "GET"});
             } catch {
                 this.user = null;
                 clearToken();

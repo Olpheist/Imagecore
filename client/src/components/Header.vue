@@ -53,6 +53,17 @@
               </button>
 
               <button
+                  v-if="userStore.isAdmin"
+                  type="button"
+                  class="w-full text-left px-3 py-2 text-sm text-slate-900 hover:bg-slate-100"
+                  role="menuitem"
+                  @click="goAdminCenter(close)"
+                  style="cursor: pointer"
+              >
+                Admin Center
+              </button>
+
+              <button
                   type="button"
                   class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-slate-100"
                   role="menuitem"
@@ -84,6 +95,11 @@ const userStore = useUserStore();
 const goDashboard = async (close: () => void): Promise<void> => {
   close();
   await navigateTo("/dashboard");
+};
+
+const goAdminCenter = async (close: () => void): Promise<void> => {
+  close();
+  await navigateTo("/admin");
 };
 
 const handleLogout = async (close: () => void): Promise<void> => {

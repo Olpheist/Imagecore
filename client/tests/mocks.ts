@@ -1,5 +1,14 @@
+export const TOKEN_KEY = "imagecore.jwt";
+
+export const mockMeUser = {
+    id: "1",
+    username: "testuser",
+    email: "test@example.com",
+    userRoles: [{ roleName: "PATIENT", roleId: 1 }]
+};
+
 export const makeJwt = (expSecondsFromNow = 3600): string => {
-    const base64url = (obj: object) =>
+    const base64url = (obj: object): string =>
         btoa(JSON.stringify(obj))
             .replace(/\+/g, "-")
             .replace(/\//g, "_")

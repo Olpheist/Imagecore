@@ -4,3 +4,5 @@ out/
 server/src/main/resources/static/
 **terraform.tfvars
 terraform/.terraform/
+*.egg-info/
+*build/

@@ -120,3 +120,11 @@ jobs:
           # these are marked as sensitive variables in tf so they should not appear in logs
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
+
+      - name: Force New Deployment
+        run: |
+          aws ecs update-service \
+            --cluster imagecore-dev-cluster \
+            --service imagecore-dev-service \
+            --force-new-deployment \
+            --region us-east-1

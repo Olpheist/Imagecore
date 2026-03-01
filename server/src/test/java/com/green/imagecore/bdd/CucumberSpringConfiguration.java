@@ -3,11 +3,13 @@ package com.green.imagecore.bdd;
 import com.green.imagecore.ImagecoreApplication;
 import io.cucumber.spring.CucumberContextConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * Global Spring configuration for Cucumber BDD tests.
@@ -31,6 +33,11 @@ public class CucumberSpringConfiguration {
      * discovers the container's dynamic port and credentials, injecting them into
      * the Spring environment (DataSource and Flyway) without manual property mapping.
      */
+    // Mocked with Mockito so tests don’t initialize the real AWS client
+    // (avoids needing real credentials or AWS configuration).
+    @MockitoBean
+    S3Client s3Client;
+
     @Container
     @ServiceConnection
     static final PostgreSQLContainer<?> postgres =

@@ -95,3 +95,13 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "s3_bucket_name" {
+  description = "Name of the S3 bucket for DICOM image uploads"
+  type        = string
+}
+
+variable "s3_bucket_arn" {
+  description = "Amazon Resource Name (ARN) of the S3 bucket for IAM policy scoping"
+  type        = string
+}

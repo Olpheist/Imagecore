@@ -72,7 +72,7 @@ resource "aws_iam_role" "ecs_task" {
 resource "aws_iam_role_policy" "ecs_task" {
   name = "${var.project_name}-${var.environment}-ecs-task-policy"
   role = aws_iam_role.ecs_task.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -83,8 +83,20 @@ resource "aws_iam_role_policy" "ecs_task" {
           "logs:PutLogEvents"
         ]
         Resource = "*"
-      }
-      # Add additional permissions for S3, SES, etc. here as needed
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",     #upload files to S3
+          "s3:GetObject",     #download files from S3
+          "s3:DeleteObject",  #remove files from S3
+          "s3:ListBucket"     #view files in the bucket
+        ]
+        Resource = [
+          var.s3_bucket_arn,        #bucket
+          "${var.s3_bucket_arn}/*"  #objects in bucket
+        ]
+      },
     ]
   })
 }

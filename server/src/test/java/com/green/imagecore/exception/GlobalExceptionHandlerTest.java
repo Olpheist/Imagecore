@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -125,6 +126,35 @@ class GlobalExceptionHandlerTest {
         assertEquals("Constraint violation", response.getBody().message());
         assertEquals(1, response.getBody().details().size());
         assertTrue(response.getBody().details().get(0).contains("must not be blank"));
+    }
+
+    // --- 403 ---
+
+    @Test
+    void handleAccessDenied_Returns403() {
+        AccessDeniedException ex = new AccessDeniedException("Access is denied");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleAccessDenied(ex, request);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(403, response.getBody().status());
+        assertEquals("Access denied", response.getBody().message());
+        assertEquals("/api/test", response.getBody().path());
+        assertNull(response.getBody().details());
+        assertNotNull(response.getBody().timestamp());
+    }
+
+    @Test
+    void handleAccessDenied_DoesNotLeakExceptionMessage() {
+        AccessDeniedException ex = new AccessDeniedException("ROLE_CLINICIAN required for /api/images/upload");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleAccessDenied(ex, request);
+
+        //the raw Spring Security message shouldn't be exposed to clients
+        assertNotEquals(ex.getMessage(), response.getBody().message());
+        assertEquals("Access denied", response.getBody().message());
     }
 
     // --- 401 ---

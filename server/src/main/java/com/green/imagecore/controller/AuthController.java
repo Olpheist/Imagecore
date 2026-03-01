@@ -51,6 +51,10 @@ public class AuthController {
      */
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req) {
+        if (!req.password().equals(req.confirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+
         // Persist the user via the domain service (handles password hashing)
         User u = userService.register(req.email(), req.username(), req.password());
 
@@ -97,7 +101,8 @@ public class AuthController {
     public record RegisterRequest(
             @Email @NotBlank String email,
             @NotBlank String username,
-            @NotBlank String password
+            @NotBlank String password,
+            @NotBlank String confirmPassword
     ) {}
 
     public record LoginRequest(

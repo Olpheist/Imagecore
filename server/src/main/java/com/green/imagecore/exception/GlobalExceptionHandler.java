@@ -106,20 +106,6 @@ public class GlobalExceptionHandler {
         );
     }
 
-    // 403
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDenied(
-            AccessDeniedException ex,
-            HttpServletRequest request
-    ) {
-        return build(
-                HttpStatus.FORBIDDEN,
-                "Access denied",
-                request.getRequestURI(),
-                null
-        );
-    }
-
     // 401
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(
@@ -131,6 +117,21 @@ public class GlobalExceptionHandler {
         return build(
                 HttpStatus.UNAUTHORIZED,
                 "Invalid username or password",
+                request.getRequestURI(),
+                null
+        );
+    }
+
+    // 403
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request
+    ) {
+
+        return build(
+                HttpStatus.FORBIDDEN,
+                "Access denied",
                 request.getRequestURI(),
                 null
         );

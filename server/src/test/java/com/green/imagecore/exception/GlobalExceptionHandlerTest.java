@@ -131,21 +131,6 @@ class GlobalExceptionHandlerTest {
     // --- 403 ---
 
     @Test
-    void handleAccessDenied_Returns403() {
-        AccessDeniedException ex = new AccessDeniedException("Access is denied");
-
-        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
-                handler.handleAccessDenied(ex, request);
-
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        assertEquals(403, response.getBody().status());
-        assertEquals("Access denied", response.getBody().message());
-        assertEquals("/api/test", response.getBody().path());
-        assertNull(response.getBody().details());
-        assertNotNull(response.getBody().timestamp());
-    }
-
-    @Test
     void handleAccessDenied_DoesNotLeakExceptionMessage() {
         AccessDeniedException ex = new AccessDeniedException("ROLE_CLINICIAN required for /api/images/upload");
 

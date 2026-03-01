@@ -5,9 +5,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -31,9 +33,15 @@ class TestcontainersSmokeTest {
      * a predictable "blank slate" for every test execution, which is vital
      * for CI/CD reliability and HIPAA-compliant data isolation.
      *
+     * Mocked S3 client so Testcontainers tests don't create real AWS connection
+     * or require actual AWS credentials or network access during startup
+     *
      * @ServiceConnection handles the dynamic injection of the container's
      * randomized JDBC URL into the Spring environment.
      */
+    @MockitoBean
+    S3Client s3Client;
+
     @Container
     @ServiceConnection
     static final PostgreSQLContainer<?> postgres =

@@ -4,9 +4,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * Fundamental smoke test for the ImageCore application.
@@ -25,9 +27,15 @@ class ImagecoreApplicationTests {
 	 * PostgreSQL database rather than an in-memory substitute (like H2), ensuring
 	 * that migrations and JPA dialects are compatible with the production environment.
 	 *
+	 * @MockitoBean used to mock S3Client so the real AWS client is never created during tests
+	 * Prevents app from trying to connect to AWS or requiring real credentials
+	 *
 	 * @ServiceConnection automatically discovers the container and maps its dynamic
 	 * port, username, and password to Spring's 'spring.datasource' properties.
 	 */
+	@MockitoBean
+	S3Client s3Client;
+
 	@Container
 	@ServiceConnection // Automatically wires spring.datasource properties
 	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");

@@ -7,6 +7,7 @@ import com.green.imagecore.service.UserAuthenticationService; // Crucial import
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -101,7 +102,7 @@ public class AuthController {
     public record RegisterRequest(
             @Email @NotBlank String email,
             @NotBlank String username,
-            @NotBlank String password,
+            @Size(min = 10, max = 64) @NotBlank String password,
             @NotBlank String confirmPassword
     ) {}
 

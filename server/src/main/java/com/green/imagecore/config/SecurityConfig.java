@@ -89,6 +89,11 @@ public class SecurityConfig {
         // Instruct Spring to look for the "roles" claim instead of the default "scp" or "scope".
         listConverter.setAuthoritiesClaimName("roles");
 
+        // Roles in the JWT are already prefixed with "ROLE_" (e.g. "ROLE_CLINICIAN")
+        // Clear the default "SCOPE_" prefix so they arrive in the SecurityContext as-is,
+        // allowing @PreAuthorize("hasRole('CLINICIAN')") to match correctly
+        listConverter.setAuthorityPrefix("");
+
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(listConverter);
         return converter;

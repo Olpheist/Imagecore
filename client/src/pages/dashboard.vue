@@ -3,6 +3,10 @@
     <UserProfile :user="user"/>
     <DicomUpload v-if="isClinician"/>
   </div>
+
+  <div class="p-4 flex-col gap-6">
+    <Button variant="primary" hover rounded @click="$router.push('/tools')">View Available Tools</Button>
+  </div>
 </template>
 
 <script setup lang="ts">

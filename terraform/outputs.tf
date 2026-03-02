@@ -38,9 +38,3 @@ output "s3_bucket_name" {
   description = "Name of the DICOM S3 bucket"
   value       = module.s3.bucket_name
 }
-
-output "s3_kms_key_arn" {
-  description = "ARN of the KMS key used to encrypt the DICOM bucket"
-  value       = module.s3.kms_key_arn
-  sensitive   = true
-}

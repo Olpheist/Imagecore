@@ -186,6 +186,7 @@ class ToolControllerTest {
 
         String body = objectMapper.writeValueAsString(new ToolController.CreateToolRequest(
                 "brain-segmentation",
+                ownerUser,
                 "segmentation",
                 "Segments brain MRI regions",
                 "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
@@ -215,6 +216,7 @@ class ToolControllerTest {
 
         String body = objectMapper.writeValueAsString(new ToolController.CreateToolRequest(
                 "brain-segmentation",
+                ownerUser,
                 "segmentation",
                 "Segments brain MRI regions",
                 "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
@@ -242,7 +244,7 @@ class ToolControllerTest {
                 .thenReturn(minimalTool);
 
         String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("minimal-tool", "detection", null, null)
+                new ToolController.CreateToolRequest("minimal-tool", ownerUser, "detection", null, null)
         );
 
         mockMvc.perform(post("/api/tools")
@@ -263,7 +265,7 @@ class ToolControllerTest {
                 .thenThrow(new IllegalArgumentException("Name already in use"));
 
         String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("brain-segmentation", "segmentation", null, null)
+                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null)
         );
 
         mockMvc.perform(post("/api/tools")
@@ -276,26 +278,35 @@ class ToolControllerTest {
 
     @Test
     @WithMockUser(roles = "CLINICIAN")
-    void createTool_asClinician_returns403() throws Exception {
-        String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("brain-segmentation", "segmentation", null, null)
-        );
+    void createTool_asClinician_returns200() throws Exception {
+        when(userService.findByUsername("dr.smith")).thenReturn(ownerUser);
+        when(toolService.create(
+                "brain-segmentation",
+                ownerUser,
+                "segmentation",
+                "Segments brain MRI regions",
+                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
+        )).thenReturn(brainSegmentation);
+
+        String body = objectMapper.writeValueAsString(new ToolController.CreateToolRequest(
+                "brain-segmentation",
+                ownerUser,
+                "segmentation",
+                "Segments brain MRI regions",
+                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
+        ));
 
         mockMvc.perform(post("/api/tools")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.status").value(403))
-                .andExpect(jsonPath("$.message").value("Access denied"));
-
-        verifyNoInteractions(toolService);
+                .andExpect(status().isOk());
     }
 
     @Test
     @WithMockUser(roles = "PATIENT")
     void createTool_asPatient_returns403() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("brain-segmentation", "segmentation", null, null)
+                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null)
         );
 
         mockMvc.perform(post("/api/tools")
@@ -311,7 +322,7 @@ class ToolControllerTest {
     @Test
     void createTool_unauthenticated_returns401() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("brain-segmentation", "segmentation", null, null)
+                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null)
         );
 
         mockMvc.perform(post("/api/tools")

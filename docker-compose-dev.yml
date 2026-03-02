@@ -6,6 +6,9 @@ services:
     container_name: imagecore-dev
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/imagecore
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: dev
+      AWS_SECRET_ACCESS_KEY: dev
     ports:
       - "8080:8080"
     depends_on:

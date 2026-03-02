@@ -19,6 +19,10 @@ public class Tool {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long toolId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id", nullable = false)
+    private User createdBy;
+
     @Column(nullable = false, unique = true, length = 64)
     private String name;
 

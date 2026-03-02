@@ -22,6 +22,7 @@ public class ToolMapper {
 
         ToolDto dto = new ToolDto();
         dto.setToolId(tool.getToolId());
+        dto.setCreatedByUserId(tool.getCreatedBy().getId());
         dto.setName(tool.getName());
         dto.setCategory(tool.getCategory());
         dto.setDescription(tool.getDescription());

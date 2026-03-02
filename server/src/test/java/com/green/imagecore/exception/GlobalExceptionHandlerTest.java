@@ -130,6 +130,20 @@ class GlobalExceptionHandlerTest {
         assertTrue(response.getBody().details().get(0).contains("must not be blank"));
     }
 
+    // --- 403 ---
+
+    @Test
+    void handleAccessDenied_DoesNotLeakExceptionMessage() {
+        AccessDeniedException ex = new AccessDeniedException("ROLE_CLINICIAN required for /api/images/upload");
+
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleAccessDenied(ex, request);
+
+        //the raw Spring Security message shouldn't be exposed to clients
+        assertNotEquals(ex.getMessage(), response.getBody().message());
+        assertEquals("Access denied", response.getBody().message());
+    }
+
     // --- 401 ---
 
     @Test

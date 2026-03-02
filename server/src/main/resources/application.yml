@@ -28,3 +28,6 @@ app:
     issuer: imagecore
     access-ttl-minutes: 60
     refresh-ttl-days: 7
+  aws:
+    s3:
+      bucket-name: ${AWS_S3_BUCKET_NAME:local-dev-bucket}

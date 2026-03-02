@@ -33,3 +33,8 @@ output "db_name" {
   description = "RDS database name"
   value       = module.rds.db_name
 }
+
+output "s3_bucket_name" {
+  description = "Name of the DICOM S3 bucket"
+  value       = module.s3.bucket_name
+}

@@ -65,6 +65,14 @@ module "ec2" {
   ecs_cluster_name = "${var.project_name}-${var.environment}-cluster"
 }
 
+# S3 Module - DICOM Image Storage
+module "s3" {
+  source = "./modules/s3"
+
+  project_name = var.project_name
+  environment  = var.environment
+}
+
 # ECS Module - Container Orchestration
 module "ecs" {
   source = "./modules/ecs"
@@ -87,6 +95,10 @@ module "ecs" {
   db_name     = var.db_name
   db_username = var.db_username
   db_password = var.db_password
+
+  # S3
+  s3_bucket_name = module.s3.bucket_name
+  s3_bucket_arn  = module.s3.bucket_arn
 
   depends_on = [module.ec2]
 }

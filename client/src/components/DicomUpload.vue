@@ -24,8 +24,8 @@
         </p>
       </template>
       <template v-else>
-        <p class="font-medium text-gray-800 text-sm">{{ selectedFile.name }}</p>
-        <p class="text-xs text-gray-500 mt-1">{{ formatBytes(selectedFile.size) }}</p>
+        <p class="font-medium text-gray-800 text-sm">{{ selectedFileName }}</p>
+        <p class="text-xs text-gray-500 mt-1">{{ formatBytes(selectedFileSize) }}</p>
       </template>
     </div>
 
@@ -70,8 +70,10 @@ import { isExpired } from '~/utils/jwt';
 import { navigateTo } from 'nuxt/app';
 import type { ApiError } from '~/models/error';
 
-const fileInput = ref<HTMLInputElement | null>(null);
+const fileInput = useTemplateRef<HTMLInputElement>('fileInput');
 const selectedFile = ref<File | null>(null);
+const selectedFileName = ref('');
+const selectedFileSize = ref(0);
 const isDragging = ref(false);
 const uploading = ref(false);
 const uploadError = ref<ApiError | null>(null);
@@ -83,7 +85,10 @@ function openFilePicker() {
 
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
-  selectedFile.value = input.files?.[0] ?? null;
+  const file = input.files?.[0] ?? null;
+  selectedFile.value = file;
+  selectedFileName.value = file ? file.name : '';
+  selectedFileSize.value = file ? file.size : 0;
   uploadError.value = null;
   successKey.value = null;
 }
@@ -93,6 +98,8 @@ function onDrop(event: DragEvent) {
   const file = event.dataTransfer?.files[0] ?? null;
   if (file && file.name.toLowerCase().endsWith('.dcm')) {
     selectedFile.value = file;
+    selectedFileName.value = file.name;
+    selectedFileSize.value = file.size;
     uploadError.value = null;
     successKey.value = null;
   }
@@ -106,6 +113,8 @@ function formatBytes(bytes: number): string {
 
 function reset() {
   selectedFile.value = null;
+  selectedFileName.value = '';
+  selectedFileSize.value = 0;
   uploadError.value = null;
   successKey.value = null;
   if (fileInput.value) fileInput.value.value = '';

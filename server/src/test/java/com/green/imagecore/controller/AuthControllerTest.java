@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.exception.GlobalExceptionHandler;
 import com.green.imagecore.service.JwtService;
+import com.green.imagecore.service.PasswordResetService;
 import com.green.imagecore.service.UserService;
 import com.green.imagecore.service.UserAuthenticationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
@@ -43,6 +49,8 @@ class AuthControllerTest {
     @Mock
     private AuthenticationManager authenticationManager;
     @Mock
+    private PasswordResetService passwordResetService;
+    @Mock
     private JwtService jwtService;
 
     @BeforeEach
@@ -51,7 +59,7 @@ class AuthControllerTest {
         validator.afterPropertiesSet();
 
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        new AuthController(userService, userAuthenticationService, authenticationManager, jwtService)
+                        new AuthController(userService, userAuthenticationService, authenticationManager, jwtService, passwordResetService)
                 )
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setValidator(validator)
@@ -163,5 +171,100 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().string(containsString("Invalid username or password")));
+    }
+
+    @Test
+    void forgotPassword_Success_Returns204() throws Exception {
+        doNothing().when(passwordResetService).requestReset("user@test.com");
+
+        var request = new AuthController.ForgotPasswordRequest("user@test.com");
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        verify(passwordResetService, times(1)).requestReset("user@test.com");
+    }
+
+    @Test
+    void forgotPassword_Failure_InvalidEmail_Returns400() throws Exception {
+        // invalid email format -> bean validation should trip
+        var request = new AuthController.ForgotPasswordRequest("not-an-email");
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verify(passwordResetService, never()).requestReset(anyString());
+    }
+
+    @Test
+    void forgotPassword_Failure_BlankEmail_Returns400() throws Exception {
+        var request = new AuthController.ForgotPasswordRequest("");
+
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verify(passwordResetService, never()).requestReset(anyString());
+    }
+
+    @Test
+    void resetPassword_Success_Returns204() throws Exception {
+        doNothing().when(passwordResetService).resetPassword("token-123", "password10");
+
+        var request = new AuthController.ResetPasswordRequest("token-123", "password10", "password10");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        verify(passwordResetService, times(1)).resetPassword("token-123", "password10");
+    }
+
+    @Test
+    void resetPassword_Failure_PasswordsDoNotMatch_Returns400() throws Exception {
+        var request = new AuthController.ResetPasswordRequest("token-123", "password10", "different10");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Passwords do not match")));
+
+        verify(passwordResetService, never()).resetPassword(anyString(), anyString());
+    }
+
+    @Test
+    void resetPassword_Failure_PasswordTooShort_Returns400() throws Exception {
+        // @Size(min = 10) should fail
+        var request = new AuthController.ResetPasswordRequest("token-123", "short", "short");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verify(passwordResetService, never()).resetPassword(anyString(), anyString());
+    }
+
+    @Test
+    void resetPassword_Failure_InvalidToken_Returns400() throws Exception {
+        doThrow(new IllegalArgumentException("Invalid or expired token"))
+                .when(passwordResetService).resetPassword("bad-token", "password10");
+
+        var request = new AuthController.ResetPasswordRequest("bad-token", "password10", "password10");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Invalid or expired token")));
+
+        verify(passwordResetService, times(1)).resetPassword("bad-token", "password10");
     }
 }

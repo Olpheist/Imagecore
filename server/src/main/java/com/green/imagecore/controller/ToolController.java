@@ -44,7 +44,7 @@ public class ToolController {
      * @param request a CreateToolRequest
      * @return ResponseEntity showing the response of the tool creation
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESEARCHER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLINICIAN', 'RESEARCHER')")
     @PostMapping
     public ResponseEntity<ToolDto> createTool(@RequestBody CreateToolRequest request, Authentication authentication) {
         User creatingUser = userService.findByUsername(authentication.getName());
@@ -74,6 +74,7 @@ public class ToolController {
 
     public record CreateToolRequest(
             String name,
+            User createdBy,
             String category,
             String description,
             String imageTag

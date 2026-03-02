@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+  <div class="min-h-screen flex items-center justify-center px-4">
     <Card variant="default" :rounded="true" class="w-full max-w-md">
       <div class="mb-6">
         <div class="text-center">
@@ -20,7 +20,7 @@
       </div>
       <Button
           type="submit"
-          variant="primary"
+          variant="success"
           size="md"
           :rounded="true"
           :disabled="loading || !email"

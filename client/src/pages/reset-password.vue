@@ -11,15 +11,34 @@
         <div class="space-y-4">
           <Input
               v-model="password"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               placeholder="New password"
-          />
-
+          >
+            <template #suffix>
+              <button
+                  type="button"
+                  class="text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
+                  @click="showPassword = !showPassword"
+              >
+                {{ showPassword ? "Hide" : "Show" }}
+              </button>
+            </template>
+          </Input>
           <Input
               v-model="confirmPassword"
-              type="password"
               placeholder="Confirm password"
-          />
+              :type="showConfirmPassword ? 'text' : 'password'"
+          >
+            <template #suffix>
+              <button
+                  type="button"
+                  class="text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
+                  @click="showConfirmPassword = !showConfirmPassword"
+              >
+                {{ showConfirmPassword ? "Hide" : "Show" }}
+              </button>
+            </template>
+          </Input>
         </div>
         <Button
             variant="success"
@@ -64,6 +83,8 @@ const token = computed(() => {
 
 const password = ref("");
 const confirmPassword = ref("");
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
 const loading = ref(false);
 const success = ref(false);
 const error = ref<ApiError | null>(null);
@@ -78,6 +99,7 @@ const onSubmit = async (): Promise<void> => {
       body: {
         token: token.value,
         newPassword: password.value,
+        confirmPassword: confirmPassword.value
       },
     });
 

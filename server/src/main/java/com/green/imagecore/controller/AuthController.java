@@ -102,13 +102,17 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest body) {
         passwordResetService.requestReset(body.email());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest body) {
+        if (!body.newPassword().equals(body.confirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match");
+        }
+
         passwordResetService.resetPassword(body.token(), body.newPassword());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     // Request Data Transfer Objects (DTOs)
@@ -131,6 +135,7 @@ public class AuthController {
 
     public record ResetPasswordRequest(
             @NotBlank String token,
-            @NotBlank @Size(min = 10, max = 64) String newPassword
+            @NotBlank @Size(min = 10, max = 64) String newPassword,
+            @NotBlank String confirmPassword
     ) {}
 }

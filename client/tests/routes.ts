@@ -121,3 +121,53 @@ export const mockUpdateUserRolesFailure = async (
         });
     });
 };
+
+export async function mockForgotPassword(page: Page): Promise<void> {
+    await page.route("**/api/auth/forgot-password", async (route) => {
+        if (route.request().method() !== "POST") {
+            await route.fallback();
+            return;
+        }
+
+        await route.fulfill({
+            status: 204,
+            headers: { "Content-Type": "application/json" },
+            body: "",
+        });
+    });
+}
+
+export async function mockResetPassword(page: Page): Promise<void> {
+    await page.route("**/api/auth/reset-password", async (route) => {
+        if (route.request().method() !== "POST") {
+            await route.fallback();
+            return;
+        }
+
+        await route.fulfill({
+            status: 204,
+            headers: { "Content-Type": "application/json" },
+            body: "",
+        });
+    });
+}
+
+export async function mockResetPasswordFailure(page: Page): Promise<void> {
+    await page.route("**/api/auth/reset-password", async (route) => {
+        if (route.request().method() !== "POST") {
+            await route.fallback();
+            return;
+        }
+
+        await route.fulfill({
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                status: 400,
+                error: "Bad Request",
+                message: "Invalid or expired reset token.",
+                path: "/api/auth/reset-password",
+            }),
+        });
+    });
+}

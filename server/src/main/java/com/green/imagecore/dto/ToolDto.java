@@ -10,6 +10,7 @@ import lombok.Setter;
 @Setter
 public class ToolDto {
     private Long toolId;
+    private Long CreatedByUserId;
     private String name;
     private String category;
     private String description;

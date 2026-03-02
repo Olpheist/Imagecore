@@ -1,9 +1,12 @@
 package com.green.imagecore.service;
 
 import com.green.imagecore.entities.Tool;
+import com.green.imagecore.entities.User;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.ToolRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,19 +35,19 @@ public class ToolService {
      * @return the persisted {@link Tool} with its database-assigned ID
      * @throws IllegalArgumentException if a tool with the given name already exists
      */
-    @Transactional
-    public Tool create(String name, String category, String description, String imageTag) {
+    public Tool create(String name, User createdBy, String category, String description, String imageTag) {
         if (toolRepository.existsByName(name)) {
-            throw new IllegalArgumentException("Name already in use");
+            throw new IllegalArgumentException("A tool with name '" + name + "' already exists.");
         }
 
-        Tool t = new Tool();
-        t.setName(name);
-        t.setCategory(category);
-        t.setDescription(description);
-        t.setImageTag(imageTag);
+        Tool tool = new Tool();
+        tool.setName(name);
+        tool.setCreatedBy(createdBy);
+        tool.setCategory(category);
+        tool.setDescription(description);
+        tool.setImageTag(imageTag);
 
-        return toolRepository.save(t);
+        return toolRepository.save(tool);
     }
 
     /**
@@ -64,12 +67,20 @@ public class ToolService {
      * @throws ResourceNotFoundException if no tool exists with the given ID
      */
     @Transactional
-    public void delete(Long id) {
-        if (toolRepository.existsById(id)) {
-            toolRepository.deleteById(id);
-        } else {
-            throw new ResourceNotFoundException("Tool not found with id: " + id);
+    public void delete(Long id, Authentication auth) {
+        Tool tool = toolRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Tool not found with id: " + id));
+
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> Objects.equals(a.getAuthority(), "ROLE_ADMIN"));
+
+        boolean isOwner = tool.getCreatedBy().getUsername().equals(auth.getName());
+
+        if (!isAdmin && !isOwner) {
+            throw new AccessDeniedException("You do not have permission to delete this tool.");
         }
+
+        toolRepository.delete(tool);
     }
 
     /**

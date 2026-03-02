@@ -4,9 +4,12 @@ import com.green.imagecore.dto.ToolDto;
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.mapper.ToolMapper;
 import com.green.imagecore.service.ToolService;
+import com.green.imagecore.entities.User;
+import com.green.imagecore.service.UserService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +22,8 @@ import java.util.List;
 @RequestMapping("/api/tools")
 public class ToolController {
     private final ToolService toolService;
+
+    private final UserService userService;
 
 
     /**
@@ -41,11 +46,11 @@ public class ToolController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'RESEARCHER')")
     @PostMapping
-    public ResponseEntity<ToolDto> createTool(@RequestBody CreateToolRequest request) {
-        Tool tool = toolService.create(request.name(), request.category().toLowerCase(), request.description(), request.imageTag());
+    public ResponseEntity<ToolDto> createTool(@RequestBody CreateToolRequest request, Authentication authentication) {
+        User creatingUser = userService.findByUsername(authentication.getName());
+        Tool tool = toolService.create(request.name(), creatingUser, request.category().toLowerCase(), request.description(), request.imageTag());
         return ResponseEntity.ok(ToolMapper.toDto(tool));
     }
-
     /**
      * DELETE method for removing tools, right now only available to ADMINS
      * @param id the id of the tool to remove
@@ -53,8 +58,8 @@ public class ToolController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'CLINICIAN', 'RESEARCHER')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTool(@PathVariable Long id) {
-        toolService.delete(id);
+    public ResponseEntity<Void> deleteTool(@PathVariable Long id, Authentication authentication) {
+        toolService.delete(id, authentication);
         return ResponseEntity.noContent().build();
     }
 

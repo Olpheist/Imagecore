@@ -10,7 +10,6 @@
         </div>
       </div>
       <div class="space-y-1">
-        <label class="block text-sm font-medium text-gray-700">Email</label>
         <Input
             v-model="email"
             type="email"
@@ -35,9 +34,13 @@
       </div>
       <div class="mt-6 text-sm text-gray-600">
         Remembered it?
-        <NuxtLink to="/login" class="text-blue-600 hover:underline">
+        <button
+            class="text-blue-600 hover:underline font-medium"
+            style="cursor: pointer;"
+            @click="onLogin"
+        >
           Back to login
-        </NuxtLink>
+        </button>
       </div>
     </Card>
   </div>
@@ -48,6 +51,7 @@ import Card from "~/components/Card.vue";
 import Button from "~/components/Button.vue";
 import Input from "~/components/Input.vue";
 import { useApiFetch } from "~/composables/useApiFetch";
+import {navigateTo} from "nuxt/app";
 
 const email = ref("");
 const loading = ref(false);
@@ -71,4 +75,8 @@ const onSubmit = async (): Promise<void> => {
     loading.value = false;
   }
 };
+
+const onLogin = async (): Promise<void> => {
+  await navigateTo('/login');
+}
 </script>

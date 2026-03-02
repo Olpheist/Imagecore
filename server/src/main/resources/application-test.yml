@@ -1,13 +1,12 @@
 app:
+  base-url: http://localhost:8080
   jwt:
     secret: test-secret-test-secret-test-secret-32chars
     issuer: imagecore
     access-ttl-minutes: 15
     refresh-ttl-days: 14
-
   aws:
     s3:
       bucket-name: test-bucket
-
   cookie:
     secure: false

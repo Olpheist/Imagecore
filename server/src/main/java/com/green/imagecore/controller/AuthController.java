@@ -1,6 +1,7 @@
 package com.green.imagecore.controller;
 
 import com.green.imagecore.entities.User;
+import com.green.imagecore.service.PasswordResetService;
 import com.green.imagecore.service.UserService;
 import com.green.imagecore.service.JwtService;
 import com.green.imagecore.service.UserAuthenticationService; // Crucial import
@@ -29,6 +30,7 @@ public class AuthController {
     private final UserAuthenticationService userAuthenticationService; // Inject this
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final PasswordResetService passwordResetService;
 
     /**
      * Data Transfer Object for authentication responses.
@@ -97,6 +99,18 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(token, u.getId(), u.getEmail(), u.getUsername()));
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest body) {
+        passwordResetService.requestReset(body.email());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest body) {
+        passwordResetService.resetPassword(body.token(), body.newPassword());
+        return ResponseEntity.ok().build();
+    }
+
     // Request Data Transfer Objects (DTOs)
 
     public record RegisterRequest(
@@ -109,5 +123,14 @@ public class AuthController {
     public record LoginRequest(
             @NotBlank String username,
             @NotBlank String password
+    ) {}
+
+    public record ForgotPasswordRequest(
+            @NotBlank @Email String email
+    ) {}
+
+    public record ResetPasswordRequest(
+            @NotBlank String token,
+            @NotBlank @Size(min = 10, max = 64) String newPassword
     ) {}
 }

@@ -70,7 +70,7 @@ resource "aws_lb_listener" "main" {
 resource "aws_ecs_task_definition" "main" {
   family                   = "${var.project_name}-${var.environment}"
   network_mode             = "awsvpc"
-  requires_compatibilities = ["EC2"]
+  requires_compatibilities = ["FARGATE"]
   cpu                      = var.task_cpu
   memory                   = var.task_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
@@ -135,15 +135,15 @@ resource "aws_ecs_service" "main" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.main.arn
   desired_count   = var.desired_count
-  launch_type     = "EC2"
+  launch_type     = "FARGATE"
 
   # deployment settings
-  deployment_minimum_healthy_percent = 0
+  deployment_minimum_healthy_percent = 100
   
   network_configuration {
     subnets          = var.public_subnet_ids  # For prod this should be private (can be expensive)
     security_groups  = [var.app_security_group_id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
   
   load_balancer {

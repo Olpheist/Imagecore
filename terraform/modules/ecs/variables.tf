@@ -65,7 +65,7 @@ variable "task_cpu" {
 variable "task_memory" {
   description = "Memory for the task in MiB"
   type        = string
-  default     = "1024"
+  default     = "2048"
 }
 
 variable "health_check_path" {

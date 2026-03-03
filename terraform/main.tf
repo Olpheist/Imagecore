@@ -49,21 +49,6 @@ module "rds" {
   allocated_storage = var.db_allocated_storage
 }
 
-# EC2 Module - ECS Cluster Instances
-module "ec2" {
-  source = "./modules/ec2"
-
-  project_name          = var.project_name
-  environment           = var.environment
-  vpc_id                = module.networking.vpc_id
-  public_subnet_ids     = module.networking.public_subnet_ids
-  private_subnet_ids    = module.networking.private_subnet_ids
-  app_security_group_id = module.networking.app_security_group_id
-
-  instance_type    = var.ec2_instance_type
-  desired_capacity = var.ec2_desired_capacity
-  ecs_cluster_name = "${var.project_name}-${var.environment}-cluster"
-}
 
 # S3 Module - DICOM Image Storage
 module "s3" {
@@ -100,5 +85,4 @@ module "ecs" {
   s3_bucket_name = module.s3.bucket_name
   s3_bucket_arn  = module.s3.bucket_arn
 
-  depends_on = [module.ec2]
 }

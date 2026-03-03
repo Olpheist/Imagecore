@@ -96,7 +96,7 @@ variable "ec2_instance_type" {
 variable "ec2_desired_capacity" {
   description = "Desired number of EC2 instances"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 # ECS Configuration
@@ -109,5 +109,5 @@ variable "container_port" {
 variable "ecs_desired_count" {
   description = "Desired number of ECS tasks"
   type        = number
-  default     = 1
+  default     = 2
 }

@@ -136,6 +136,9 @@ resource "aws_ecs_service" "main" {
   task_definition = aws_ecs_task_definition.main.arn
   desired_count   = var.desired_count
   launch_type     = "EC2"
+
+  # deployment settings
+  deployment_minimum_healthy_percent = 0
   
   network_configuration {
     subnets          = var.public_subnet_ids  # For prod this should be private (can be expensive)

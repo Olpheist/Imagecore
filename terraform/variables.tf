@@ -86,19 +86,6 @@ variable "db_allocated_storage" {
   default     = 20
 }
 
-# EC2 Configuration
-variable "ec2_instance_type" {
-  description = "EC2 instance type for ECS cluster"
-  type        = string
-  default     = "t3.micro"
-}
-
-variable "ec2_desired_capacity" {
-  description = "Desired number of EC2 instances"
-  type        = number
-  default     = 2
-}
-
 # ECS Configuration
 variable "container_port" {
   description = "Port the container listens on"

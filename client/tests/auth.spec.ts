@@ -62,9 +62,14 @@ test("register success: mocks backend + header flips", async ({ page }) => {
     await mockMe(page, mockMeUser);
 
     await page.goto("/register");
+
     await page.getByPlaceholder("Username").fill("testuser");
     await page.getByPlaceholder("Email").fill("test@example.com");
-    await page.getByPlaceholder("Password").fill("password");
+
+    const goodPassword = "password10";
+    await page.getByPlaceholder(/^Password$/).fill(goodPassword);
+    await page.getByPlaceholder(/^Confirm Password$/).fill(goodPassword);
+
     await getFormRegisterButton(page).click();
 
     await expect(page).toHaveURL(/\/$/);
@@ -73,13 +78,19 @@ test("register success: mocks backend + header flips", async ({ page }) => {
 });
 
 test("register failure shows error message", async ({ page }) => {
+    // make the backend fail regardless of password validity
     await mockRegisterFailure(page);
 
     await page.goto("/register");
+
     await page.getByPlaceholder("Username").fill("testuser");
     await page.getByPlaceholder("Email").fill("test@example.com");
-    await page.getByPlaceholder("Password").fill("bad");
+
+    const goodPassword = "password10";
+    await page.getByPlaceholder(/^Password$/).fill(goodPassword);
+    await page.getByPlaceholder(/^Confirm Password$/).fill(goodPassword);
+
     await getFormRegisterButton(page).click();
 
-    await expect(page.locator(".text-red-600")).toBeVisible();
+    await expect(page.getByText(/already in use|bad request|error/i)).toBeVisible();
 });

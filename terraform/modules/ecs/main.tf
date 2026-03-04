@@ -59,7 +59,24 @@ resource "aws_lb_listener" "main" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
-  
+
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = "arn:aws:acm:us-east-1:259950038280:certificate/0c10aff1-5ee6-4ddc-8797-a5929c86250c"
+
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.main.arn
@@ -111,6 +128,10 @@ resource "aws_ecs_task_definition" "main" {
       {
         name  = "AWS_S3_BUCKET_NAME"
         value = var.s3_bucket_name
+      },
+      {
+        name  = "SEND_GRID_API_KEY"
+        value = var.send_grid_password
       }
     ]
     

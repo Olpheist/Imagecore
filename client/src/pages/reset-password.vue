@@ -3,18 +3,16 @@
     <Card variant="elevated" rounded class="w-full max-w-md">
       <div class="space-y-6">
         <div class="text-center">
-          <h1 class="text-2xl font-semibold">Create Account</h1>
+          <h1 class="text-2xl font-semibold">Reset Password</h1>
           <p class="text-sm text-gray-500 mt-1">
-            Register to start using ImageCore
+            Enter your new password below.
           </p>
         </div>
         <div class="space-y-4">
-          <Input v-model="username" placeholder="Username" />
-          <Input v-model="email" placeholder="Email" />
           <Input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              placeholder="Password"
+              placeholder="New password"
           >
             <template #suffix>
               <button
@@ -26,11 +24,10 @@
               </button>
             </template>
           </Input>
-
           <Input
               v-model="confirmPassword"
+              placeholder="Confirm password"
               :type="showConfirmPassword ? 'text' : 'password'"
-              placeholder="Confirm Password"
           >
             <template #suffix>
               <button
@@ -47,22 +44,20 @@
             variant="success"
             class="w-full"
             :disabled="loading"
-            @click="onRegister"
+            @click="onSubmit"
             hover
             rounded
         >
-          {{ loading ? "Creating..." : "Register" }}
+          {{ loading ? "Updating..." : "Update Password" }}
         </Button>
         <Error :error="error" dismissible @close="error = null" />
-        <div class="text-center text-sm text-gray-600">
-          Already have an account?
-          <button
-              class="text-blue-600 hover:underline font-medium"
-              style="cursor: pointer;"
-              @click="onLogin"
-          >
-            Login
-          </button>
+        <div v-if="success" class="text-sm text-green-700 text-center">
+          Password updated successfully.
+          <div class="mt-2">
+            <NuxtLink to="/login" class="text-blue-600 hover:underline font-medium">
+              Go to login
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </Card>
@@ -70,50 +65,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
-import { navigateTo } from "nuxt/app";
-import { setToken } from "~/utils/authToken";
-import type { AuthResponse } from "~/models/auth";
+import { computed, ref } from "vue";
+import { useRoute, navigateTo } from "nuxt/app";
 import { useApiFetch } from "~/composables/useApiFetch";
-import { useUserStore } from "~/stores/userStore";
-import type {ApiError} from "~/models/error";
+import type { ApiError } from "~/models/error";
+import Card from "~/components/Card.vue";
+import Button from "~/components/Button.vue";
+import Input from "~/components/Input.vue";
+import Error from "~/components/Error.vue";
 
-const userStore = useUserStore();
+const route = useRoute();
 
-const username = ref("");
-const email = ref("");
+const token = computed(() => {
+  const t = route.query.token;
+  return typeof t === "string" ? t : null;
+});
+
 const password = ref("");
 const confirmPassword = ref("");
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
-const error = ref<ApiError | null>(null);
 const loading = ref(false);
+const success = ref(false);
+const error = ref<ApiError | null>(null);
 
-const onRegister = async (): Promise<void> => {
+const onSubmit = async (): Promise<void> => {
   error.value = null;
   loading.value = true;
 
   try {
-    const resp = await useApiFetch<AuthResponse>("/auth/register", {
+    await useApiFetch<void>("/auth/reset-password", {
       method: "POST",
-      body: { username: username.value, email: email.value, password: password.value, confirmPassword: confirmPassword.value },
+      body: {
+        token: token.value,
+        newPassword: password.value,
+        confirmPassword: confirmPassword.value
+      },
     });
 
-    setToken(resp.token);
-    await userStore.fetchMe();
-    await navigateTo("/");
+    success.value = true;
   } catch (e: unknown) {
     error.value = e as ApiError;
   } finally {
     loading.value = false;
   }
 };
-
-const onLogin = async (): Promise<void> => {
-  await navigateTo("/login");
-};
-
-watch([username, email, password, confirmPassword], () => {
-  error.value = null;
-});
 </script>

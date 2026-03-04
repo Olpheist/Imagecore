@@ -120,6 +120,7 @@ jobs:
           # these are marked as sensitive variables in tf so they should not appear in logs
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
+          TF_VAR_send_grid_password: ${{ secrets.EMAIL_PASSWORD }}
 
       - name: Force New Deployment
         run: |

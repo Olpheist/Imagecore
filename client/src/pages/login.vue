@@ -39,6 +39,15 @@
           >
             Register
           </button>
+          <br>
+          Forgot your password?
+          <button
+              class="text-blue-600 hover:underline font-medium"
+              style="cursor: pointer;"
+              @click="onForgotPassword"
+          >
+            Reset it
+          </button>
         </div>
       </div>
     </Card>
@@ -85,6 +94,10 @@ const onLogin = async (): Promise<void> => {
 const onRegister = async (): Promise<void> => {
   await navigateTo('/register');
 }
+
+const onForgotPassword = async (): Promise<void> => {
+  await navigateTo("/forgot-password");
+};
 
 watch([username, password], () => {
   error.value = null;

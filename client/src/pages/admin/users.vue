@@ -46,9 +46,10 @@
             Edit
           </Button>
           <Button
-              @click="handleDelete(row)"
+              @click="openDeleteModal(row)"
               variant="danger"
-              rounded hover
+              rounded
+              hover
               size="sm"
           >
             Delete
@@ -100,6 +101,40 @@
         </div>
       </template>
     </Modal>
+    <Modal v-model="showDeleteModal" title="Delete User">
+      <div class="space-y-4">
+        <p class="text-sm text-slate-600">
+          Are you sure you want to delete this user?
+        </p>
+
+        <div v-if="userToDelete" class="text-sm bg-slate-50 p-3 rounded border">
+          <div><span class="font-semibold">Username:</span> {{ userToDelete.username }}</div>
+          <div><span class="font-semibold">Email:</span> {{ userToDelete.email }}</div>
+        </div>
+
+        <p class="text-sm text-red-600">
+          This action cannot be undone.
+        </p>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <Button
+              variant="primary"
+              @click="closeDeleteModal"
+              hover rounded
+          >
+            Cancel
+          </Button>
+          <Button
+              variant="danger"
+              @click="confirmDelete"
+              :disabled="!userToDelete"
+              hover rounded
+          >
+            Delete User
+          </Button>
+        </div>
+      </div>
+    </Modal>
     <Error :error="error" dismissible @close="error = null" />
   </div>
 </template>
@@ -122,11 +157,13 @@ type EditModalForm = {
   userId: number | null;
   roleIds: number[];
 };
-
 const editModalForm = ref<EditModalForm>({
   userId: null,
   roleIds: [],
 });
+
+const showDeleteModal = ref(false);
+const userToDelete = ref<UserDto | null>(null);
 
 const columns = [
   { key: "username", label: "Username" },
@@ -178,7 +215,31 @@ async function saveRoles(): Promise<void> {
   }
 }
 
-function handleDelete(row: UserDto) {
-  console.log("delete", row);
+function openDeleteModal(row: UserDto): void {
+  userToDelete.value = row;
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal(): void {
+  showDeleteModal.value = false;
+  userToDelete.value = null;
+}
+
+async function confirmDelete(): Promise<void> {
+  if (!userToDelete.value) return;
+
+  try {
+    const id = userToDelete.value.id;
+
+    await useApiFetch<void>(`/users/${id}`, {
+      method: "DELETE",
+    });
+
+    users.value = users.value.filter((u) => u.id !== id);
+  } catch (e: unknown) {
+    error.value = e as ApiError;
+  } finally {
+    closeDeleteModal();
+  }
 }
 </script>

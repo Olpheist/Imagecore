@@ -94,4 +94,9 @@ public class UserService {
 
         return user;
     }
+
+    @Transactional
+    public void deleteUser(Long userId) {
+        userRepository.deleteById(userId);
+    }
 }

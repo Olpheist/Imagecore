@@ -74,6 +74,12 @@ variable "db_password" {
   sensitive   = true
 }
 
+variable "send_grid_password" {
+  description = "SendGrid api key"
+  type        = string
+  sensitive   = true
+}
+
 variable "db_instance_class" {
   description = "RDS instance class"
   type        = string

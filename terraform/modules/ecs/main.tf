@@ -111,6 +111,10 @@ resource "aws_ecs_task_definition" "main" {
       {
         name  = "AWS_S3_BUCKET_NAME"
         value = var.s3_bucket_name
+      },
+      {
+        name  = "SEND_GRID_API_KEY"
+        value = var.send_grid_password
       }
     ]
     

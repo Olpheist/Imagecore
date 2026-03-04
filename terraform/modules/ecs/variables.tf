@@ -96,6 +96,12 @@ variable "db_password" {
   sensitive   = true
 }
 
+variable "send_grid_password" {
+  description = "SendGrid api key"
+  type        = string
+  sensitive   = true
+}
+
 variable "s3_bucket_name" {
   description = "Name of the S3 bucket for DICOM image uploads"
   type        = string

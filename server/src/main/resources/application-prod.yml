@@ -34,7 +34,7 @@ management:
       show-details: always
 
 app:
-  base-url: https://imagecore.org
+  base-url: https://imagecore-dev-alb-854219521.us-east-1.elb.amazonaws.com/
   send-grid:
     api-key: ${SEND_GRID_API_KEY}
   aws:

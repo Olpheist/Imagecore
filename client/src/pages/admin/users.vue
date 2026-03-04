@@ -135,7 +135,7 @@
         </div>
       </div>
     </Modal>
-    <Error :error="error" dismissible @close="error = null" />
+    <Error class="mt-2" :error="error" dismissible @close="error = null" />
   </div>
 </template>
 

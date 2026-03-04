@@ -46,7 +46,14 @@ public class UserController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
+        String currentUsername = authentication.getName();
+        User currentUser = userService.findByUsername(currentUsername);
+
+        if (currentUser.getId().equals(id)) {
+            throw new IllegalArgumentException("You cannot delete your own account");
+        }
+
         userService.deleteUser(id);
 
         return ResponseEntity.noContent().build();

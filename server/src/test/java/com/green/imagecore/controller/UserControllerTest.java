@@ -24,10 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(UserController.class)
 @Import({SecurityConfig.class, RequestLogFilter.class})
 @TestPropertySource(properties = "app.jwt.secret=test-secret-key-that-is-long-enough-for-hmac")
-class UserControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
+class UserControllerTest extends BaseControllerTest {
 
     @MockitoBean
     private UserService userService;

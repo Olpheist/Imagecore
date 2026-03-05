@@ -31,10 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(ToolController.class)
 @Import({SecurityConfig.class, RequestLogFilter.class, GlobalExceptionHandler.class})
 @TestPropertySource(properties = "app.jwt.secret=test-secret-key-that-is-long-enough-for-hmac")
-class ToolControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
+class ToolControllerTest extends BaseControllerTest {
 
     @MockitoBean
     private ToolService toolService;

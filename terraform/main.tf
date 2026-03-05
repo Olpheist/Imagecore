@@ -85,4 +85,7 @@ module "ecs" {
   s3_bucket_name = module.s3.bucket_name
   s3_bucket_arn  = module.s3.bucket_arn
 
+  # SendGrid
+  send_grid_password = var.send_grid_password
+
 }

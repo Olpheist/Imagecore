@@ -76,12 +76,11 @@ public class RequestLogFilter extends OncePerRequestFilter {
 
             log.info(message);
 
-            Log log = new Log();
-            log.setLogLevel("INFO");
-            log.setUsername(username);
-            log.setMessage(message);
-
-            logService.save(log);
+            logService.save(Log.builder()
+                    .logLevel("INFO")
+                    .username(username)
+                    .message(message)
+                    .build());
 
             MDC.remove("user");
         }

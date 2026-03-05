@@ -1,15 +1,15 @@
 package com.green.imagecore.entities;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
-import java.util.Date;
+import java.time.Instant;
 
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "audit_logs")
 public class Log {
@@ -18,7 +18,7 @@ public class Log {
     private Long id;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Date createdAt;
+    private Instant createdAt;
 
     @Column(name = "log_level", nullable = false, length = 10)
     private String logLevel;

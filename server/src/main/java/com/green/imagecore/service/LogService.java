@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -20,22 +20,7 @@ public class LogService {
     }
 
     @Transactional(readOnly = true)
-    public List<Log> getByUser(String username) {
-        return logRepository.findByUsernameOrderByCreatedAtDesc(username);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Log> getByLevel(String logLevel) {
-        return logRepository.findByLogLevelOrderByCreatedAtDesc(logLevel);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Log> getByDateRange(Date from, Date to) {
-        return logRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(from, to);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Log> getByUserAndLevel(String username, String logLevel) {
-        return logRepository.findByUsernameAndLogLevelOrderByCreatedAtDesc(username, logLevel);
+    public List<Log> search(String username, String logLevel, Instant from, Instant to) {
+        return logRepository.search(username, logLevel, from, to);
     }
 }

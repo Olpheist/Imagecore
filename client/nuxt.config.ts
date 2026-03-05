@@ -11,14 +11,18 @@ export default defineNuxtConfig({
   vite: {
     plugins: [
       tailwindcss(),
-      viteCommonjs(), // required for dicom-parser CJS interop
+      viteCommonjs(),
     ],
-    optimizeDeps: {
-      exclude: [
-        '@cornerstonejs/dicom-image-loader', // must be excluded so workers load correctly
+    resolve: {
+      dedupe: [
+        '@cornerstonejs/core',
+        'vue',
       ],
+    },
+    optimizeDeps: {
+      exclude: ['@cornerstonejs/dicom-image-loader'],
       include: [
-        'dicom-parser', // must be included separately
+        'dicom-parser',
         '@cornerstonejs/core',
         '@cornerstonejs/tools',
       ],

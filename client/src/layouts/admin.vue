@@ -1,9 +1,9 @@
 <template>
   <Header />
-  <div v-if="userStore.isAdmin" class="min-h-screen flex flex-col bg-slate-50">
+  <div v-if="userStore.isAdmin" class="min-h-screen flex flex-col bg-slate-200">
 
     <div class="flex flex-1">
-      <aside class="w-64 bg-white border-r border-slate-100 flex flex-col">
+      <aside class="w-64 bg-slate-100 border-r border-slate-100 flex flex-col">
         <div class="px-5 py-5 border-b border-slate-100">
           <div class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Admin</div>
           <div class="text-base font-semibold text-slate-800">Management Console</div>

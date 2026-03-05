@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <Table :columns="columns" :rows="users" rowKey="id">
+    <Table :columns="columns" :rows="pagedUsers" rowKey="id">
 
       <template #cell-username="{ value }">
         <span class="font-medium text-slate-900">{{ value }}</span>
@@ -57,6 +57,11 @@
         </div>
       </template>
     </Table>
+    <Pagination
+        v-model:currentPage="currentPage"
+        :totalNum="users.length"
+        :perPage="perPage"
+    />
     <Modal v-model="showEditModal" title="Edit User">
       <div class="space-y-3">
         <p class="text-sm text-slate-500">Roles</p>
@@ -151,6 +156,14 @@ definePageMeta({ layout: "admin" });
 const users = ref(await useApiFetch<UserDto[]>("/users") ?? []);
 const roles = ref(await useApiFetch<RoleDto[]>("/roles") ?? []);
 const error = ref<ApiError | null>(null);
+
+const currentPage = ref(1);
+const perPage = ref(5);
+
+const pagedUsers = computed(() => {
+  const start = (currentPage.value - 1) * perPage.value;
+  return users.value.slice(start, start + perPage.value);
+});
 
 const showEditModal = ref(false);
 type EditModalForm = {

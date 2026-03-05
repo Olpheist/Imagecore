@@ -28,8 +28,8 @@ public class LogController {
     public ResponseEntity<List<LogDto>> logs(
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String logLevel,
-            @RequestParam(required = false) Instant from,
-            @RequestParam(required = false) Instant to
+            @RequestParam Instant from,
+            @RequestParam Instant to
     ) {
         return ResponseEntity.ok(LogMapper.toDtos(logService.search(username, logLevel, from, to)));
     }

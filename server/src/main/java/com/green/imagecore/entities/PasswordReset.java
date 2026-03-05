@@ -1,15 +1,15 @@
 package com.green.imagecore.entities;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
-import java.util.Date;
+import java.time.Instant;
 
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "password_reset_tokens")
 public class PasswordReset {
@@ -24,11 +24,11 @@ public class PasswordReset {
     private String tokenHash;
 
     @Column(name = "expires_at", nullable = false)
-    private Date expiresAt;
+    private Instant expiresAt;
 
     @Column(name = "used_at")
-    private Date usedAt;
+    private Instant usedAt;
 
     @Column(name = "created_at", nullable = false)
-    private Date createdAt;
+    private Instant createdAt;
 }

@@ -137,6 +137,8 @@ function toLocalDatetime(date: Date) {
 }
 
 const now = new Date();
+now.setHours(23, 59, 59, 999);
+
 const yesterday = new Date();
 yesterday.setDate(yesterday.getDate() - 1);
 yesterday.setHours(0,0,0,0);

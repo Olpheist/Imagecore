@@ -1,14 +1,16 @@
 package com.green.imagecore.exception;
 
+import com.green.imagecore.config.RequestLogFilter;
+import com.green.imagecore.entities.Log;
+import com.green.imagecore.service.LogService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -21,7 +23,9 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+    private final LogService logService;
 
     // 404
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -29,7 +33,9 @@ public class GlobalExceptionHandler {
             ResourceNotFoundException ex,
             HttpServletRequest request
     ) {
-        log.warn("Resource not found at {}: {}", request.getRequestURI(), ex.getMessage());
+        String msg = "Resource not found at " + request.getRequestURI() + ": " + ex.getMessage();
+        log.warn(msg);
+        save("WARN", msg);
 
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request.getRequestURI(), null);
     }
@@ -40,6 +46,10 @@ public class GlobalExceptionHandler {
             NoResourceFoundException ex,
             HttpServletRequest request
     ) {
+        String msg = "Static resource not found at " + request.getRequestURI();
+        log.warn(msg);
+        save("WARN", msg);
+
         return build(HttpStatus.NOT_FOUND, "Not found", request.getRequestURI(), null);
     }
 
@@ -49,7 +59,9 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex,
             HttpServletRequest request
     ) {
-        log.warn("Bad request at {}: {}", request.getRequestURI(), ex.getMessage());
+        String msg = "Bad request at " + request.getRequestURI() + ": " + ex.getMessage();
+        log.warn(msg);
+        save("WARN", msg);
 
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI(), null);
     }
@@ -66,7 +78,9 @@ public class GlobalExceptionHandler {
                 .map(this::formatFieldError)
                 .collect(Collectors.toList());
 
-        log.warn("Validation failed at {}: {}", request.getRequestURI(), details);
+        String msg = "Validation failed at " + request.getRequestURI() + ": " + details;
+        log.warn(msg);
+        save("WARN", msg);
 
         return build(HttpStatus.BAD_REQUEST, "Validation failed", request.getRequestURI(), details);
     }
@@ -82,7 +96,9 @@ public class GlobalExceptionHandler {
                 .map(v -> v.getPropertyPath() + ": " + v.getMessage())
                 .toList();
 
-        log.warn("Constraint violation at {}: {}", request.getRequestURI(), details);
+        String msg = "Constraint violation at " + request.getRequestURI() + ": " + details;
+        log.warn(msg);
+        save("WARN", msg);
 
         return build(HttpStatus.BAD_REQUEST, "Constraint violation", request.getRequestURI(), details);
     }
@@ -93,7 +109,9 @@ public class GlobalExceptionHandler {
             BadCredentialsException ex,
             HttpServletRequest request
     ) {
-        log.warn("Authentication failed at {}: {}", request.getRequestURI(), ex.getMessage());
+        String msg = "Authentication failed at " + request.getRequestURI() + ": " + ex.getMessage();
+        log.warn(msg);
+        save("WARN", msg);
 
         return build(HttpStatus.UNAUTHORIZED, "Invalid username or password", request.getRequestURI(), null);
     }
@@ -104,7 +122,9 @@ public class GlobalExceptionHandler {
             AccessDeniedException ex,
             HttpServletRequest request
     ) {
-        log.warn("Access denied to {} from {}", request.getRequestURI(), request.getRemoteAddr());
+        String msg = "Access denied to " + request.getRequestURI() + " from " + request.getRemoteAddr();
+        log.warn(msg);
+        save("WARN", msg);
 
         return build(HttpStatus.FORBIDDEN, "Access denied", request.getRequestURI(), null);
     }
@@ -115,7 +135,9 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request
     ) {
+        String msg = "Unexpected error at " + request.getRequestURI() + ": " + ex.getClass().getSimpleName() + " - " + ex.getMessage();
         log.error("Unexpected error at {}", request.getRequestURI(), ex);
+        save("ERROR", msg);
 
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error occurred", request.getRequestURI(), null);
     }
@@ -140,6 +162,22 @@ public class GlobalExceptionHandler {
 
     private String formatFieldError(FieldError error) {
         return error.getField() + ": " + error.getDefaultMessage();
+    }
+
+    private Log buildLog(String level, String message) {
+        String username = RequestLogFilter.resolveUsername();
+
+        return Log.builder()
+                .logLevel(level)
+                .message(message)
+                .username(username)
+                .build();
+    }
+
+    private void save(String level, String message) {
+        try {
+            logService.save(buildLog(level, message));
+        } catch (Exception ignored) {}
     }
 
     public record ErrorResponse(

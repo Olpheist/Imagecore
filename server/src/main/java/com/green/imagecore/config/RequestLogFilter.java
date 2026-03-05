@@ -86,7 +86,7 @@ public class RequestLogFilter extends OncePerRequestFilter {
         }
     }
 
-    private String resolveUsername() {
+    public static String resolveUsername() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         if (auth == null || !auth.isAuthenticated()) return "\\";

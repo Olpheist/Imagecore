@@ -3,7 +3,7 @@ package com.green.imagecore.dto;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -14,6 +14,6 @@ public class UserDto {
     private String email;
     private String username;
     private boolean enabled;
-    private Date createdAt;
+    private Instant createdAt;
     private Set<UserRoleDto> userRoles = new HashSet<>();
 }

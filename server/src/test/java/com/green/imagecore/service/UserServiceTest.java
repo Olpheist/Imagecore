@@ -12,7 +12,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashSet;
@@ -270,5 +269,34 @@ class UserServiceTest {
 
         assertFalse(resultRoleIds.contains(1L)); // old role removed
         assertTrue(resultRoleIds.contains(2L));  // new role added
+    }
+
+    @Test
+    void deleteUser_Success() {
+        Long userId = 1L;
+
+        when(userRepository.existsById(userId)).thenReturn(true);
+        doNothing().when(userRepository).deleteById(userId);
+
+        assertDoesNotThrow(() -> userService.deleteUser(userId));
+
+        verify(userRepository).existsById(userId);
+        verify(userRepository).deleteById(userId);
+    }
+
+    @Test
+    void deleteUser_ThrowsException_WhenUserNotFound() {
+        Long userId = 99L;
+
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        ResourceNotFoundException exception = assertThrows(
+                ResourceNotFoundException.class,
+                () -> userService.deleteUser(userId)
+        );
+
+        assertEquals("User not found with id: 99", exception.getMessage());
+        verify(userRepository).existsById(userId);
+        verify(userRepository, never()).deleteById(anyLong());
     }
 }

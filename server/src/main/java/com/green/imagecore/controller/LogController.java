@@ -1,11 +1,8 @@
 package com.green.imagecore.controller;
 
 import com.green.imagecore.dto.LogDto;
-import com.green.imagecore.dto.RoleDto;
 import com.green.imagecore.mapper.LogMapper;
-import com.green.imagecore.mapper.RoleMapper;
 import com.green.imagecore.service.LogService;
-import com.green.imagecore.service.RoleService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

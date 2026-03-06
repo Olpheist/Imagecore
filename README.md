@@ -27,6 +27,9 @@ Requires: Java 17, Docker
 
 ## Running the Project
 
+Navigate to the hosted link below:  
+https://imagecore.org/
+
 To run the application and database locally, you can simply run the following command from the root of the repository
 
 ```shell
@@ -44,6 +47,10 @@ You can view the application locally at [http://localhost:8080](http://localhost
 2. On the login page, select **Register**.
 3. After successfully registering, you are redirected back to the **Landing Page**.
 4. Open the **top-right navigation menu** and select **Dashboard** to access your dashboard.
+5. If logged in as admin, select the **Admin Center** to view and manage user accounts and inspect recent log application
+6. On the **Dashboard**, if you have the CLINICIAN role, you can access the the Upload DICOM Image widget
+7. On the **Dashboard**, if you have the CLINICIAN, RESEARCHER, or ADMIN role, you can access the Tools page
+8. On the **Dashboard**, if you have the CLINICIAN, RESEARCHER, or ADMIN role, you can access the DICOM Image Viewer
 
 **Prerequisites by Operating System**
 

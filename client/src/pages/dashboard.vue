@@ -7,6 +7,10 @@
   <div class="p-4 flex-col gap-6">
     <Button variant="primary" hover rounded @click="$router.push('/tools')">View Available Tools</Button>
   </div>
+
+  <div class="p-4 flex-col gap-6">
+    <Button variant="primary" hover rounded @click="$router.push('/dicom')">Go to our DICOM Viewer</Button>
+  </div>
 </template>
 
 <script setup lang="ts">

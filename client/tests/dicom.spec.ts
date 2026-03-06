@@ -1,0 +1,293 @@
+import { test, expect } from "./fixtures";
+import { makeJwt, mockMeUser } from "./mocks";
+import { mockMe } from "./routes";
+
+// Scoped per describe — does not affect other spec files
+const VIEWER_TIMEOUT = 20_000
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+
+async function gotoViewer(page: any, setToken: (t: string) => Promise<void>) {
+  const token = makeJwt()
+  await setToken(token)
+  await mockMe(page, mockMeUser)
+  await page.goto("/dicom")
+  await page.waitForLoadState("networkidle")
+}
+
+async function waitForViewer(page: any) {
+  await expect(page.getByText("Loading…")).not.toBeVisible({ timeout: VIEWER_TIMEOUT })
+}
+
+// Scoped locators to avoid strict mode violations across sidebar/breadcrumb/meta panel
+const sidebar     = (page: any) => page.locator("aside").first()
+const headerEl    = (page: any) => page.locator("header")
+const metaPanel   = (page: any) => page.locator("aside").filter({ hasText: "Study Information" })
+
+// ─────────────────────────────────────────────
+// Page Navigation
+// ─────────────────────────────────────────────
+
+test.describe("Page navigation", () => {
+  test.setTimeout(30_000)
+
+  test.beforeEach(async ({ clearStorage }) => {
+    await clearStorage()
+  })
+
+  test("loads the /dicom route", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(page).toHaveURL(/\/dicom$/)
+  })
+
+  test("renders the ImageCore header brand", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    // Scope to header to avoid matching nav links and footer
+    await expect(headerEl(page).locator(".text-sm.font-semibold.leading-tight.tracking-tight")).toBeVisible()
+    await expect(headerEl(page).getByText("MRI VIEWER")).toBeVisible()
+  })
+
+  test("renders the study sidebar", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(sidebar(page).getByText("MRI Studies")).toBeVisible()
+  })
+
+  test("renders the LOCAL DATASET badge", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(headerEl(page).getByText("LOCAL DATASET")).toBeVisible()
+  })
+})
+
+// ─────────────────────────────────────────────
+// Study Sidebar
+// ─────────────────────────────────────────────
+
+test.describe("Study sidebar", () => {
+  test.setTimeout(30_000)
+
+  test.beforeEach(async ({ clearStorage }) => {
+    await clearStorage()
+  })
+
+  test("shows the Brain — T1 Coronal study", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    // Use the StudyRow span scoped to sidebar
+    await expect(
+      sidebar(page).locator("span.font-semibold", { hasText: "Brain — T1 Coronal" })
+    ).toBeVisible()
+  })
+
+  test("shows the series description", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(
+      sidebar(page).locator("div.text-xs.text-gray-500", { hasText: "T1 MPRAGE Post-Contrast" })
+    ).toBeVisible()
+  })
+
+  test("shows the instance count badge", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    // Match the rounded badge span inside the study row
+    await expect(
+      sidebar(page).locator("span.font-mono.rounded-full", { hasText: "1 inst." }).first()
+    ).toBeVisible()
+  })
+
+  test("auto-selects the first study and shows breadcrumb", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(
+      headerEl(page).getByText("Brain — T1 Coronal")
+    ).toBeVisible()
+  })
+
+  test("search filters the study list", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    const input = page.getByPlaceholder("Body part, series…")
+    await input.fill("spine")
+    await expect(sidebar(page).getByText("No results")).toBeVisible()
+    await input.clear()
+    await expect(
+      sidebar(page).locator("span.font-semibold", { hasText: "Brain — T1 Coronal" })
+    ).toBeVisible()
+  })
+
+  test("search matches on body part", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    const input = page.getByPlaceholder("Body part, series…")
+    await input.fill("Brain")
+    await expect(
+      sidebar(page).locator("span.font-semibold", { hasText: "Brain — T1 Coronal" })
+    ).toBeVisible()
+  })
+
+  test("shows correct series count in sidebar header", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(sidebar(page).getByText("1 / 1")).toBeVisible()
+  })
+
+  test("clicking a study row activates it", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await sidebar(page).locator("span.font-semibold", { hasText: "Brain — T1 Coronal" }).click()
+    await expect(headerEl(page).getByText("Brain — T1 Coronal")).toBeVisible()
+  })
+})
+
+// ─────────────────────────────────────────────
+// ViewerToolbar — Tool switching
+// ─────────────────────────────────────────────
+
+test.describe("ViewerToolbar tool switching", () => {
+  test.setTimeout(30_000)
+
+  test.beforeEach(async ({ clearStorage }) => {
+    await clearStorage()
+  })
+
+  test("renders all four tool buttons", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(page.getByTitle("SCROLL")).toBeVisible()
+    await expect(page.getByTitle("W / L")).toBeVisible()
+    await expect(page.getByTitle("ZOOM")).toBeVisible()
+    await expect(page.getByTitle("PAN")).toBeVisible()
+  })
+
+  test("SCROLL is the default active tool", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(page.getByTitle("SCROLL")).toHaveClass(/bg-violet-50/)
+  })
+
+  test("clicking ZOOM activates it", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await page.getByTitle("ZOOM").click()
+    await expect(page.getByTitle("ZOOM")).toHaveClass(/bg-violet-50/)
+  })
+
+  test("clicking PAN activates it and deactivates SCROLL", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await page.getByTitle("PAN").click()
+    await expect(page.getByTitle("PAN")).toHaveClass(/bg-violet-50/)
+    await expect(page.getByTitle("SCROLL")).not.toHaveClass(/bg-violet-50/)
+  })
+
+  test("clicking W / L activates it", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await page.getByTitle("W / L").click()
+    await expect(page.getByTitle("W / L")).toHaveClass(/bg-violet-50/)
+  })
+
+  test("renders RESET and INVERT utility buttons", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(page.getByTitle("Reset")).toBeVisible()
+    await expect(page.getByTitle("Invert")).toBeVisible()
+  })
+})
+
+// ─────────────────────────────────────────────
+// ViewerToolbar — Layout switcher
+// ─────────────────────────────────────────────
+
+test.describe("ViewerToolbar layout switcher", () => {
+  test.setTimeout(30_000)
+
+  test.beforeEach(async ({ clearStorage }) => {
+    await clearStorage()
+  })
+
+  test("renders all three layout buttons", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(page.getByRole("button", { name: "1x1" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "1x2" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "2x2" })).toBeVisible()
+  })
+
+  test("1x1 is the default active layout", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(page.getByRole("button", { name: "1x1" })).toHaveClass(/bg-violet-50/)
+  })
+
+  test("1x2 and 2x2 layout buttons are disabled", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(page.getByRole("button", { name: "1x2" })).toBeDisabled()
+    await expect(page.getByRole("button", { name: "2x2" })).toBeDisabled()
+  })
+
+  test("clicking a disabled layout does not change active layout", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await page.getByRole("button", { name: "1x2" }).click({ force: true })
+    await expect(page.getByRole("button", { name: "1x1" })).toHaveClass(/bg-violet-50/)
+  })
+})
+
+// ─────────────────────────────────────────────
+// Study Info panel (StudyMetaPanel)
+// ─────────────────────────────────────────────
+
+test.describe("Study info panel", () => {
+  test.setTimeout(30_000)
+
+  test.beforeEach(async ({ clearStorage }) => {
+    await clearStorage()
+  })
+
+  test("panel is hidden by default", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await expect(metaPanel(page)).toHaveAttribute("style", /width: 0px/)
+  })
+
+  test("clicking Study Info opens the panel", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await page.getByRole("button", { name: /study info/i }).click()
+    await expect(metaPanel(page)).not.toHaveAttribute("style", /width: 0px/)
+    await expect(metaPanel(page).getByText("Study Information")).toBeVisible()
+  })
+
+  test("panel shows correct metadata when open", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await page.getByRole("button", { name: /study info/i }).click()
+    const panel = metaPanel(page)
+    await expect(panel.getByText("MRI (MR)")).toBeVisible()
+    await expect(panel.getByText("T1 MPRAGE Post-Contrast")).toBeVisible()
+    await expect(panel.getByText("Dr. Apple")).toBeVisible()
+    await expect(panel.getByText("PT-00421")).toBeVisible()
+    await expect(panel.getByText("1 slice(s)")).toBeVisible()
+  })
+
+  test("clicking Study Info again closes the panel", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    const btn = page.getByRole("button", { name: /study info/i })
+    await btn.click()
+    await expect(metaPanel(page)).not.toHaveAttribute("style", /width: 0px/)
+    await btn.click()
+    await expect(metaPanel(page)).toHaveAttribute("style", /width: 0px/)
+  })
+})
+
+// ─────────────────────────────────────────────
+// MriCanvas — Viewer rendering
+// ─────────────────────────────────────────────
+
+test.describe("MriCanvas viewer", () => {
+  test.setTimeout(30_000)
+
+  test.beforeEach(async ({ clearStorage }) => {
+    await clearStorage()
+  })
+
+  test("loading state resolves", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await waitForViewer(page)
+  })
+
+  test("viewport is present after load", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await waitForViewer(page)
+    await expect(page.locator(".mri-viewport")).toBeVisible()
+  })
+
+  test("does not show error state for valid local DCM", async ({ page, setToken }) => {
+    await gotoViewer(page, setToken)
+    await waitForViewer(page)
+    await expect(page.locator(".mri-error")).not.toBeVisible()
+  })
+})

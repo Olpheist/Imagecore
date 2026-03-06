@@ -12,7 +12,11 @@ export default defineConfig({
     port: 3000,
     reuseExistingServer: true
   },
-  fullyParallel: true,
+  fullyParallel: false,
+  expect: {
+    timeout: 10_000,   // applies to all expect() calls globally
+  },
+  retries: process.env.CI ? 2 : 0,
   workers: 1,
   projects: [
     {

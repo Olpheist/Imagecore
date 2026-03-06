@@ -5,6 +5,21 @@ import { mockMe } from "./routes";
 // Scoped per describe — does not affect other spec files
 const VIEWER_TIMEOUT = 20_000
 
+test.describe.configure({ mode: 'serial' })
+
+test.afterAll(async ({ browser }) => {
+  // Close all contexts to force fresh state for subsequent spec files
+  const contexts = browser.contexts()
+  await Promise.all(contexts.map(ctx => ctx.close()))
+})
+
+// dicom.spec.ts — replace all the per-describe beforeEach blocks with one at the top
+test.beforeEach(async ({ clearStorage, page, setToken }) => {
+  await clearStorage()
+  await setToken(makeJwt())
+  await mockMe(page, mockMeUser)
+})
+
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
@@ -32,10 +47,6 @@ const metaPanel   = (page: any) => page.locator("aside").filter({ hasText: "Stud
 
 test.describe("Page navigation", () => {
   test.setTimeout(30_000)
-
-  test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage()
-  })
 
   test("loads the /dicom route", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)
@@ -66,10 +77,6 @@ test.describe("Page navigation", () => {
 
 test.describe("Study sidebar", () => {
   test.setTimeout(30_000)
-
-  test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage()
-  })
 
   test("shows the Brain — T1 Coronal study", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)
@@ -140,10 +147,6 @@ test.describe("Study sidebar", () => {
 test.describe("ViewerToolbar tool switching", () => {
   test.setTimeout(30_000)
 
-  test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage()
-  })
-
   test("renders all four tool buttons", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)
     await expect(page.getByTitle("SCROLL")).toBeVisible()
@@ -190,10 +193,6 @@ test.describe("ViewerToolbar tool switching", () => {
 test.describe("ViewerToolbar layout switcher", () => {
   test.setTimeout(30_000)
 
-  test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage()
-  })
-
   test("renders all three layout buttons", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)
     await expect(page.getByRole("button", { name: "1x1" })).toBeVisible()
@@ -225,10 +224,6 @@ test.describe("ViewerToolbar layout switcher", () => {
 
 test.describe("Study info panel", () => {
   test.setTimeout(30_000)
-
-  test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage()
-  })
 
   test("panel is hidden by default", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)
@@ -269,10 +264,6 @@ test.describe("Study info panel", () => {
 
 test.describe("MriCanvas viewer", () => {
   test.setTimeout(30_000)
-
-  test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage()
-  })
 
   test("loading state resolves", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)

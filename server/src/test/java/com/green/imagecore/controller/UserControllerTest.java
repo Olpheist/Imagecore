@@ -12,23 +12,19 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import org.springframework.http.MediaType;
 
 import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(UserController.class)
 @Import({SecurityConfig.class, RequestLogFilter.class})
 @TestPropertySource(properties = "app.jwt.secret=test-secret-key-that-is-long-enough-for-hmac")
-class UserControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
+class UserControllerTest extends BaseControllerTest {
 
     @MockitoBean
     private UserService userService;
@@ -114,5 +110,43 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"roleIds\": [2, 3]}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void deleteUser_asAdmin_returns204() throws Exception {
+        Long currentUserId = 1L;
+        Long targetUserId = 2L;
+
+        User currentUser = new User();
+        currentUser.setId(currentUserId);
+        currentUser.setUsername("admin");
+
+        when(userService.findByUsername("admin")).thenReturn(currentUser);
+
+        mockMvc.perform(delete("/api/users/{id}", targetUserId))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void deleteUser_cannotDeleteSelf_returns400() throws Exception {
+        Long userId = 1L;
+
+        User currentUser = new User();
+        currentUser.setId(userId);
+        currentUser.setUsername("admin");
+
+        when(userService.findByUsername("admin")).thenReturn(currentUser);
+
+        mockMvc.perform(delete("/api/users/{id}", userId))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "PATIENT")
+    void deleteUser_asUser_returns403() throws Exception {
+        mockMvc.perform(delete("/api/users/1"))
+                .andExpect(status().isForbidden());
     }
 }

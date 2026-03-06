@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <Table :columns="columns" :rows="users" rowKey="id">
+    <Table :columns="columns" :rows="pagedUsers" rowKey="id">
 
       <template #cell-username="{ value }">
         <span class="font-medium text-slate-900">{{ value }}</span>
@@ -46,9 +46,10 @@
             Edit
           </Button>
           <Button
-              @click="handleDelete(row)"
+              @click="openDeleteModal(row)"
               variant="danger"
-              rounded hover
+              rounded
+              hover
               size="sm"
           >
             Delete
@@ -56,6 +57,11 @@
         </div>
       </template>
     </Table>
+    <Pagination
+        v-model:currentPage="currentPage"
+        :totalNum="users.length"
+        :perPage="perPage"
+    />
     <Modal v-model="showEditModal" title="Edit User">
       <div class="space-y-3">
         <p class="text-sm text-slate-500">Roles</p>
@@ -100,7 +106,41 @@
         </div>
       </template>
     </Modal>
-    <Error :error="error" dismissible @close="error = null" />
+    <Modal v-model="showDeleteModal" title="Delete User">
+      <div class="space-y-4">
+        <p class="text-sm text-slate-600">
+          Are you sure you want to delete this user?
+        </p>
+
+        <div v-if="userToDelete" class="text-sm bg-slate-50 p-3 rounded border">
+          <div><span class="font-semibold">Username:</span> {{ userToDelete.username }}</div>
+          <div><span class="font-semibold">Email:</span> {{ userToDelete.email }}</div>
+        </div>
+
+        <p class="text-sm text-red-600">
+          This action cannot be undone.
+        </p>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <Button
+              variant="primary"
+              @click="closeDeleteModal"
+              hover rounded
+          >
+            Cancel
+          </Button>
+          <Button
+              variant="danger"
+              @click="confirmDelete"
+              :disabled="!userToDelete"
+              hover rounded
+          >
+            Delete User
+          </Button>
+        </div>
+      </div>
+    </Modal>
+    <Error class="mt-2" :error="error" dismissible @close="error = null" />
   </div>
 </template>
 
@@ -117,16 +157,26 @@ const users = ref(await useApiFetch<UserDto[]>("/users") ?? []);
 const roles = ref(await useApiFetch<RoleDto[]>("/roles") ?? []);
 const error = ref<ApiError | null>(null);
 
+const currentPage = ref(1);
+const perPage = ref(5);
+
+const pagedUsers = computed(() => {
+  const start = (currentPage.value - 1) * perPage.value;
+  return users.value.slice(start, start + perPage.value);
+});
+
 const showEditModal = ref(false);
 type EditModalForm = {
   userId: number | null;
   roleIds: number[];
 };
-
 const editModalForm = ref<EditModalForm>({
   userId: null,
   roleIds: [],
 });
+
+const showDeleteModal = ref(false);
+const userToDelete = ref<UserDto | null>(null);
 
 const columns = [
   { key: "username", label: "Username" },
@@ -178,7 +228,31 @@ async function saveRoles(): Promise<void> {
   }
 }
 
-function handleDelete(row: UserDto) {
-  console.log("delete", row);
+function openDeleteModal(row: UserDto): void {
+  userToDelete.value = row;
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal(): void {
+  showDeleteModal.value = false;
+  userToDelete.value = null;
+}
+
+async function confirmDelete(): Promise<void> {
+  if (!userToDelete.value) return;
+
+  try {
+    const id = userToDelete.value.id;
+
+    await useApiFetch<void>(`/users/${id}`, {
+      method: "DELETE",
+    });
+
+    users.value = users.value.filter((u) => u.id !== id);
+  } catch (e: unknown) {
+    error.value = e as ApiError;
+  } finally {
+    closeDeleteModal();
+  }
 }
 </script>

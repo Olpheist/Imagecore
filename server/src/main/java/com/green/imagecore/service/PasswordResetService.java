@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 
@@ -33,7 +34,7 @@ public class PasswordResetService {
     @Transactional
     public void requestReset(String email) {
         // clean up expired tokens
-        passwordResetRepository.deleteByExpiresAtBefore(new Date());
+        passwordResetRepository.deleteByExpiresAtBefore(Instant.now());
 
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
@@ -48,8 +49,8 @@ public class PasswordResetService {
         PasswordReset prt = new PasswordReset();
         prt.setUserId(user.getId());
         prt.setTokenHash(tokenHash);
-        prt.setCreatedAt(new Date());
-        prt.setExpiresAt(new Date(System.currentTimeMillis() + TTL_MS));
+        prt.setCreatedAt(Instant.now());
+        prt.setExpiresAt(Instant.now().plusMillis(TTL_MS));
         prt.setUsedAt(null);
 
         passwordResetRepository.save(prt);
@@ -69,7 +70,7 @@ public class PasswordResetService {
             throw new IllegalArgumentException("Invalid or expired reset token.");
         }
 
-        if (prt.getExpiresAt().before(new Date())) {
+        if (prt.getExpiresAt().isBefore(Instant.now())) {
             throw new IllegalArgumentException("Invalid or expired reset token.");
         }
 
@@ -79,7 +80,7 @@ public class PasswordResetService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
-        prt.setUsedAt(new Date());
+        prt.setUsedAt(Instant.now());
         passwordResetRepository.save(prt);
     }
 

@@ -13,7 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,7 +42,7 @@ class PasswordResetServiceTest {
 
         service.requestReset("missing@test.com");
 
-        verify(passwordResetRepository).deleteByExpiresAtBefore(any(Date.class));
+        verify(passwordResetRepository).deleteByExpiresAtBefore(any(Instant.class));
         verify(passwordResetRepository, never()).deleteByUserId(anyLong());
         verify(passwordResetRepository, never()).save(any(PasswordReset.class));
         verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
@@ -58,7 +58,7 @@ class PasswordResetServiceTest {
 
         service.requestReset("user@test.com");
 
-        verify(passwordResetRepository).deleteByExpiresAtBefore(any(Date.class));
+        verify(passwordResetRepository).deleteByExpiresAtBefore(any(Instant.class));
         verify(passwordResetRepository).deleteByUserId(7L);
 
         ArgumentCaptor<PasswordReset> prtCaptor = ArgumentCaptor.forClass(PasswordReset.class);
@@ -94,8 +94,8 @@ class PasswordResetServiceTest {
     void resetPassword_TokenAlreadyUsed_Throws() {
         PasswordReset prt = new PasswordReset();
         prt.setUserId(1L);
-        prt.setExpiresAt(new Date(System.currentTimeMillis() + 60_000));
-        prt.setUsedAt(new Date()); // already used
+        prt.setExpiresAt(Instant.now().plusMillis(60000));
+        prt.setUsedAt(Instant.now()); // already used
 
         when(passwordResetRepository.findByTokenHash(anyString())).thenReturn(Optional.of(prt));
 
@@ -109,7 +109,7 @@ class PasswordResetServiceTest {
     void resetPassword_TokenExpired_Throws() {
         PasswordReset prt = new PasswordReset();
         prt.setUserId(1L);
-        prt.setExpiresAt(new Date(System.currentTimeMillis() - 1)); // expired
+        prt.setExpiresAt(Instant.now().plusMillis(-60000)); // expired
         prt.setUsedAt(null);
 
         when(passwordResetRepository.findByTokenHash(anyString())).thenReturn(Optional.of(prt));
@@ -124,7 +124,7 @@ class PasswordResetServiceTest {
     void resetPassword_UserMissing_Throws() {
         PasswordReset prt = new PasswordReset();
         prt.setUserId(999L);
-        prt.setExpiresAt(new Date(System.currentTimeMillis() + 60_000));
+        prt.setExpiresAt(Instant.now().plusMillis(60000));
         prt.setUsedAt(null);
 
         when(passwordResetRepository.findByTokenHash(anyString())).thenReturn(Optional.of(prt));
@@ -140,7 +140,7 @@ class PasswordResetServiceTest {
     void resetPassword_HappyPath_UpdatesPasswordAndMarksTokenUsed() {
         PasswordReset prt = new PasswordReset();
         prt.setUserId(5L);
-        prt.setExpiresAt(new Date(System.currentTimeMillis() + 60_000));
+        prt.setExpiresAt(Instant.now().plusMillis(60000));
         prt.setUsedAt(null);
 
         User user = new User();

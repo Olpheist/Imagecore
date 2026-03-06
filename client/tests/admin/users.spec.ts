@@ -177,3 +177,91 @@ test("save failure shows error component", async ({ page }) => {
     await expect(errorBox).toBeVisible();
     await expect(errorBox).toContainText(/error/i);
 });
+
+test("delete opens confirmation modal", async ({ page }) => {
+    const users = [
+        {
+            id: 10,
+            username: "alice",
+            email: "alice@example.com",
+            enabled: true,
+            userRoles: [],
+        },
+    ];
+
+    await mockUsers(page, users);
+    await mockRoles(page, []);
+
+    await page.goto("/admin/users");
+
+    const row = page.getByRole("row", { name: /alice.*alice@example\.com/i });
+
+    await row.getByRole("button", { name: /^Delete$/ }).click();
+
+    await expect(page.getByText("Are you sure you want to delete this user?")).toBeVisible();
+    await expect(page.getByText("Username: alice")).toBeVisible();
+    await expect(page.getByText("Email: alice@example.com")).toBeVisible();
+});
+
+test("confirm delete sends DELETE and removes user", async ({ page }) => {
+    const users = [
+        {
+            id: 10,
+            username: "alice",
+            email: "alice@example.com",
+            enabled: true,
+            userRoles: [],
+        },
+    ];
+
+    await mockUsers(page, users);
+    await mockRoles(page, []);
+
+    await page.route("**/users/10", async route => {
+        if (route.request().method() === "DELETE") {
+            await route.fulfill({ status: 204 });
+        }
+    });
+
+    await page.goto("/admin/users");
+
+    const row = page.getByRole("row", { name: /alice.*alice@example\.com/i });
+
+    await row.getByRole("button", { name: /^Delete$/ }).click();
+
+    await page.getByRole("button", { name: "Delete User" }).click();
+
+    await expect(page.getByRole("row", { name: /alice/i })).toHaveCount(0);
+});
+
+test("delete failure shows error component", async ({ page }) => {
+    const users = [
+        {
+            id: 10,
+            username: "alice",
+            email: "alice@example.com",
+            enabled: true,
+            userRoles: [],
+        },
+    ];
+
+    await mockUsers(page, users);
+    await mockRoles(page, []);
+
+    await page.route("**/users/10", async route => {
+        if (route.request().method() === "DELETE") {
+            await route.fulfill({ status: 500 });
+        }
+    });
+
+    await page.goto("/admin/users");
+
+    const row = page.getByRole("row", { name: /alice.*alice@example\.com/i });
+
+    await row.getByRole("button", { name: /^Delete$/ }).click();
+
+    await page.getByRole("button", { name: "Delete User" }).click();
+
+    const errorBox = page.locator(".border-red-300.bg-red-50");
+    await expect(errorBox).toBeVisible();
+});

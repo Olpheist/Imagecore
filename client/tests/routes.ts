@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { mockMeUser, mockTools } from "./mocks";
+import type {LogDto} from "../src/models/log";
 
 export const mockLogin = async (page: Page, token: string): Promise<void> => {
     await page.route("**/api/auth/login**", async (route) => {
@@ -225,3 +226,17 @@ export const mockToolsDelete = async (page: any, toolId: number, status = 204): 
         });
     });
 };
+
+export async function mockLogs(page: Page, logs: LogDto[]): Promise<void> {
+    await page.route("**/api/logs**", async (route: any, request: any) => {
+        if (route.request().method() === "GET") {
+            await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify(logs),
+            });
+            return;
+        }
+        await route.fallback();
+    });
+}

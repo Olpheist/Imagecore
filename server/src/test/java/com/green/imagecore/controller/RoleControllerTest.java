@@ -4,6 +4,7 @@ import com.green.imagecore.config.SecurityConfig;
 import com.green.imagecore.config.RequestLogFilter;
 import com.green.imagecore.entities.Role;
 import com.green.imagecore.entities.RoleType;
+import com.green.imagecore.service.LogService;
 import com.green.imagecore.service.RoleService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,12 +22,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(RoleController.class)
-@Import({SecurityConfig.class, RequestLogFilter.class})
 @TestPropertySource(properties = "app.jwt.secret=test-secret-key-that-is-long-enough-for-hmac")
-class RoleControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
+class RoleControllerTest extends BaseControllerTest {
 
     @MockitoBean
     private RoleService roleService;

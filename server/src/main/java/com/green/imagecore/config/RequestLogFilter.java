@@ -1,9 +1,12 @@
 package com.green.imagecore.config;
 
+import com.green.imagecore.entities.Log;
+import com.green.imagecore.service.LogService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +20,9 @@ import java.util.Set;
 
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class RequestLogFilter extends OncePerRequestFilter {
+    private final LogService logService;
 
     private static final Set<String> STATIC_PREFIXES = Set.of(
             "/_nuxt/",
@@ -58,23 +63,30 @@ public class RequestLogFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         String username = resolveUsername();
-
-        // Put user into MDC so every log line can use it
         MDC.put("user", username);
 
         try {
-            log.info(">>> {} {} from {}",
+            filterChain.doFilter(request, response);
+        } finally {
+            String message = String.format("[%d] %s %s %s",
+                    response.getStatus(),
                     request.getMethod(),
                     request.getRequestURI(),
                     request.getRemoteAddr());
 
-            filterChain.doFilter(request, response);
-        } finally {
+            log.info(message);
+
+            logService.save(Log.builder()
+                    .logLevel("INFO")
+                    .username(username)
+                    .message(message)
+                    .build());
+
             MDC.remove("user");
         }
     }
 
-    private String resolveUsername() {
+    public static String resolveUsername() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
         if (auth == null || !auth.isAuthenticated()) return "\\";

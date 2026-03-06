@@ -7,7 +7,6 @@ import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.RoleRepository;
 import com.green.imagecore.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -93,5 +92,13 @@ public class UserService {
         }
 
         return user;
+    }
+
+    @Transactional
+    public void deleteUser(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+        userRepository.deleteById(userId);
     }
 }

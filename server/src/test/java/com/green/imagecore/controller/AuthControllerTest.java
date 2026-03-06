@@ -13,10 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -36,35 +38,21 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 
-@ExtendWith(MockitoExtension.class)
-class AuthControllerTest {
+@WebMvcTest(AuthController.class)
+class AuthControllerTest extends BaseControllerTest {
 
-    private MockMvc mockMvc;
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    @Mock
+    @MockitoBean
     private UserService userService;
-    @Mock
+    @MockitoBean
     private UserAuthenticationService userAuthenticationService;
-    @Mock
+    @MockitoBean
     private AuthenticationManager authenticationManager;
-    @Mock
+    @MockitoBean
     private PasswordResetService passwordResetService;
-    @Mock
+    @MockitoBean
     private JwtService jwtService;
-
-    @BeforeEach
-    void setUp() {
-        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
-        validator.afterPropertiesSet();
-
-        mockMvc = MockMvcBuilders.standaloneSetup(
-                        new AuthController(userService, userAuthenticationService, authenticationManager, jwtService, passwordResetService)
-                )
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .setValidator(validator)
-                .build();
-    }
 
     @Test
     void register_Success() throws Exception {

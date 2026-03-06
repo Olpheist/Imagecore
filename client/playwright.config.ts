@@ -7,6 +7,9 @@ export default defineConfig({
     headless: true,
     navigationTimeout: 10_000,
   },
+  expect: {
+    timeout: 10_000,   // applies to all expect() calls globally
+  },
   webServer: {
     command: 'npm run dev',
     port: 3000,

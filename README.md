@@ -83,6 +83,90 @@ Select LF
 Save the file
 
 
+## Running the project
+
+
+### Feature Checklist
+
+After starting the application, use the checklist below to verify each implemented feature.
+
+#### Authentication & Registration
+- [ ] **Register**:  Visit `/register`, fill in email, username, and password (min 10 chars). Confirm you are redirected to the landing page on success.
+- [ ] **Login**: Visit `/login`, enter credentials. Confirm you are redirected and the nav menu reflects your logged-in state.
+- [ ] **Forgot / Reset Password**: Visit `/forgot-password`, enter a registered email. A reset token is written to the database (see backend verification below). Visit `/reset-password?token=<token>` to complete the flow.
+- [ ] **JWT-based auth**: All protected API calls use a Bearer token stored in `sessionStorage` (`imagecore.jwt`). You can inspect this in browser DevTools → Application → Session Storage.
+
+#### Dashboard & Role-Gated Access
+- [ ] **Dashboard**: After login, navigate to Dashboard from the top-right menu. Widgets visible depend on your roles (ADMIN has all roles (and if not, can add them to itself).
+- [ ] **DICOM Upload widget**: Only visible if your account has the `CLINICIAN` role. Upload the `test.dcm` file; confirm a success response is returned.
+- [ ] **DICOM Viewer**: Accessible to `CLINICIAN`, `RESEARCHER`, and `ADMIN`. Navigate via the dashboard button.
+- [ ] **Tools page**: Accessible to `CLINICIAN`, `RESEARCHER`, and `ADMIN`. Lists available tools (currently one), allows creating and deleting tools.
+
+#### Admin Center (requires `ADMIN` role)
+- [ ] **User management**: Navigate to Admin Center → Users. Confirm all registered users are listed.
+- [ ] **Role assignment**: Change a user's roles using the role editor. Confirm the change is reflected on next login.
+- [ ] **Delete user**: Delete a non-admin user (probably best to delete a user you make with register). Confirm they are removed from the list. (Deleting your own account is blocked.)
+- [ ] **Application logs**: Navigate to Admin Center → Logs. Filter by username, log level (INFO/WARN/ERROR/DEBUG), and time range. Every API request made to the backend appears here.
+
+---
+
+### Backend / Database Verification
+
+The application runs entirely in Docker. You have three clean ways to inspect what is happening under the hood.
+
+#### 1. In-App Log Viewer (easiest)
+Log in as an `ADMIN` user and go to **Admin Center → Logs**.
+
+Every non-static HTTP request made to the backend is logged to the `audit_logs` database table and shown here. Each entry shows:
+- Timestamp
+- Log level
+- Authenticated username (or `\` for anonymous)
+- HTTP status, method, path, and client IP
+
+
+#### 2. Live Server Logs (terminal)
+The `run_application.sh` script streams Docker Compose output directly to your terminal. Spring Boot logs every request, Flyway migration, and startup event there. To view logs after startup in a separate terminal:
+
+```bash
+docker logs -f imagecore-dev
+```
+
+#### 3. Direct Database Access
+The PostgreSQL database is exposed on `localhost:5432` while the application is running.
+
+Connect with any PostgreSQL client:
+
+| Setting  | Value       |
+|----------|-------------|
+| Host     | `localhost` |
+| Port     | `5432`      |
+| Database | `imagecore` |
+| Username | `imagecore` |
+| Password | `imagecore` |
+
+
+#### API Endpoints Summary
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/register` | Public | Register a new user |
+| POST | `/api/auth/login` | Public | Login and receive JWT |
+| POST | `/api/auth/forgot-password` | Public | Request a password reset |
+| POST | `/api/auth/reset-password` | Public | Complete password reset |
+| GET | `/api/users/me` | Any authenticated | Get current user profile |
+| GET | `/api/users` | ADMIN | List all users |
+| PUT | `/api/users/{id}/roles` | ADMIN | Update a user's roles |
+| DELETE | `/api/users/{id}` | ADMIN | Delete a user |
+| GET | `/api/roles` | ADMIN | List all roles |
+| GET | `/api/logs` | ADMIN | Query audit logs |
+| GET | `/api/tools` | CLINICIAN, RESEARCHER, ADMIN | List all tools |
+| POST | `/api/tools` | CLINICIAN, RESEARCHER, ADMIN | Create a tool |
+| DELETE | `/api/tools/{id}` | CLINICIAN, RESEARCHER, ADMIN | Delete a tool |
+| GET | `/api/tools/category/{category}` | CLINICIAN, RESEARCHER, ADMIN | Filter tools by category |
+| POST | `/api/images/upload` | CLINICIAN | Upload a DICOM file to S3 |
+
+---
+
 ## Licensing
 
 For more information regarding use and commercialisation of this software, you can view the license at [`LICENSE`](LICENSE)

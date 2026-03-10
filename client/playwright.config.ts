@@ -17,7 +17,7 @@ export default defineConfig({
     timeout: 10_000,   // applies to all expect() calls globally
   },
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  workers: undefined,
   projects: [
     {
       name: 'all-except-dicom',
@@ -27,6 +27,7 @@ export default defineConfig({
       name: 'dicom',  // need serial execution for stateful viewer tests
       testMatch: '**/dicom.spec.ts',
       dependencies: ['all-except-dicom'],
+      workers: 1
     },
   ],
 

@@ -2,25 +2,7 @@ package com.green.imagecore.repositories;
 
 import com.green.imagecore.entities.Log;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-import java.time.Instant;
-import java.util.List;
-
-public interface LogRepository extends JpaRepository<Log, Long> {
-    @Query("""
-    SELECT l FROM Log l
-    WHERE (:username IS NULL OR l.username = :username)
-    AND (:logLevel IS NULL OR l.logLevel = :logLevel)
-    AND (CAST(:from AS java.time.Instant) IS NULL OR l.createdAt >= :from)
-    AND (CAST(:to AS java.time.Instant) IS NULL OR l.createdAt <= :to)
-    ORDER BY l.createdAt DESC
-    """)
-    List<Log> search(
-            @Param("username") String username,
-            @Param("logLevel") String logLevel,
-            @Param("from") Instant from,
-            @Param("to") Instant to
-    );
+public interface LogRepository extends JpaRepository<Log, Long>, JpaSpecificationExecutor<Log> {
 }

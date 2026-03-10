@@ -75,4 +75,9 @@ public class LogService {
 
         return logRepository.findAll(spec, pageable);
     }
+
+    @Transactional
+    public void deleteAll() {
+        logRepository.deleteAllInBatch();
+    }
 }

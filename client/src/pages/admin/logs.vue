@@ -5,8 +5,16 @@
         <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Logs</h1>
         <p class="mt-1 text-sm text-slate-500">Inspect recent application logs.</p>
       </div>
-      <div class="self-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700">
-        {{ totalLogs }} total
+      <div class="flex items-center gap-3">
+        <Button
+            variant="danger"
+            :rounded="true"
+            size="sm"
+            hover
+            @click="openPurgeModal"
+        >
+          Purge Logs
+        </Button>
       </div>
     </div>
     <Card variant="outlined" :rounded="true" class="mb-4 p-4">
@@ -151,6 +159,7 @@
         </div>
       </div>
     </Card>
+    <Error class="mt-2 mb-4" :error="error" dismissible @close="error = null" />
     <Loading v-if="loading" label="Loading logs..." />
     <Table v-else :columns="columns" :rows="logs" rowKey="id">
       <template #cell-createdAt="{ value }">
@@ -194,7 +203,40 @@
         :totalNum="totalLogs"
         :perPage="perPage"
     />
-    <Error class="mt-2" :error="error" dismissible @close="error = null" />
+    <Modal v-model="showPurgeModal" title="Purge Logs">
+      <div class="space-y-4">
+        <p class="text-sm text-slate-600">
+          Are you sure you want to permanently delete all logs?
+        </p>
+
+        <div class="rounded border bg-slate-50 p-3 text-sm">
+          <div><span class="font-semibold">Current total:</span> {{ totalLogs }}</div>
+        </div>
+
+        <p class="text-sm text-red-600">
+          This action cannot be undone.
+        </p>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <Button
+              variant="primary"
+              @click="closePurgeModal"
+              hover
+              rounded
+          >
+            Cancel
+          </Button>
+          <Button
+              variant="danger"
+              @click="confirmPurge"
+              hover
+              rounded
+          >
+            Purge Logs
+          </Button>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
@@ -213,6 +255,9 @@ const totalLogs = ref(0);
 const currentPage = ref(1);
 const perPage = ref(50);
 const loading = ref(true);
+
+const showPurgeModal = ref(false);
+const purging = ref(false);
 
 function toLocalDatetime(date: Date): string {
   const offset = date.getTimezoneOffset();
@@ -376,6 +421,34 @@ function resetFilters(): void {
   filters.value = defaultFilters();
   currentPage.value = 1;
   fetchLogs();
+}
+
+function openPurgeModal(): void {
+  showPurgeModal.value = true;
+}
+
+function closePurgeModal(): void {
+  showPurgeModal.value = false;
+}
+
+async function confirmPurge(): Promise<void> {
+  try {
+    purging.value = true;
+    error.value = null;
+
+    await useApiFetch<void>("/logs", {
+      method: "DELETE",
+    });
+
+    logs.value = [];
+    totalLogs.value = 0;
+    currentPage.value = 1;
+  } catch (e: unknown) {
+    error.value = e as ApiError;
+  } finally {
+    purging.value = false;
+    closePurgeModal();
+  }
 }
 
 watch(currentPage, async () => {

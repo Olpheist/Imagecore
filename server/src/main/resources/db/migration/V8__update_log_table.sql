@@ -2,8 +2,7 @@ ALTER TABLE audit_logs
     ADD COLUMN method VARCHAR(10),
     ADD COLUMN path TEXT,
     ADD COLUMN status INT,
-    ADD COLUMN duration_ms INT,
-    ADD COLUMN ip VARCHAR(45);
+    ADD COLUMN duration_ms INT;
 
 ALTER TABLE audit_logs
 DROP COLUMN message;

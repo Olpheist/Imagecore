@@ -16,5 +16,4 @@ public class LogDto {
     private String path;
     private Integer status;
     private Integer durationMs;
-    private String ip;
 }

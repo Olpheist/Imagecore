@@ -32,7 +32,6 @@ public class LogController {
             @RequestParam(required = false) String method,
             @RequestParam(required = false) String path,
             @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) String ip,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(defaultValue = "0") int page,
@@ -44,7 +43,6 @@ public class LogController {
                 method,
                 path,
                 status,
-                ip,
                 from,
                 to,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))

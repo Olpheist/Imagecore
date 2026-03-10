@@ -77,7 +77,6 @@ public class RequestLogFilter extends OncePerRequestFilter {
             int status = response.getStatus();
             String method = request.getMethod();
             String path = request.getRequestURI();
-            String ip = request.getRemoteAddr();
             long duration = System.currentTimeMillis() - start;
 
             boolean skipHealthCheck =
@@ -90,12 +89,11 @@ public class RequestLogFilter extends OncePerRequestFilter {
                 String logLevel = resolveLogLevel(status);
 
                 String message = String.format(
-                        "[%d] %s %s (%dms) %s",
+                        "[%d] %s %s (%dms)",
                         status,
                         method,
                         path,
-                        duration,
-                        ip
+                        duration
                 );
 
                 writeApplicationLog(logLevel, message);
@@ -108,7 +106,6 @@ public class RequestLogFilter extends OncePerRequestFilter {
                                 .path(path)
                                 .status(status)
                                 .durationMs((int) duration)
-                                .ip(ip)
                                 .build()
                 );
             }

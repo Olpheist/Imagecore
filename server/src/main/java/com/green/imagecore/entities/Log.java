@@ -38,7 +38,4 @@ public class Log {
 
     @Column(name = "duration_ms")
     private Integer durationMs;
-
-    @Column(name = "ip", length = 45)
-    private String ip;
 }

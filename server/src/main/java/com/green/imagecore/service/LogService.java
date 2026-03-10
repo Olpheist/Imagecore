@@ -32,7 +32,6 @@ public class LogService {
             String method,
             String path,
             Integer status,
-            String ip,
             Instant from,
             Instant to,
             Pageable pageable
@@ -61,13 +60,6 @@ public class LogService {
 
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
-            }
-
-            if (ip != null && !ip.isBlank()) {
-                predicates.add(cb.like(
-                        cb.lower(root.get("ip")),
-                        "%" + ip.toLowerCase() + "%"
-                ));
             }
 
             if (from != null) {

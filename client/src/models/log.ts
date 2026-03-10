@@ -7,6 +7,5 @@ export type LogDto = {
     path: string | null;
     status: number | null;
     durationMs: number | null;
-    ip: string | null;
     message: string;
 };

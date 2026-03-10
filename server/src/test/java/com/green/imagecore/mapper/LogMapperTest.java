@@ -27,7 +27,10 @@ class LogMapperTest {
         log.setCreatedAt(now);
         log.setLogLevel("INFO");
         log.setUsername("john");
-        log.setMessage("Something happened");
+        log.setMethod("GET");
+        log.setPath("/api/tools");
+        log.setStatus(200);
+        log.setDurationMs(45);
 
         LogDto dto = LogMapper.toDto(log);
 
@@ -35,7 +38,10 @@ class LogMapperTest {
         assertEquals(now, dto.getCreatedAt());
         assertEquals("INFO", dto.getLogLevel());
         assertEquals("john", dto.getUsername());
-        assertEquals("Something happened", dto.getMessage());
+        assertEquals("GET", dto.getMethod());
+        assertEquals("/api/tools", dto.getPath());
+        assertEquals(200, dto.getStatus());
+        assertEquals(45, dto.getDurationMs());
     }
 
     @Test
@@ -43,13 +49,18 @@ class LogMapperTest {
         Log log = new Log();
         log.setId(2L);
         log.setLogLevel("WARN");
-        log.setMessage("No user");
 
         LogDto dto = LogMapper.toDto(log);
 
         assertEquals(2L, dto.getId());
+        assertEquals("WARN", dto.getLogLevel());
+
         assertNull(dto.getUsername());
         assertNull(dto.getCreatedAt());
+        assertNull(dto.getMethod());
+        assertNull(dto.getPath());
+        assertNull(dto.getStatus());
+        assertNull(dto.getDurationMs());
     }
 
     // --- toDtos ---
@@ -69,19 +80,21 @@ class LogMapperTest {
         Log first = new Log();
         first.setId(1L);
         first.setLogLevel("INFO");
-        first.setMessage("First");
 
         Log second = new Log();
         second.setId(2L);
         second.setLogLevel("ERROR");
-        second.setMessage("Second");
+        second.setMethod("POST");
 
         List<LogDto> dtos = LogMapper.toDtos(List.of(first, second));
 
         assertEquals(2, dtos.size());
+
         assertEquals(1L, dtos.get(0).getId());
-        assertEquals(2L, dtos.get(1).getId());
         assertEquals("INFO", dtos.get(0).getLogLevel());
+
+        assertEquals(2L, dtos.get(1).getId());
         assertEquals("ERROR", dtos.get(1).getLogLevel());
+        assertEquals("POST", dtos.get(1).getMethod());
     }
 }

@@ -3,5 +3,10 @@ export type LogDto = {
     createdAt: string;
     logLevel: string;
     username: string | null;
+    method: string | null;
+    path: string | null;
+    status: number | null;
+    durationMs: number | null;
+    ip: string | null;
     message: string;
 };

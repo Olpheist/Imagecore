@@ -13,6 +13,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "audit_logs")
 public class Log {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,6 +27,18 @@ public class Log {
     @Column(name = "username")
     private String username;
 
-    @Column(name = "message", nullable = false, columnDefinition = "TEXT")
-    private String message;
+    @Column(name = "method", length = 10)
+    private String method;
+
+    @Column(name = "path", columnDefinition = "TEXT")
+    private String path;
+
+    @Column(name = "status")
+    private Integer status;
+
+    @Column(name = "duration_ms")
+    private Integer durationMs;
+
+    @Column(name = "ip", length = 45)
+    private String ip;
 }

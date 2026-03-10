@@ -8,9 +8,13 @@ import java.time.Instant;
 @Getter
 @Setter
 public class LogDto {
-    Long id;
-    Instant createdAt;
-    String logLevel;
-    String username;
-    String message;
+    private Long id;
+    private Instant createdAt;
+    private String logLevel;
+    private String username;
+    private String method;
+    private String path;
+    private Integer status;
+    private Integer durationMs;
+    private String ip;
 }

@@ -19,7 +19,11 @@ public class LogMapper {
         dto.setCreatedAt(log.getCreatedAt());
         dto.setLogLevel(log.getLogLevel());
         dto.setUsername(log.getUsername());
-        dto.setMessage(log.getMessage());
+        dto.setMethod(log.getMethod());
+        dto.setPath(log.getPath());
+        dto.setStatus(log.getStatus());
+        dto.setDurationMs(log.getDurationMs());
+        dto.setIp(log.getIp());
 
         return dto;
     }

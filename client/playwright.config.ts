@@ -8,11 +8,11 @@ export default defineConfig({
     navigationTimeout: 10_000,
   },
   webServer: {
-    command: 'npm run dev',
+    command: "npm run generate && npx serve dist -l 3000",
     port: 3000,
     reuseExistingServer: true
   },
-  fullyParallel: false,
+  fullyParallel: true,
   expect: {
     timeout: 10_000,   // applies to all expect() calls globally
   },

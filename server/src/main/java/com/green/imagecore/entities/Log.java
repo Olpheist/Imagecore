@@ -2,8 +2,11 @@ package com.green.imagecore.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -38,4 +41,8 @@ public class Log {
 
     @Column(name = "duration_ms")
     private Integer durationMs;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "query_params", columnDefinition = "jsonb")
+    private Map<String, String> queryParams;
 }

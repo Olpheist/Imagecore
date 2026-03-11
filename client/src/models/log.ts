@@ -7,4 +7,5 @@ export type LogDto = {
     path: string | null;
     status: number | null;
     durationMs: number | null;
+    queryParams: Record<string, string> | null;
 };

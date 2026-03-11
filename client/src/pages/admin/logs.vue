@@ -197,6 +197,19 @@
           {{ value != null ? `${value} ms` : "—" }}
         </span>
       </template>
+      <template #cell-queryParams="{ row }">
+        <Button
+            v-if="row.queryParams"
+            size="sm"
+            variant="secondary"
+            rounded
+            hover
+            @click="openQueryModal(row.queryParams)"
+        >
+          View
+        </Button>
+        <span v-else class="text-slate-400 text-sm">—</span>
+      </template>
     </Table>
     <Pagination
         v-model:currentPage="currentPage"
@@ -237,6 +250,23 @@
         </div>
       </div>
     </Modal>
+    <Modal v-model="showQueryModal" title="Query Parameters"
+    >
+      <div v-if="selectedQueryParams && Object.keys(selectedQueryParams).length" class="space-y-2 text-sm">
+        <div
+            v-for="(value, key) in selectedQueryParams"
+            :key="key"
+            class="flex justify-between border-b pb-1"
+        >
+          <span class="font-mono text-slate-600">{{ key }}</span>
+          <span class="font-mono text-slate-900">{{ value }}</span>
+        </div>
+      </div>
+
+      <div v-else class="text-sm text-slate-500">
+        No query parameters.
+      </div>
+    </Modal>
   </div>
 </template>
 
@@ -258,6 +288,9 @@ const loading = ref(true);
 
 const showPurgeModal = ref(false);
 const purging = ref(false);
+
+const showQueryModal = ref(false);
+const selectedQueryParams = ref<Record<string, string> | null>(null);
 
 function toLocalDatetime(date: Date): string {
   const offset = date.getTimezoneOffset();
@@ -302,6 +335,7 @@ const columns = [
   { key: "path", label: "Path" },
   { key: "status", label: "Status" },
   { key: "durationMs", label: "Duration" },
+  { key: "queryParams", label: "" },
 ];
 
 const logLevels = ["INFO", "WARN", "ERROR", "DEBUG"];
@@ -449,6 +483,11 @@ async function confirmPurge(): Promise<void> {
     purging.value = false;
     closePurgeModal();
   }
+}
+
+function openQueryModal(params: Record<string, string> | null): void {
+  selectedQueryParams.value = params;
+  showQueryModal.value = true;
 }
 
 watch(currentPage, async () => {

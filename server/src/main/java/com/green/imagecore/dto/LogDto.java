@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -16,4 +17,5 @@ public class LogDto {
     private String path;
     private Integer status;
     private Integer durationMs;
+    private Map<String, String> queryParams;
 }

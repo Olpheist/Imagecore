@@ -16,7 +16,10 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Configuration
@@ -87,6 +90,7 @@ public class RequestLogFilter extends OncePerRequestFilter {
 
             if (!skipHealthCheck) {
                 String logLevel = resolveLogLevel(status);
+                Map<String, String> queryParams = flattenQueryParams(request);
 
                 String message = String.format(
                         "[%d] %s %s (%dms)",
@@ -106,12 +110,21 @@ public class RequestLogFilter extends OncePerRequestFilter {
                                 .path(path)
                                 .status(status)
                                 .durationMs((int) duration)
+                                .queryParams(queryParams)
                                 .build()
                 );
             }
 
             MDC.remove("user");
         }
+    }
+
+    private Map<String, String> flattenQueryParams(HttpServletRequest request) {
+        return request.getParameterMap().entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> String.join(",", Arrays.asList(entry.getValue()))
+                ));
     }
 
     private String resolveLogLevel(int status) {

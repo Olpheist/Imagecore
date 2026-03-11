@@ -2,7 +2,8 @@ ALTER TABLE audit_logs
     ADD COLUMN method VARCHAR(10),
     ADD COLUMN path TEXT,
     ADD COLUMN status INT,
-    ADD COLUMN duration_ms INT;
+    ADD COLUMN duration_ms INT,
+    ADD COLUMN query_params JSONB;
 
 ALTER TABLE audit_logs
 DROP COLUMN message;

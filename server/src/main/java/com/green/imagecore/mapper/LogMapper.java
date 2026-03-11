@@ -23,6 +23,7 @@ public class LogMapper {
         dto.setPath(log.getPath());
         dto.setStatus(log.getStatus());
         dto.setDurationMs(log.getDurationMs());
+        dto.setQueryParams(log.getQueryParams());
 
         return dto;
     }

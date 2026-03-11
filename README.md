@@ -167,6 +167,26 @@ Connect with any PostgreSQL client:
 
 ---
 
+
+## Remote Connection to Production Database
+
+We have set up a bastion ec2 host within the public subnet of our application. This instance belongs to a security group that only allows inbound ssh connection from whitelisted IP addresses and outbound connections to the postgres database and HTTPS (for downloading necessary packages)
+
+To connect you must also get the public `.pem` key and the password for the database. Once these are obtained you can run the following commands to remote into the EC2 instance and connect to the database using `psql`
+
+```bash
+# if you have an existing postgres instance running on pprt 5432
+ssh -i ~/.ssh/rds-viewing.pem -L 5433:imagecore-dev-db.c0pcqiscgii2.us-east-1.rds.amazonaws.com:5432 ec2-user@100.54.38.122
+
+# you should be able to use a local postgres download with the above command in a separate terminal otherwise use the following command within the EC2 instance
+
+psql -h imagecore-dev-db.c0pcqiscgii2.us-east-1.rds.amazonaws.com -p 5432 -U imagecore -d imagecoredb
+```
+
+> [!NOTE]
+> If you move the `.pem` file to the ssh directory and it has too broad of permissions you may get an error saying to restrict permissions to 400
+
+
 ## Licensing
 
 For more information regarding use and commercialisation of this software, you can view the license at [`LICENSE`](LICENSE)

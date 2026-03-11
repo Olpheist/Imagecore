@@ -212,3 +212,45 @@ test("reset clears username filter and sends request again", async ({ page }) =>
         return value === null || value === "";
     }).toBeTruthy();
 });
+
+test("query params modal opens and shows request query params", async ({ page }) => {
+    const logs = [
+        {
+            id: 1,
+            createdAt: "2026-03-05T22:00:00Z",
+            logLevel: "INFO",
+            username: "john",
+            method: "GET",
+            path: "/api/tools",
+            status: 200,
+            durationMs: 42,
+            queryParams: {
+                username: "john",
+                page: "0",
+                size: "50",
+            },
+        },
+    ];
+
+    await page.route("**/api/logs**", async route => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(makeLogsPage(logs)),
+        });
+    });
+
+    await page.goto("/admin/logs");
+
+    await page.getByRole("button", { name: /^View$/ }).click();
+
+    const modal = page.getByText("Query Parameters", { exact: true }).locator("../../..");
+
+    await expect(page.getByText("Query Parameters", { exact: true })).toBeVisible();
+    await expect(modal.getByText("username", { exact: true })).toBeVisible();
+    await expect(modal.getByText("page", { exact: true })).toBeVisible();
+    await expect(modal.getByText("size", { exact: true })).toBeVisible();
+    await expect(modal.getByText("john", { exact: true })).toBeVisible();
+    await expect(modal.getByText("0", { exact: true })).toBeVisible();
+    await expect(modal.getByText("50", { exact: true })).toBeVisible();
+});

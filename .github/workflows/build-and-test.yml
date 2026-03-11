@@ -42,6 +42,10 @@ jobs:
 
   frontend-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ 1/2, 2/2 ]
     defaults:
       run:
         working-directory: client
@@ -70,4 +74,4 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run Frontend Tests
-        run: npm test
+        run: npm test -- --shard=${{ matrix.shard }}

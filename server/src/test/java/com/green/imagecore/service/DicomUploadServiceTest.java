@@ -1,5 +1,9 @@
 package com.green.imagecore.service;
 
+import com.green.imagecore.entities.DicomImage;
+import com.green.imagecore.entities.User;
+import com.green.imagecore.repositories.DicomImageRepository;
+import com.green.imagecore.repositories.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +17,9 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.util.List;
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -23,25 +30,61 @@ class DicomUploadServiceTest {
     @Mock
     private S3Client s3Client;
 
+    @Mock
+    private DicomImageRepository dicomImageRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private DicomUploadService dicomUploadService;
+
+    private User testUser;
 
     @BeforeEach
     void setUp() {
         // @Value fields are not injected by Mockito, so set them via reflection
         ReflectionTestUtils.setField(dicomUploadService, "bucketName", "test-bucket");
+
+        testUser = new User();
+        testUser.setId(42L);
+        testUser.setUsername("testuser");
+        testUser.setEmail("test@example.com");
+        testUser.setPasswordHash("hash");
+
+        // Lenient: sad-path tests reject files before reaching these stubs
+        lenient().when(userRepository.findById(42L)).thenReturn(Optional.of(testUser));
+        lenient().when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
 
-    //happy paths
-    @Test
-    void upload_ReturnsKeyWithUserIdAndDcmExtension() {
-        String key = dicomUploadService.upload(validDicomFile("scan.dcm"), "42");
+    // happy paths
 
-        assertTrue(key.startsWith("dicom/42/"),
-                "Key should be namespaced under dicom/{userId}/");
-        assertTrue(key.endsWith(".dcm"),
-                "Key should use the .dcm extension");
+    @Test
+    void upload_ReturnsDicomImageWithS3KeyNamespacedToUser() {
+        DicomImage result = dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
+
+        assertNotNull(result);
+        assertTrue(result.getS3Key().startsWith("dicom/42/"),
+                "S3 key should be namespaced under dicom/{userId}/");
+        assertTrue(result.getS3Key().endsWith(".dcm"),
+                "S3 key should use the .dcm extension");
+    }
+
+    @Test
+    void upload_ReturnsDicomImageWithCorrectFilenameAndSize() {
+        DicomImage result = dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
+
+        assertEquals("scan.dcm", result.getFilename());
+        assertEquals(200L, result.getFileSize());
+    }
+
+    @Test
+    void upload_ReturnsDicomImageLinkedToCorrectUser() {
+        DicomImage result = dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
+
+        assertNotNull(result.getUser());
+        assertEquals(42L, result.getUser().getId());
     }
 
     @Test
@@ -49,7 +92,7 @@ class DicomUploadServiceTest {
         ArgumentCaptor<PutObjectRequest> requestCaptor =
                 ArgumentCaptor.forClass(PutObjectRequest.class);
 
-        dicomUploadService.upload(validDicomFile("scan.dcm"), "42");
+        dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
 
         verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
         PutObjectRequest putRequest = requestCaptor.getValue();
@@ -63,20 +106,53 @@ class DicomUploadServiceTest {
         ArgumentCaptor<PutObjectRequest> requestCaptor =
                 ArgumentCaptor.forClass(PutObjectRequest.class);
 
-        dicomUploadService.upload(validDicomFile("scan.dcm"), "user-999");
+        dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
 
         verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
-        assertTrue(requestCaptor.getValue().key().contains("user-999"));
+        assertTrue(requestCaptor.getValue().key().contains("42"));
     }
 
-    //sad paths
+    @Test
+    void upload_PersistsDicomImageToRepository() {
+        dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
+
+        verify(dicomImageRepository).save(any(DicomImage.class));
+    }
+
+    @Test
+    void uploadBatch_ReturnsOneImagePerFile() {
+        List<org.springframework.web.multipart.MultipartFile> files = List.of(
+                validDicomFile("scan1.dcm"),
+                validDicomFile("scan2.dcm"),
+                validDicomFile("scan3.dcm")
+        );
+
+        List<DicomImage> results = dicomUploadService.uploadBatch(files, 42L);
+
+        assertEquals(3, results.size());
+        verify(s3Client, times(3)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        verify(dicomImageRepository, times(3)).save(any(DicomImage.class));
+    }
+
+    @Test
+    void uploadBatch_EmptyList_ReturnsEmptyList() {
+        List<DicomImage> results = dicomUploadService.uploadBatch(List.of(), 42L);
+
+        assertTrue(results.isEmpty());
+        verifyNoInteractions(s3Client);
+        verifyNoInteractions(dicomImageRepository);
+    }
+
+
+    // sad paths
+
     @Test
     void upload_ThrowsException_WhenFileIsEmpty() {
         MockMultipartFile emptyFile = new MockMultipartFile(
                 "file", "empty.dcm", "application/dicom", new byte[0]);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> dicomUploadService.upload(emptyFile, "42"));
+                () -> dicomUploadService.upload(emptyFile, 42L));
 
         assertEquals("File must not be empty", ex.getMessage());
     }
@@ -87,7 +163,7 @@ class DicomUploadServiceTest {
                 "file", "empty.dcm", "application/dicom", new byte[0]);
 
         assertThrows(IllegalArgumentException.class,
-                () -> dicomUploadService.upload(emptyFile, "42"));
+                () -> dicomUploadService.upload(emptyFile, 42L));
 
         verifyNoInteractions(s3Client);
     }
@@ -98,7 +174,7 @@ class DicomUploadServiceTest {
                 "file", "tiny.dcm", "application/dicom", new byte[50]);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> dicomUploadService.upload(tooSmall, "42"));
+                () -> dicomUploadService.upload(tooSmall, 42L));
 
         assertEquals("File is too small to be a valid DICOM file", ex.getMessage());
         verifyNoInteractions(s3Client);
@@ -106,37 +182,38 @@ class DicomUploadServiceTest {
 
     @Test
     void upload_ThrowsException_WhenMagicBytesAreMissing() {
-        //create fake file filled with zeros, no "DICM" at byte 128 should fail validation
+        // create fake file filled with zeros, no "DICM" at byte 128 should fail validation
         MockMultipartFile notDicom = new MockMultipartFile(
                 "file", "fake.dcm", "application/dicom", new byte[200]);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> dicomUploadService.upload(notDicom, "42"));
+                () -> dicomUploadService.upload(notDicom, 42L));
 
         assertEquals("File is not a valid DICOM file", ex.getMessage());
 
-        //make sure nothing was sent to S3 since file is invalid
+        // make sure nothing was sent to S3 since file is invalid
         verifyNoInteractions(s3Client);
     }
 
     @Test
     void upload_ThrowsException_WhenMagicBytesArePartiallyCorrect() {
-        //only part of "DICM" is present
+        // only part of "DICM" is present
         byte[] content = new byte[200];
         content[128] = 'D';
         content[129] = 'I';
-        //leave last two bytes incorrect on purpose
+        // leave last two bytes incorrect on purpose
         MockMultipartFile partialMagic = new MockMultipartFile(
                 "file", "partial.dcm", "application/dicom", content);
 
         assertThrows(IllegalArgumentException.class,
-                () -> dicomUploadService.upload(partialMagic, "42"));
+                () -> dicomUploadService.upload(partialMagic, 42L));
 
-        //make sure nothing was sent to S3 since file is invalid
+        // make sure nothing was sent to S3 since file is invalid
         verifyNoInteractions(s3Client);
     }
 
-    //helper dicom file
+
+    // helper dicom file
     private MockMultipartFile validDicomFile(String filename) {
         byte[] content = new byte[200];
         content[128] = 'D';

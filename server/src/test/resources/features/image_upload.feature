@@ -6,7 +6,7 @@ Feature: DICOM image upload access control
     Given I am authenticated as a user with role "CLINICIAN"
     When I upload a valid DICOM file
     Then the upload response status is 201
-    And the response body contains an S3 key
+    And the response body contains a DICOM image record
 
   Scenario: A PATIENT cannot upload a DICOM file
     Given I am authenticated as a user with role "PATIENT"

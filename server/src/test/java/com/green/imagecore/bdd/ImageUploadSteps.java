@@ -1,6 +1,10 @@
 package com.green.imagecore.bdd;
 
+import com.green.imagecore.entities.User;
+import com.green.imagecore.repositories.UserRepository;
 import com.green.imagecore.service.JwtService;
+import com.green.imagecore.service.UserService;
+import io.cucumber.java.After;
 import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -9,7 +13,6 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -34,11 +37,24 @@ public class ImageUploadSteps {
     private JwtService jwtService;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private S3Client s3Client;
 
     private MockMvc mockMvc;
     private String jwtToken;
     private ResultActions result;
+
+    /**
+     * The upload service looks up the user by ID from the JWT uid claim.
+     * We create a dedicated test user here so the DB lookup succeeds for
+     * scenarios where the role permits the upload.
+     */
+    private User uploadTestUser;
 
     @Before
     public void setUp() {
@@ -47,16 +63,33 @@ public class ImageUploadSteps {
                 .build();
         // Reset mock state between scenarios
         Mockito.reset(s3Client);
+
+        try {
+            uploadTestUser = userService.register(
+                    "upload_bdd@example.com", "upload_bdd_user", "Password123!");
+        } catch (IllegalArgumentException e) {
+            // User persisted from a previous run — just retrieve it
+            uploadTestUser = userRepository.findByEmail("upload_bdd@example.com").orElseThrow();
+        }
+    }
+
+    @After
+    public void cleanUp() {
+        if (uploadTestUser != null) {
+            userRepository.deleteById(uploadTestUser.getId());
+            uploadTestUser = null;
+        }
     }
 
     @Given("I am authenticated as a user with role {string}")
     public void i_am_authenticated_as_user_with_role(String role) {
-        UserDetails userDetails = new User(
-                "testuser@example.com",
-                "password",
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                "upload_bdd_user",
+                "Password123!",
                 List.of(new SimpleGrantedAuthority("ROLE_" + role))
         );
-        this.jwtToken = jwtService.generateToken(userDetails, "99");
+        // Use the real user's DB id so the upload service can find the user
+        this.jwtToken = jwtService.generateToken(userDetails, uploadTestUser.getId().toString());
     }
 
     @Given("I am not authenticated for upload")
@@ -88,13 +121,14 @@ public class ImageUploadSteps {
         result.andExpect(status().is(expectedStatus));
     }
 
-    @Then("the response body contains an S3 key")
-    public void the_response_body_contains_an_s3_key() throws Exception {
-        result.andExpect(jsonPath("$.key").isNotEmpty());
+    @Then("the response body contains a DICOM image record")
+    public void the_response_body_contains_a_dicom_image_record() throws Exception {
+        result.andExpect(jsonPath("$.id").isNotEmpty())
+              .andExpect(jsonPath("$.filename").isNotEmpty());
     }
 
-    //helper: sends a mock multipart upload request, optionally adding a JWT
-    //auth header, and saves the response for test verification
+    // helper: sends a mock multipart upload request, optionally adding a JWT
+    // auth header, and saves the response for test verification
     private void performUpload(MockMultipartFile file) throws Exception {
         MockMultipartHttpServletRequestBuilder builder =
                 multipart("/api/images/upload").file(file);

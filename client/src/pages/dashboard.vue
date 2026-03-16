@@ -8,6 +8,10 @@
     <Button variant="primary" hover rounded @click="$router.push('/tools')">View Available Tools</Button>
   </div>
 
+  <div v-if="isClinician || isResearcher" class="p-4 flex-col gap-6">
+    <Button variant="primary" hover rounded @click="$router.push('/catalog')">My DICOM Images</Button>
+  </div>
+
   <div class="p-4 flex-col gap-6">
     <Button variant="primary" hover rounded @click="$router.push('/dicom')">Go to our DICOM Viewer</Button>
   </div>
@@ -19,6 +23,7 @@ import { useUserStore } from "~/stores/userStore";
 const userStore = useUserStore();
 const user = userStore.user;
 const isClinician = userStore.hasRole("CLINICIAN");
+const isResearcher = userStore.hasRole("RESEARCHER");
 </script>
 
 <style scoped>

@@ -21,6 +21,28 @@ export const mockAdminUser = {
     userRoles: [{ roleName: "ADMIN", roleId: 3 }],
 };
 
+export const mockClinicianUser = {
+    id: "4",
+    username: "clinician",
+    email: "clinician@example.com",
+    userRoles: [{ roleName: "CLINICIAN", roleId: 4 }],
+};
+
+export const mockImages = [
+    {
+        id: 1,
+        filename: "brain_mri.dcm",
+        fileSize: 204800,
+        uploadedAt: "2026-01-15T10:30:00Z",
+    },
+    {
+        id: 2,
+        filename: "chest_ct.dcm",
+        fileSize: 512000,
+        uploadedAt: "2026-01-16T08:00:00Z",
+    },
+];
+
 
 export const makeJwt = (expSecondsFromNow = 3600): string => {
     const base64url = (obj: object): string =>

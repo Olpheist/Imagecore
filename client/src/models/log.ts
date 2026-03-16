@@ -3,5 +3,9 @@ export type LogDto = {
     createdAt: string;
     logLevel: string;
     username: string | null;
-    message: string;
+    method: string | null;
+    path: string | null;
+    status: number | null;
+    durationMs: number | null;
+    queryParams: Record<string, string> | null;
 };

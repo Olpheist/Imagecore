@@ -4,13 +4,18 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.Map;
 
 @Getter
 @Setter
 public class LogDto {
-    Long id;
-    Instant createdAt;
-    String logLevel;
-    String username;
-    String message;
+    private Long id;
+    private Instant createdAt;
+    private String logLevel;
+    private String username;
+    private String method;
+    private String path;
+    private Integer status;
+    private Integer durationMs;
+    private Map<String, String> queryParams;
 }

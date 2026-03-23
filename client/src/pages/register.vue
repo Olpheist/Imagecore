@@ -8,7 +8,7 @@
             Register to start using ImageCore
           </p>
         </div>
-        <div class="space-y-4">
+        <form class="space-y-4" @submit.prevent="onRegister">
           <Input v-model="username" placeholder="Username" />
           <Input v-model="email" placeholder="Email" />
           <Input
@@ -21,12 +21,12 @@
                   type="button"
                   class="text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
                   @click="showPassword = !showPassword"
+                  tabindex="-1"
               >
                 {{ showPassword ? "Hide" : "Show" }}
               </button>
             </template>
           </Input>
-
           <Input
               v-model="confirmPassword"
               :type="showConfirmPassword ? 'text' : 'password'"
@@ -37,22 +37,23 @@
                   type="button"
                   class="text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
                   @click="showConfirmPassword = !showConfirmPassword"
+                  tabindex="-1"
               >
                 {{ showConfirmPassword ? "Hide" : "Show" }}
               </button>
             </template>
           </Input>
-        </div>
-        <Button
-            variant="success"
-            class="w-full"
-            :disabled="loading"
-            @click="onRegister"
-            hover
-            rounded
-        >
-          {{ loading ? "Creating..." : "Register" }}
-        </Button>
+          <Button
+              type="submit"
+              variant="success"
+              class="w-full"
+              :disabled="loading"
+              hover
+              rounded
+          >
+            {{ loading ? "Creating..." : "Register" }}
+          </Button>
+        </form>
         <Error :error="error" dismissible @close="error = null" />
         <div class="text-center text-sm text-gray-600">
           Already have an account?

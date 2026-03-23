@@ -97,6 +97,34 @@ resource "aws_iam_role_policy" "ecs_task" {
           "${var.s3_bucket_arn}/*"  #objects in bucket
         ]
       },
+      {
+        Sid    = "HealthImagingOperations"
+        Effect = "Allow"
+        Action = [
+          "medical-imaging:StartDICOMImportJob",   #trigger a new import from S3 into the datastore
+          "medical-imaging:GetDICOMImportJob",     #check the status of a running or completed import job
+          "medical-imaging:ListDICOMImportJobs",   #list all import jobs for a datastore
+          "medical-imaging:GetImageSet",           #retrieve metadata for an imported image set
+          "medical-imaging:SearchImageSets",       #query image sets by patient/study attributes
+          "medical-imaging:ListImageSetVersions",  #list versions of an image set (HealthImaging is immutable; updates create new versions)
+          "medical-imaging:GetImageFrame"          #retrieve individual image frames for WADO-RS serving
+        ]
+        Resource = [
+          var.health_imaging_datastore_arn,               #datastore-level operations (e.g. StartDICOMImportJob, ListDICOMImportJobs)
+          "${var.health_imaging_datastore_arn}/imageset/*" #image set-level operations (e.g. GetImageSet, GetImageFrame)
+        ]
+      },
+      {
+        Sid    = "PassHealthImagingImportRole"
+        Effect = "Allow"
+        Action = ["iam:PassRole"]
+        Resource = var.health_imaging_import_role_arn  #the role HealthImaging assumes to read/write S3 during import
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "medical-imaging.amazonaws.com"  #restricts pass to HealthImaging only, preventing privilege escalation
+          }
+        }
+      }
     ]
   })
 }

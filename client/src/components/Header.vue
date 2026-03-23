@@ -4,7 +4,11 @@
       <div class="flex items-center gap-3">
         <NuxtLink to="/">
           <slot name="logo">
-            <div class="w-8 h-8 bg-emerald-600 rounded-md"></div>
+            <img
+                src="/web-app-manifest-512x512.png"
+                alt="ImageCore logo"
+                class="w-8 h-8 object-contain rounded transition hover:brightness-75"
+            />
           </slot>
         </NuxtLink>
         <NuxtLink

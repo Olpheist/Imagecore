@@ -279,6 +279,10 @@ import type { PageResponse } from "~/models/page";
 
 definePageMeta({ layout: "admin" });
 
+useHead({
+  title: "API Logs",
+});
+
 const error = ref<ApiError | null>(null);
 const logs = ref<LogDto[]>([]);
 const totalLogs = ref(0);

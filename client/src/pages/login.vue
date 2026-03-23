@@ -74,6 +74,10 @@ import { useApiFetch } from "~/composables/useApiFetch";
 import { useUserStore } from "~/stores/userStore";
 import type {ApiError} from "~/models/error";
 
+useHead({
+  title: "Login",
+});
+
 const userStore = useUserStore();
 
 const username = ref("");

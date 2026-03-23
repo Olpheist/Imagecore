@@ -53,6 +53,10 @@ import Input from "~/components/Input.vue";
 import { useApiFetch } from "~/composables/useApiFetch";
 import {navigateTo} from "nuxt/app";
 
+useHead({
+  title: "Forgot Password",
+});
+
 const email = ref("");
 const loading = ref(false);
 const submitted = ref(false);

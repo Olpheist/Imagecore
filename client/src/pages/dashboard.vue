@@ -16,6 +16,10 @@
 <script setup lang="ts">
 import { useUserStore } from "~/stores/userStore";
 
+useHead({
+  title: "Dashboard",
+});
+
 const userStore = useUserStore();
 const user = userStore.user;
 const isClinician = userStore.hasRole("CLINICIAN");

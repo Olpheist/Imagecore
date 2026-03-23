@@ -8,6 +8,11 @@ export default defineNuxtConfig({
   ssr: false,
   srcDir: 'src/',
   css: ['./assets/css/main.css'],
+  app: {
+    head: {
+      title: "ImageCore" // default page title
+    }
+  },
   vite: {
     plugins: [
       tailwindcss(),

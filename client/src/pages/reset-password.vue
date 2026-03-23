@@ -74,6 +74,10 @@ import Button from "~/components/Button.vue";
 import Input from "~/components/Input.vue";
 import Error from "~/components/Error.vue";
 
+useHead({
+  title: "Reset Password",
+});
+
 const route = useRoute();
 
 const token = computed(() => {

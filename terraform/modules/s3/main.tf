@@ -56,23 +56,43 @@ resource "aws_s3_bucket_policy" "dicom" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "DenyHTTP"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:*"
-        Resource = [
-          aws_s3_bucket.dicom.arn,
-          "${aws_s3_bucket.dicom.arn}/*"
-        ]
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
+    Statement = concat(
+      [
+        {
+          Sid       = "DenyHTTP"
+          Effect    = "Deny"
+          Principal = "*"
+          Action    = "s3:*"
+          Resource = [
+            aws_s3_bucket.dicom.arn,
+            "${aws_s3_bucket.dicom.arn}/*"
+          ]
+          Condition = {
+            Bool = {
+              "aws:SecureTransport" = "false"
+            }
           }
         }
-      }
-    ]
+      ],
+      var.health_imaging_import_role_arn != null ? [
+        {
+          Sid    = "AllowHealthImagingImport"
+          Effect = "Allow"
+          Principal = {
+            AWS = var.health_imaging_import_role_arn
+          }
+          Action = [
+            "s3:GetObject",
+            "s3:ListBucket",
+            "s3:PutObject"
+          ]
+          Resource = [
+            aws_s3_bucket.dicom.arn,
+            "${aws_s3_bucket.dicom.arn}/*"
+          ]
+        }
+      ] : []
+    )
   })
 
   depends_on = [aws_s3_bucket_public_access_block.dicom]

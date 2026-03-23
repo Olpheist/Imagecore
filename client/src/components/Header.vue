@@ -91,7 +91,7 @@
 
 <script setup lang="ts">
 import { navigateTo } from "nuxt/app";
-import { useUserStore } from "~/stores/userStore";
+import { useUserStore } from "~/stores/user";
 import DropdownMenu from "~/components/DropdownMenu.vue";
 
 const userStore = useUserStore();

@@ -34,10 +34,41 @@
         </Card>
       </div>
     </section>
+    <div class="flex justify-center gap-4 mt-4">
+      <Button
+          v-if="userStore.isLoggedIn"
+          variant="success"
+          rounded
+          size="lg"
+          @click="toDashboard"
+      >
+        Go to Dashboard
+      </Button>
+      <Button
+          v-else
+          variant="success"
+          rounded
+          size="lg"
+          @click="toLogin"
+      >
+        Login
+      </Button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useUserStore } from "~/stores/user";
+
+const userStore = useUserStore();
+
+const toLogin = async () => {
+  await navigateTo("/login");
+}
+
+const toDashboard = async () => {
+  await navigateTo("/dashboard");
+}
 </script>
 
 <style scoped>

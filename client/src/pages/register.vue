@@ -76,7 +76,7 @@ import { navigateTo } from "nuxt/app";
 import { setToken } from "~/utils/authToken";
 import type { AuthResponse } from "~/models/auth";
 import { useApiFetch } from "~/composables/useApiFetch";
-import { useUserStore } from "~/stores/userStore";
+import { useUserStore } from "~/stores/user";
 import type {ApiError} from "~/models/error";
 
 useHead({

@@ -1,7 +1,10 @@
 <template>
-  <div class="p-4 flex flex-col gap-6">
-    <UserProfile :user="user"/>
-    <DicomUpload v-if="isClinician"/>
+  <div v-if="isClinician" class="p-4 flex-col gap-6">
+    <Button variant="primary" hover rounded @click="$router.push('/dicom-upload')">DICOM Upload</Button>
+  </div>
+
+  <div class="p-4 flex-col gap-6">
+    <Button variant="primary" hover rounded @click="$router.push('/profile')">User Profile</Button>
   </div>
 
   <div class="p-4 flex-col gap-6">
@@ -21,7 +24,6 @@ useHead({
 });
 
 const userStore = useUserStore();
-const user = userStore.user;
 const isClinician = userStore.hasRole("CLINICIAN");
 </script>
 

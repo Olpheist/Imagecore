@@ -12,7 +12,7 @@ test("reset password page renders", async ({ page }) => {
     await page.goto("/reset-password?token=fake-token");
 
     await expect(page).toHaveURL(/\/reset-password\?token=/);
-    await expect(page.getByText("Reset Password")).toBeVisible();
+    await expect(page.getByText("Reset Password").first()).toBeVisible();
     await expect(page.getByPlaceholder("New password")).toBeVisible();
     await expect(page.getByPlaceholder("Confirm password")).toBeVisible();
     await expect(getUpdateButton(page)).toBeVisible();

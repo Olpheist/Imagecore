@@ -18,15 +18,15 @@ test.beforeEach(async ({ clearStorage, page }) => {
     });
 });
 
-test("admin dashboard renders and shows links", async ({ page }) => {
+test("admin dashboard renders and shows cards", async ({ page }) => {
     await page.goto("/admin");
 
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
     await expect(page.getByText("System management and oversight tools.")).toBeVisible();
 
-    const grid = page.locator(".grid");
-    const usersCard = grid.getByRole("link", { name: /^Users/i });
-    const logsCard  = grid.getByRole("link", { name: /^Logs/i });
+    const cards = page.locator("main .group");
+    const usersCard = cards.filter({ hasText: "Users" });
+    const logsCard = cards.filter({ hasText: "Logs" });
 
     await expect(usersCard).toBeVisible();
     await expect(logsCard).toBeVisible();
@@ -38,8 +38,10 @@ test("admin dashboard renders and shows links", async ({ page }) => {
 
     await page.goto("/admin");
 
+    const logsCardAgain = page.locator("main .group").filter({ hasText: "Logs" });
+
     await Promise.all([
         page.waitForURL(/\/admin\/logs\/?$/),
-        logsCard.click(),
+        logsCardAgain.click(),
     ]);
 });

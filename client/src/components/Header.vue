@@ -64,7 +64,7 @@
       </div>
 
       <!-- BREADCRUMBS -->
-      <div class="h-11 flex items-center bg-slate-800/60 border-t border-white/10 rounded-b-xl px-2">
+      <div class="h-11 flex items-center bg-slate-800/60 border-t border-white/10 rounded-b-xl px-2" v-if="userStore.isLoggedIn">
         <nav aria-label="Breadcrumb" class="min-w-0">
           <ol class="flex items-center gap-2 text-sm">
             <li>

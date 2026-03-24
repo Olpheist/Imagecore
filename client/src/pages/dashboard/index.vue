@@ -7,13 +7,45 @@
 
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <Card
+          v-if="userStore.isAdmin"
+          variant="outlined"
+          hover
+          rounded
+          hoverBorderClass="hover:border-red-300"
+          class="group block cursor-pointer"
+          @click="navigateTo('/dashboard/admin')"
+      >
+        <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 11c0-1.657 1.343-3 3-3h3v10h-6v-7zM6 8h3c1.657 0 3 1.343 3 3v7H6V8z"
+            />
+          </svg>
+        </div>
+
+        <div class="mt-3">
+          <div class="text-sm font-semibold text-slate-900">Admin Center</div>
+          <div class="mt-0.5 text-xs text-slate-500">
+            Manage users, logs, and system configuration.
+          </div>
+        </div>
+
+        <div class="absolute right-5 top-5 text-slate-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-red-500">
+          →
+        </div>
+      </Card>
+
+      <Card
           v-if="isClinician"
           variant="outlined"
           hover
           rounded
           hoverBorderClass="hover:border-teal-300"
           class="group block cursor-pointer"
-          @click="navigateTo('/dicom-upload')"
+          @click="navigateTo('/dashboard/dicom-upload')"
       >
         <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,7 +72,7 @@
           rounded
           hoverBorderClass="hover:border-blue-300"
           class="group block cursor-pointer"
-          @click="navigateTo('/profile')"
+          @click="navigateTo('/dashboard/profile')"
       >
         <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,7 +99,7 @@
           rounded
           hoverBorderClass="hover:border-violet-300"
           class="group block cursor-pointer"
-          @click="navigateTo('/tools')"
+          @click="navigateTo('/dashboard/tools')"
       >
         <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,7 +132,7 @@
           rounded
           hoverBorderClass="hover:border-amber-300"
           class="group block cursor-pointer"
-          @click="navigateTo('/dicom')"
+          @click="navigateTo('/dashboard/dicom')"
       >
         <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

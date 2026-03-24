@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-8">
-      <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Admin Center</h1>
       <p class="mt-1 text-sm text-slate-500">System management and oversight tools.</p>
     </div>
 
@@ -12,7 +12,7 @@
           rounded
           hoverBorderClass="hover:border-teal-300"
           class="group block cursor-pointer"
-          @click="navigateTo('/admin/users')"
+          @click="navigateTo('/dashboard/admin/users')"
       >
         <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,7 +39,7 @@
           rounded
           hoverBorderClass="hover:border-violet-300"
           class="group block cursor-pointer"
-          @click="navigateTo('/admin/logs')"
+          @click="navigateTo('/dashboard/admin/logs')"
       >
         <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,12 +1,12 @@
-import { test, expect } from "../fixtures";
-import { makeJwt, TOKEN_KEY } from "../mocks";
-import { mockMe } from "../routes";
+import { test, expect } from "../../fixtures";
+import { makeJwt, TOKEN_KEY } from "../../mocks";
 import {
+    mockMe,
     mockUsers,
     mockRoles,
     mockUpdateUserRoles,
     mockUpdateUserRolesFailure
-} from "../routes";
+} from "../../routes";
 
 test.beforeEach(async ({ clearStorage, page }) => {
     await clearStorage();
@@ -51,7 +51,7 @@ test("/admin/users loads users + roles and renders total", async ({ page }) => {
     await mockUsers(page, users);
     await mockRoles(page, roles);
 
-    await page.goto("/admin/users");
+    await page.goto("/dashboard/admin/users");
 
     await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
     await expect(page.getByText("2 total")).toBeVisible();
@@ -96,7 +96,7 @@ test("edit opens modal and save sends PUT /users/:id/roles with roleIds", async 
     await mockRoles(page, roles);
     await mockUpdateUserRoles(page, 10, updatedUser);
 
-    await page.goto("/admin/users");
+    await page.goto("/dashboard/admin/users");
 
     const aliceRow = page.getByRole("row", {
         name: /alice.*alice@example\.com/i,
@@ -149,7 +149,7 @@ test("save failure shows error component", async ({ page }) => {
     await mockRoles(page, roles);
     await mockUpdateUserRolesFailure(page, 10, 500);
 
-    await page.goto("/admin/users");
+    await page.goto("/dashboard/admin/users");
 
     const aliceRow = page.getByRole("row", {
         name: /alice.*alice@example\.com/i,
@@ -192,7 +192,7 @@ test("delete opens confirmation modal", async ({ page }) => {
     await mockUsers(page, users);
     await mockRoles(page, []);
 
-    await page.goto("/admin/users");
+    await page.goto("/dashboard/admin/users");
 
     const row = page.getByRole("row", { name: /alice.*alice@example\.com/i });
 
@@ -223,7 +223,7 @@ test("confirm delete sends DELETE and removes user", async ({ page }) => {
         }
     });
 
-    await page.goto("/admin/users");
+    await page.goto("/dashboard/admin/users");
 
     const row = page.getByRole("row", { name: /alice.*alice@example\.com/i });
 
@@ -254,7 +254,7 @@ test("delete failure shows error component", async ({ page }) => {
         }
     });
 
-    await page.goto("/admin/users");
+    await page.goto("/dashboard/admin/users");
 
     const row = page.getByRole("row", { name: /alice.*alice@example\.com/i });
 

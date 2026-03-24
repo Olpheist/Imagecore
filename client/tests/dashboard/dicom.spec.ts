@@ -1,6 +1,6 @@
-import { test, expect } from "./fixtures";
-import { makeJwt, mockMeUser } from "./mocks";
-import { mockMe } from "./routes";
+import { test, expect } from "../fixtures";
+import { makeJwt, mockMeUser } from "../mocks";
+import { mockMe } from "../routes";
 
 // Scoped per describe — does not affect other spec files
 const VIEWER_TIMEOUT = 20_000
@@ -28,7 +28,7 @@ async function gotoViewer(page: any, setToken: (t: string) => Promise<void>) {
   const token = makeJwt()
   await setToken(token)
   await mockMe(page, mockMeUser)
-  await page.goto("/dicom")
+  await page.goto("/dashboard/dicom")
   await page.waitForLoadState("networkidle")
 }
 

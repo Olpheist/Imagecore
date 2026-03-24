@@ -5,13 +5,13 @@ import { mockMe } from "../routes";
 // Scoped per describe — does not affect other spec files
 const VIEWER_TIMEOUT = 20_000
 
-test.describe.configure({ mode: 'serial' })
-
-test.afterAll(async ({ browser }) => {
-  // Close all contexts to force fresh state for subsequent spec files
-  const contexts = browser.contexts()
-  await Promise.all(contexts.map(ctx => ctx.close()))
-})
+// test.describe.configure({ mode: 'serial' })
+//
+// test.afterAll(async ({ browser }) => {
+//   // Close all contexts to force fresh state for subsequent spec files
+//   const contexts = browser.contexts()
+//   await Promise.all(contexts.map(ctx => ctx.close()))
+// })
 
 // dicom.spec.ts — replace all the per-describe beforeEach blocks with one at the top
 test.beforeEach(async ({ clearStorage, page, setToken }) => {

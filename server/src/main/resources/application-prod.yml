@@ -40,6 +40,9 @@ app:
   aws:
     s3:
       bucket-name: ${AWS_S3_BUCKET_NAME}
+    health-imaging:
+      datastore-id: ${AWS_HEALTH_IMAGING_DATASTORE_ID}
+      import-role-arn: ${AWS_HEALTH_IMAGING_IMPORT_ROLE_ARN}
 
 server:
   port: 8080

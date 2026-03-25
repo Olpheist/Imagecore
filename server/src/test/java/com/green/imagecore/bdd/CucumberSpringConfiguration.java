@@ -9,6 +9,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
 import software.amazon.awssdk.services.s3.S3Client;
 
 /**
@@ -33,10 +34,13 @@ public class CucumberSpringConfiguration {
      * discovers the container's dynamic port and credentials, injecting them into
      * the Spring environment (DataSource and Flyway) without manual property mapping.
      */
-    // Mocked with Mockito so tests don’t initialize the real AWS client
+    // Mocked with Mockito so tests don’t initialize real AWS clients
     // (avoids needing real credentials or AWS configuration).
     @MockitoBean
     S3Client s3Client;
+
+    @MockitoBean
+    MedicalImagingClient medicalImagingClient;
 
     @Container
     @ServiceConnection

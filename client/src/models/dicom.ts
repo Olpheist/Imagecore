@@ -1,5 +1,12 @@
 // src/models/dicom.ts
 
+export interface DicomImageDto {
+  id: number
+  filename: string
+  fileSize: number
+  uploadedAt: string
+}
+
 export interface DicomSeries {
   id: string
   userId: number

@@ -1,6 +1,6 @@
-import { test, expect } from "./fixtures";
-import { makeJwt, mockMeUser, mockResearcherUser, mockAdminUser, mockTools } from "./mocks";
-import { mockLogin, mockMe, mockToolsAll, mockToolsGet, mockToolsDelete } from "./routes";
+import { test, expect } from "../fixtures";
+import { makeJwt, mockMeUser, mockResearcherUser, mockAdminUser, mockTools } from "../mocks";
+import { mockLogin, mockMe, mockToolsAll, mockToolsGet, mockToolsDelete } from "../routes";
 
 
 test.beforeEach(async ({ clearStorage }) => {
@@ -15,14 +15,14 @@ test("tools page renders for authenticated user", async ({ page, setToken }) => 
     await mockMe(page, mockMeUser);
     await mockToolsGet(page);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await expect(page).toHaveURL(/\/tools$/);
     await expect(page.getByRole("heading", { name: /analysis tools/i })).toBeVisible();
 });
 
 test("tools page redirects unauthenticated user to /login", async ({ page }) => {
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await expect(page).toHaveURL(/\/login$/);
 });
@@ -35,7 +35,7 @@ test("tools page: displays all tools returned from the API", async ({ page, setT
     await mockMe(page, mockMeUser);
     await mockToolsGet(page);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     for (const tool of mockTools) {
         await expect(page.getByText(tool.name)).toBeVisible();
@@ -49,7 +49,7 @@ test("tools page: displays category filter buttons", async ({ page, setToken }) 
     await mockMe(page, mockMeUser);
     await mockToolsGet(page);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     const uniqueCategories = [...new Set(mockTools.map((t) => t.category))];
     for (const category of uniqueCategories) {
@@ -63,7 +63,7 @@ test("tools page: shows empty state when no tools returned", async ({ page, setT
     await mockMe(page, mockMeUser);
     await mockToolsGet(page, []);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await expect(page.getByText(/no tools available/i)).toBeVisible();
 });
@@ -74,7 +74,7 @@ test("tools page: shows error message when API call fails", async ({ page, setTo
     await mockMe(page, mockMeUser);
     await mockToolsGet(page, [], 500);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await expect(page.locator(".text-red-600")).toBeVisible();
 });
@@ -87,7 +87,7 @@ test("tools page: New Tool button opens create modal", async ({ page, setToken }
     await mockMe(page, mockMeUser);
     await mockToolsGet(page);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await page.getByRole("button", { name: /new tool/i }).click();
 
@@ -100,7 +100,7 @@ test("tools page: create modal closes on cancel", async ({ page, setToken }) => 
     await mockMe(page, mockMeUser);
     await mockToolsGet(page);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await page.getByRole("button", { name: /new tool/i }).click();
     await expect(page.getByRole("heading", { name: /create new tool/i })).toBeVisible();
@@ -123,7 +123,7 @@ test("tools page: creating a tool calls POST and adds it to the list", async ({ 
     };
     await mockToolsAll(page, mockTools, 200, newTool, 200);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await page.getByRole("button", { name: /new tool/i }).click();
     await page.getByPlaceholder(/lung nodule detector/i).fill(newTool.name);
@@ -142,7 +142,7 @@ test("tools page: create failure shows error inside modal", async ({ page, setTo
     await mockMe(page, mockMeUser);
     await mockToolsAll(page, mockTools, 200, { message: "Server error" }, 500);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await page.getByRole("button", { name: /new tool/i }).click();
     await page.getByPlaceholder(/lung nodule detector/i).fill("Test");
@@ -163,7 +163,7 @@ test("tools page: delete button is visible for ADMIN role", async ({ page, setTo
     await mockMe(page, mockAdminUser);
     await mockToolsGet(page);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await expect(
         page.locator(`[data-testid="tool-card-1"] [data-testid="tool-delete-1"]`)
@@ -176,7 +176,7 @@ test("tools page: delete button for is not visible for non-owner RESEARCHER role
     await mockMe(page, mockResearcherUser);
     await mockToolsGet(page);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await expect(
         page.locator(`[data-testid="tool-card-1"] [data-testid="tool-delete-1"]`)
@@ -189,7 +189,7 @@ test("tools page: delete button is not visible for PATIENT role", async ({ page,
     await mockMe(page, mockMeUser);
     await mockToolsGet(page);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await expect(
         page.locator(`[data-testid="tool-card-1"] [data-testid="tool-delete-1"]`)
@@ -203,7 +203,7 @@ test("tools page: deleting a tool removes it from the list", async ({ page, setT
     await mockToolsGet(page);
     await mockToolsDelete(page, 1);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await expect(page.getByText("Organ Segmentation")).toBeVisible();
     await page.locator(`[data-testid="tool-card-1"] [data-testid="tool-delete-1"]`).click();
@@ -217,7 +217,7 @@ test("tools page: delete failure shows error message", async ({ page, setToken }
     await mockToolsGet(page);
     await mockToolsDelete(page, 1, 500);
 
-    await page.goto("/tools");
+    await page.goto("/dashboard/tools");
 
     await page.locator(`[data-testid="tool-card-1"] [data-testid="tool-delete-1"]`).click();
 

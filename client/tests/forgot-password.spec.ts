@@ -12,7 +12,7 @@ test("forgot password page renders", async ({ page }) => {
     await page.goto("/forgot-password");
 
     await expect(page).toHaveURL(/\/forgot-password$/);
-    await expect(page.getByText("Forgot Password")).toBeVisible();
+    await expect(page.getByText("Forgot Password").first()).toBeVisible();
     await expect(page.getByPlaceholder("you@example.com")).toBeVisible();
     await expect(getSubmitButton(page)).toBeVisible();
 });

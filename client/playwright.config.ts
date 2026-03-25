@@ -21,16 +21,5 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 120_000,
-  },
-  projects: [
-    {
-      name: "all-except-dicom",
-      testIgnore: "**/dicom.spec.ts",
-    },
-    {
-      name: "dicom",
-      testMatch: "**/dicom.spec.ts",
-      workers: 1,
-    },
-  ],
+  }
 });

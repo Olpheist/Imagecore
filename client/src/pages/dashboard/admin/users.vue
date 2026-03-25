@@ -153,6 +153,10 @@ import type {ApiError} from "~/models/error";
 
 definePageMeta({ layout: "admin" });
 
+useHead({
+  title: "User Management",
+});
+
 const users = ref(await useApiFetch<UserDto[]>("/users") ?? []);
 const roles = ref(await useApiFetch<RoleDto[]>("/roles") ?? []);
 const error = ref<ApiError | null>(null);

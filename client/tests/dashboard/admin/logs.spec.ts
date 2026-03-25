@@ -1,6 +1,6 @@
-import { test, expect } from "../fixtures";
-import { makeJwt, TOKEN_KEY } from "../mocks";
-import { mockMe } from "../routes";
+import { test, expect } from "../../fixtures";
+import { makeJwt, TOKEN_KEY } from "../../mocks";
+import { mockMe } from "../../routes";
 
 function makeLogsPage(content: unknown[], totalElements?: number) {
     return {
@@ -64,7 +64,7 @@ test("/admin/logs loads logs and renders table rows", async ({ page }) => {
         });
     });
 
-    await page.goto("/admin/logs");
+    await page.goto("/dashboard/admin/logs");
 
     await expect(page.getByText("Inspect recent application logs.")).toBeVisible();
 
@@ -95,7 +95,7 @@ test("apply sends query params and filters by username", async ({ page }) => {
         });
     });
 
-    await page.goto("/admin/logs");
+    await page.goto("/dashboard/admin/logs");
 
     await page.getByPlaceholder("Username").fill("john");
     await page.getByRole("button", { name: /^Apply$/ }).click();
@@ -119,7 +119,7 @@ test("logs fetch failure shows error component", async ({ page }) => {
         });
     });
 
-    await page.goto("/admin/logs");
+    await page.goto("/dashboard/admin/logs");
 
     await expect(page.getByText(/boom/i)).toBeVisible();
 });
@@ -165,7 +165,7 @@ test("purge logs sends delete request and clears table", async ({ page }) => {
         await route.fallback();
     });
 
-    await page.goto("/admin/logs");
+    await page.goto("/dashboard/admin/logs");
 
     await expect(page.getByText("john")).toBeVisible();
 
@@ -196,7 +196,7 @@ test("reset clears username filter and sends request again", async ({ page }) =>
         });
     });
 
-    await page.goto("/admin/logs");
+    await page.goto("/dashboard/admin/logs");
 
     const usernameInput = page.getByPlaceholder("Username");
     await usernameInput.fill("john");
@@ -240,7 +240,7 @@ test("query params modal opens and shows request query params", async ({ page })
         });
     });
 
-    await page.goto("/admin/logs");
+    await page.goto("/dashboard/admin/logs");
 
     await page.getByRole("button", { name: /^View$/ }).click();
 

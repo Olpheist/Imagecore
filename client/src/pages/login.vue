@@ -8,27 +8,38 @@
             Sign in to your account
           </p>
         </div>
-        <div class="space-y-4">
+        <form class="space-y-4" @submit.prevent="onLogin">
           <Input
               v-model="username"
               placeholder="Username"
           />
           <Input
               v-model="password"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               placeholder="Password"
-          />
-        </div>
-        <Button
-            variant="success"
-            class="w-full"
-            :disabled="loading"
-            @click="onLogin"
-            hover
-            rounded
-        >
-          {{ loading ? "Logging in..." : "Login" }}
-        </Button>
+          >
+            <template #suffix>
+              <button
+                  type="button"
+                  class="text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
+                  @click="showPassword = !showPassword"
+                  tabindex="-1"
+              >
+                {{ showPassword ? "Hide" : "Show" }}
+              </button>
+            </template>
+          </Input>
+          <Button
+              type="submit"
+              variant="success"
+              class="w-full"
+              :disabled="loading"
+              hover
+              rounded
+          >
+            {{ loading ? "Logging in..." : "Login" }}
+          </Button>
+        </form>
         <Error :error="error" dismissible @close="error = null" />
         <div class="text-center text-sm text-gray-600">
           Don’t have an account?
@@ -60,13 +71,18 @@ import { setToken } from "~/utils/authToken";
 import { navigateTo } from "nuxt/app";
 import type {AuthResponse} from "~/models/auth";
 import { useApiFetch } from "~/composables/useApiFetch";
-import { useUserStore } from "~/stores/userStore";
+import { useUserStore } from "~/stores/user";
 import type {ApiError} from "~/models/error";
+
+useHead({
+  title: "Login",
+});
 
 const userStore = useUserStore();
 
 const username = ref("");
 const password = ref("");
+const showPassword = ref(false);
 const error = ref<ApiError | null>(null);
 const loading = ref(false);
 

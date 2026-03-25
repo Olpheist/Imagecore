@@ -7,6 +7,10 @@ import ViewerToolbar     from '@/components/dicom/ViewerToolbar.vue'
 import StudyMetaPanel    from '@/components/dicom/StudyMetaPanel.vue'
 import type { DicomSeries, ViewerTool, ViewportLayout } from '@/models/dicom'
 
+useHead({
+  title: "DICOM Viewer",
+});
+
 // useDicomViewer lives inside MriCanvas.vue where the canvas ref lives.
 // This page only owns selection state and passes it down as props.
 const dicomStore   = useDicomStore()

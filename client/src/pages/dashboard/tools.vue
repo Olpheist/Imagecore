@@ -166,8 +166,12 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useApiFetch } from "~/composables/useApiFetch";
 import type { ApiError } from "~/models/error";
 import type { ToolDto } from "~/models/tool";
-import { useUserStore } from "~/stores/userStore";
+import { useUserStore } from "~/stores/user";
 import { capitalizeFirstLetter } from "~/utils/stringFunctions";
+
+useHead({
+  title: "Analysis Tools",
+});
 
 const userStore = useUserStore();
 const canDelete = (tool: ToolDto): boolean => {

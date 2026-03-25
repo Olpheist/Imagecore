@@ -8,6 +8,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
 import software.amazon.awssdk.services.s3.S3Client;
 
 /**
@@ -35,6 +36,9 @@ class ImagecoreApplicationTests {
 	 */
 	@MockitoBean
 	S3Client s3Client;
+
+	@MockitoBean
+	MedicalImagingClient medicalImagingClient;
 
 	@Container
 	@ServiceConnection // Automatically wires spring.datasource properties

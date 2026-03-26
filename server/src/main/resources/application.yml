@@ -6,6 +6,10 @@ spring:
     name: imagecore
   profiles:
     default: dev
+  servlet:
+    multipart:
+      max-file-size: 50MB # max size for a single uploaded file
+      max-request-size: 500MB # max size for entire HTTP request, covers a batch upload with multiple files
   output:
     ansi:
       enabled: always
@@ -33,3 +37,6 @@ app:
   aws:
     s3:
       bucket-name: ${AWS_S3_BUCKET_NAME:local-dev-bucket}
+    health-imaging:
+      datastore-id: ${AWS_HEALTH_IMAGING_DATASTORE_ID:local-dev-datastore}
+      import-role-arn: ${AWS_HEALTH_IMAGING_IMPORT_ROLE_ARN:local-dev-role}

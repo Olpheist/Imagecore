@@ -132,6 +132,14 @@ resource "aws_ecs_task_definition" "main" {
       {
         name  = "SEND_GRID_API_KEY"
         value = var.send_grid_password
+      },
+      {
+        name  = "AWS_HEALTH_IMAGING_DATASTORE_ID"
+        value = var.health_imaging_datastore_id
+      },
+      {
+        name  = "AWS_HEALTH_IMAGING_IMPORT_ROLE_ARN"
+        value = var.health_imaging_import_role_arn
       }
     ]
     

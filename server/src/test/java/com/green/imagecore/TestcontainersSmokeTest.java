@@ -9,6 +9,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import javax.sql.DataSource;
@@ -32,7 +33,6 @@ class TestcontainersSmokeTest {
      * By using a random port and a clean image (postgres:16-alpine), we ensure
      * a predictable "blank slate" for every test execution, which is vital
      * for CI/CD reliability and HIPAA-compliant data isolation.
-     *
      * Mocked S3 client so Testcontainers tests don't create real AWS connection
      * or require actual AWS credentials or network access during startup
      *
@@ -41,6 +41,9 @@ class TestcontainersSmokeTest {
      */
     @MockitoBean
     S3Client s3Client;
+
+    @MockitoBean
+    MedicalImagingClient medicalImagingClient;
 
     @Container
     @ServiceConnection

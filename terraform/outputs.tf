@@ -38,3 +38,8 @@ output "s3_bucket_name" {
   description = "Name of the DICOM S3 bucket"
   value       = module.s3.bucket_name
 }
+
+output "health_imaging_datastore_id" {
+  description = "ID of the AWS HealthImaging datastore"
+  value       = module.health_imaging.datastore_id
+}

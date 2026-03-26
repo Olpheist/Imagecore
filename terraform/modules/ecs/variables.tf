@@ -111,3 +111,18 @@ variable "s3_bucket_arn" {
   description = "Amazon Resource Name (ARN) of the S3 bucket for IAM policy scoping"
   type        = string
 }
+
+variable "health_imaging_datastore_id" {
+  description = "ID of the AWS HealthImaging datastore"
+  type        = string
+}
+
+variable "health_imaging_datastore_arn" {
+  description = "ARN of the AWS HealthImaging datastore"
+  type        = string
+}
+
+variable "health_imaging_import_role_arn" {
+  description = "ARN of the IAM role passed to HealthImaging for S3 import jobs"
+  type        = string
+}

@@ -54,8 +54,18 @@ module "rds" {
 module "s3" {
   source = "./modules/s3"
 
-  project_name = var.project_name
-  environment  = var.environment
+  project_name                   = var.project_name
+  environment                    = var.environment
+  health_imaging_import_role_arn = module.health_imaging.import_role_arn
+}
+
+# HealthImaging Module - DICOM Import and Image Set Management
+module "health_imaging" {
+  source = "./modules/health_imaging"
+
+  project_name  = var.project_name
+  environment   = var.environment
+  s3_bucket_arn = module.s3.bucket_arn
 }
 
 # ECS Module - Container Orchestration
@@ -84,6 +94,11 @@ module "ecs" {
   # S3
   s3_bucket_name = module.s3.bucket_name
   s3_bucket_arn  = module.s3.bucket_arn
+
+  # HealthImaging
+  health_imaging_datastore_id    = module.health_imaging.datastore_id
+  health_imaging_datastore_arn   = module.health_imaging.datastore_arn
+  health_imaging_import_role_arn = module.health_imaging.import_role_arn
 
   # SendGrid
   send_grid_password = var.send_grid_password

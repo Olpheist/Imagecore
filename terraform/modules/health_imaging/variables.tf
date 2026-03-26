@@ -8,8 +8,7 @@ variable "environment" {
   type        = string
 }
 
-variable "health_imaging_import_role_arn" {
-  description = "ARN of the HealthImaging import IAM role, granted S3 read/write for import jobs"
+variable "s3_bucket_arn" {
+  description = "ARN of the S3 bucket used for DICOM import input and output"
   type        = string
-  default     = null
 }

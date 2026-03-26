@@ -8,5 +8,8 @@ app:
   aws:
     s3:
       bucket-name: test-bucket
+    health-imaging:
+      datastore-id: test-datastore-id
+      import-role-arn: arn:aws:iam::000000000000:role/test-import-role
   cookie:
     secure: false

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { mockMeUser, mockTools } from "./mocks";
+import { mockMeUser, mockTools, mockImages } from "./mocks";
 import type {LogDto} from "../src/models/log";
 
 export const mockLogin = async (page: Page, token: string): Promise<void> => {
@@ -223,6 +223,35 @@ export const mockToolsDelete = async (page: any, toolId: number, status = 204): 
             status,
             contentType: "application/json",
             body: status === 204 ? "" : JSON.stringify({ message: "Failed to delete tool" }),
+        });
+    });
+};
+
+// image catalog routes
+
+export const mockImagesGet = async (page: Page, images = mockImages, status = 200): Promise<void> => {
+    await page.route("**/api/images", async (route: any, request: any) => {
+        if (request.method() !== "GET") {
+            await route.continue();
+            return;
+        }
+        await route.fulfill({
+            status,
+            contentType: "application/json",
+            body: JSON.stringify(status === 200 ? images : { message: "Server error" }),
+        });
+    });
+};
+
+export const mockImageDelete = async (page: Page, imageId: number, status = 204): Promise<void> => {
+    await page.route(`**/api/images/${imageId}`, async (route: any, request: any) => {
+        if (request.method() !== "DELETE") {
+            await route.continue();
+            return;
+        }
+        await route.fulfill({
+            status,
+            body: "",
         });
     });
 };

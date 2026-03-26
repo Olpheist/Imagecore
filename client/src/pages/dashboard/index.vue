@@ -127,6 +127,34 @@
       </Card>
 
       <Card
+          v-if="isClinician || isResearcher"
+          variant="outlined"
+          hover
+          rounded
+          hoverBorderClass="hover:border-emerald-300"
+          class="group block cursor-pointer"
+          @click="navigateTo('/dashboard/catalog')"
+      >
+        <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+            />
+          </svg>
+        </div>
+        <div class="mt-3">
+          <div class="text-sm font-semibold text-slate-900">My DICOM Images</div>
+          <div class="mt-0.5 text-xs text-slate-500">View and manage your uploaded imaging files.</div>
+        </div>
+        <div class="absolute right-5 top-5 text-slate-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-emerald-500">
+          →
+        </div>
+      </Card>
+
+      <Card
           variant="outlined"
           hover
           rounded
@@ -165,4 +193,5 @@ useHead({
 
 const userStore = useUserStore();
 const isClinician = userStore.hasRole("CLINICIAN");
+const isResearcher = userStore.hasRole("RESEARCHER");
 </script>

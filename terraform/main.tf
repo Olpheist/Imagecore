@@ -10,6 +10,10 @@ provider "aws" {
   }
 }
 
+provider "awscc" {
+  region = var.aws_region
+}
+
 # ECR Module - Container Registry
 module "ecr" {
   source = "./modules/ecr"

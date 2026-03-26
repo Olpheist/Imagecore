@@ -1,7 +1,7 @@
 data "aws_caller_identity" "current" {}
 
 # AWS HealthImaging Datastore
-resource "aws_healthimaging_datastore" "main" {
+resource "awscc_healthimaging_datastore" "main" {
   datastore_name = "${var.project_name}-${var.environment}"
 }
 

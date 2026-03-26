@@ -103,7 +103,7 @@ test("catalog page is accessible to RESEARCHER role", async ({ page, setToken })
 
     await page.goto("/dashboard/catalog");
 
-    await expect(page).toHaveURL(/\/dashboard/catalog$/);
+    await expect(page).toHaveURL(/\/dashboard\/catalog$/);
     await expect(page.getByRole("heading", { name: /my dicom images/i })).toBeVisible();
 });
 

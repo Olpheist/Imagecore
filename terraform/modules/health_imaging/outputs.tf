@@ -1,11 +1,11 @@
 output "datastore_id" {
   description = "ID of the HealthImaging datastore"
-  value       = aws_healthimaging_datastore.main.datastore_id
+  value       = awscc_healthimaging_datastore.main.datastore_id
 }
 
 output "datastore_arn" {
   description = "ARN of the HealthImaging datastore"
-  value       = aws_healthimaging_datastore.main.arn
+  value       = awscc_healthimaging_datastore.main.datastore_arn
 }
 
 output "import_role_arn" {

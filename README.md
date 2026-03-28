@@ -43,14 +43,19 @@ You can view the application locally at [http://localhost:8080](http://localhost
 
 ## Application Navigation Flow
 
-1. From the landing page, click **Login**.
-2. On the login page, select **Register**.
+1. From the landing page, click **Login** (or **Dashboard** if already logged in).
+2. On the login page, select **Register** to create a new account. Press **Enter** or click the button to submit.
 3. After successfully registering, you are redirected back to the **Landing Page**.
-4. Open the **top-right navigation menu** and select **Dashboard** to access your dashboard.
-5. If logged in as admin, select the **Admin Center** to view and manage user accounts and inspect recent log application
-6. On the **Dashboard**, if you have the CLINICIAN role, you can access the the Upload DICOM Image widget
-7. On the **Dashboard**, if you have the CLINICIAN, RESEARCHER, or ADMIN role, you can access the Tools page
-8. On the **Dashboard**, if you have the CLINICIAN, RESEARCHER, or ADMIN role, you can access the DICOM Image Viewer
+4. Log in and click the **Go to Dashboard** button or the **Dashboard** breadcrumb.
+5. From the Dashboard, the following cards are available based on your role:
+    - **Admin Center** (`ADMIN` only): manage users, roles, and inspect paginated application logs
+    - **DICOM Upload** (`CLINICIAN` only): upload one or more `.dcm` files
+        - files are stored in S3 and an AWS HealthImaging import job is triggered automatically
+    - **My DICOM Images** (`CLINICIAN`, `RESEARCHER`): view your uploaded image series (filename, size, upload date, import status) and delete your own entries
+    - **Available Tools** (all authenticated users): browse, create, and delete analysis tools
+    - **DICOM Viewer** (all authenticated users): open and inspect medical imaging studies
+    - **User Profile** (all authenticated users): view and manage your account details
+6. Breadcrumbs at the top of every dashboard page show your current location and allow quick navigation back up the hierarchy.
 
 **Prerequisites by Operating System**
 
@@ -82,31 +87,31 @@ Click CRLF in the bottom-right status bar
 Select LF  
 Save the file
 
-
-## Running the project
-
-
-### Feature Checklist
+## Feature Checklist
 
 After starting the application, use the checklist below to verify each implemented feature.
 
-#### Authentication & Registration
-- [ ] **Register**:  Visit `/register`, fill in email, username, and password (min 10 chars). Confirm you are redirected to the landing page on success.
-- [ ] **Login**: Visit `/login`, enter credentials. Confirm you are redirected and the nav menu reflects your logged-in state.
+#### Authentication and Registration
+- [ ] **Register**: Visit `/register`, fill in email, username, and password (min 10 chars). Confirm you are redirected to the landing page on success. Try pressing **Enter** to submit the form.
+- [ ] **Login**: Visit `/login`, enter credentials. Confirm you are redirected and the nav menu reflects your logged-in state. Try pressing **Enter** to submit.
 - [ ] **Forgot / Reset Password**: Visit `/forgot-password`, enter a registered email. A reset token is written to the database (see backend verification below). Visit `/reset-password?token=<token>` to complete the flow.
 - [ ] **JWT-based auth**: All protected API calls use a Bearer token stored in `sessionStorage` (`imagecore.jwt`). You can inspect this in browser DevTools → Application → Session Storage.
 
-#### Dashboard & Role-Gated Access
-- [ ] **Dashboard**: After login, navigate to Dashboard from the top-right menu. Widgets visible depend on your roles (ADMIN has all roles (and if not, can add them to itself).
-- [ ] **DICOM Upload widget**: Only visible if your account has the `CLINICIAN` role. Upload the `test.dcm` file; confirm a success response is returned.
-- [ ] **DICOM Viewer**: Accessible to `CLINICIAN`, `RESEARCHER`, and `ADMIN`. Navigate via the dashboard button.
-- [ ] **Tools page**: Accessible to `CLINICIAN`, `RESEARCHER`, and `ADMIN`. Lists available tools (currently one), allows creating and deleting tools.
+#### Dashboard and Role-Gated Access
+- [ ] **Dashboard**: After login, navigate to Dashboard from the top-right menu. Cards visible depend on your roles. `ADMIN` has all roles (and can add them to itself via Admin Center).
+- [ ] **DICOM Upload** (`CLINICIAN` only): Navigate to the DICOM Upload card. Upload one or more `.dcm` files. Confirm a success response is returned and the import status (e.g. `SUBMITTED`) is shown.
+- [ ] **My DICOM Images** (`CLINICIAN`, `RESEARCHER`): Navigate to the My DICOM Images card. Confirm your uploaded series are listed with filename, size, upload date, and import status. Confirm you can delete your own entries but not others.
+- [ ] **DICOM Viewer** (all authenticated users): Navigate via the dashboard card and confirm the viewer loads.
+- [ ] **Available Tools** (all authenticated users): Navigate to the Tools card. Confirm the tool list loads
+    - create and delete a tool entry to verify write access.
+- [ ] **User Profile** (all authenticated users): Navigate to the Profile card and confirm your account details are displayed.
+- [ ] **Breadcrumbs**: Verify that breadcrumbs appear on dashboard sub-pages and navigate correctly when clicked.
 
 #### Admin Center (requires `ADMIN` role)
 - [ ] **User management**: Navigate to Admin Center → Users. Confirm all registered users are listed.
 - [ ] **Role assignment**: Change a user's roles using the role editor. Confirm the change is reflected on next login.
-- [ ] **Delete user**: Delete a non-admin user (probably best to delete a user you make with register). Confirm they are removed from the list. (Deleting your own account is blocked.)
-- [ ] **Application logs**: Navigate to Admin Center → Logs. Filter by username, log level (INFO/WARN/ERROR/DEBUG), and time range. Every API request made to the backend appears here.
+- [ ] **Delete user**: Delete a non-admin user (best to use an account created via register). Confirm they are removed from the list. (Deleting your own account is blocked.)
+- [ ] **Application logs**: Navigate to Admin Center → Logs. Confirm logs are paginated and each entry shows method, path, query parameters, status, and duration. Use the **Purge Logs** button to clear all entries.
 
 ---
 
@@ -117,11 +122,15 @@ The application runs entirely in Docker. You have three clean ways to inspect wh
 #### 1. In-App Log Viewer (easiest)
 Log in as an `ADMIN` user and go to **Admin Center → Logs**.
 
-Every non-static HTTP request made to the backend is logged to the `audit_logs` database table and shown here. Each entry shows:
+Every non-static HTTP request made to the backend is logged to the `audit_logs` database table and shown here. Logs are paginated and each entry shows:
 - Timestamp
-- Log level
-- Authenticated username (or `\` for anonymous)
-- HTTP status, method, path, and client IP
+- Authenticated username (or anonymous)
+- HTTP method and path
+- Query parameters
+- HTTP status code
+- Request duration (ms)
+
+Use the **Purge Logs** button to clear all log entries.
 
 
 #### 2. Live Server Logs (terminal)
@@ -145,25 +154,17 @@ Connect with any PostgreSQL client:
 | Password | `imagecore` |
 
 
-#### API Endpoints Summary
+#### API Documentation (Swagger UI)
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/auth/register` | Public | Register a new user |
-| POST | `/api/auth/login` | Public | Login and receive JWT |
-| POST | `/api/auth/forgot-password` | Public | Request a password reset |
-| POST | `/api/auth/reset-password` | Public | Complete password reset |
-| GET | `/api/users/me` | Any authenticated | Get current user profile |
-| GET | `/api/users` | ADMIN | List all users |
-| PUT | `/api/users/{id}/roles` | ADMIN | Update a user's roles |
-| DELETE | `/api/users/{id}` | ADMIN | Delete a user |
-| GET | `/api/roles` | ADMIN | List all roles |
-| GET | `/api/logs` | ADMIN | Query audit logs |
-| GET | `/api/tools` | CLINICIAN, RESEARCHER, ADMIN | List all tools |
-| POST | `/api/tools` | CLINICIAN, RESEARCHER, ADMIN | Create a tool |
-| DELETE | `/api/tools/{id}` | CLINICIAN, RESEARCHER, ADMIN | Delete a tool |
-| GET | `/api/tools/category/{category}` | CLINICIAN, RESEARCHER, ADMIN | Filter tools by category |
-| POST | `/api/images/upload` | CLINICIAN | Upload a DICOM file to S3 |
+The full, interactive API reference is available via Swagger UI.
+
+**Hosted (production):**  
+[https://imagecore.org/swagger-ui/index.html](https://imagecore.org/swagger-ui/index.html)
+
+**Locally (while the application is running):**  
+[http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
+
+The Swagger UI lists all endpoints, their required roles, and request/response schemas
 
 ---
 

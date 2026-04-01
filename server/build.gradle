@@ -40,6 +40,9 @@ dependencies {
 	implementation 'software.amazon.awssdk:s3'
 	implementation 'software.amazon.awssdk:medicalimaging'
 
+	// Source: https://mvnrepository.com/artifact/org.itk.simple/simpleitk
+	implementation 'org.itk.simple:simpleitk:0.9.0'
+
 	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0"
 
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'

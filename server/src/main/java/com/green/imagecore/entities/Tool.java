@@ -1,5 +1,6 @@
 package com.green.imagecore.entities;
 
+import com.green.imagecore.entities.subscription.SubscriptionTier;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -34,4 +35,8 @@ public class Tool {
 
     @Column(name = "image_tag", length = 80)
     private String imageTag;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "required_tier_code", referencedColumnName = "code", nullable = false)
+    private SubscriptionTier requiredTier;
 }

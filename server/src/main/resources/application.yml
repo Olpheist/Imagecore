@@ -26,6 +26,11 @@ logging:
   pattern:
     console: "%clr([%d{HH:mm:ss.SSS}]){faint} %clr(%-5level){bold} %clr([%X{user:-\\}]){yellow} %clr(%logger){cyan} - %msg%n"
 app:
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY}
+    webhook-secret: ${STIPE_WEBHOOK_SECRET}
+    pro-monthly-price-id: ${STRIPE_PRO_MONTHLY_PRICE_ID}
+    public-key: ${STRIPE_PUBLIC_KEY}
   send-grid:
     api-key: disabled
   jwt:

@@ -28,7 +28,7 @@ logging:
 app:
   stripe:
     secret-key: ${STRIPE_SECRET_KEY}
-    webhook-secret: ${STIPE_WEBHOOK_SECRET}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET}
     pro-monthly-price-id: ${STRIPE_PRO_MONTHLY_PRICE_ID}
     public-key: ${STRIPE_PUBLIC_KEY}
   send-grid:

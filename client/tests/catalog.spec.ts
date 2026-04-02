@@ -1,9 +1,9 @@
 import { test, expect } from "./fixtures";
 import { makeJwt, mockClinicianUser, mockResearcherUser, mockMeUser, mockImages } from "./mocks";
-import { mockMe, mockImagesGet, mockImageDelete } from "./routes";
+import {mockMe, mockImagesGet, mockImageDelete, mockCsrf} from "./routes";
 
-test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage();
+test.beforeEach(async ({ context }) => {
+    await context.clearCookies();
 });
 
 // Auth
@@ -70,6 +70,7 @@ test("catalog page: confirming delete removes image from list", async ({ page, s
     await mockMe(page, mockClinicianUser);
     await mockImagesGet(page);
     await mockImageDelete(page, mockImages[0].id);
+    await mockCsrf(page);
 
     await page.goto("/dashboard/catalog");
 

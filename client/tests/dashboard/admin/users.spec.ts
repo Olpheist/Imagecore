@@ -5,11 +5,11 @@ import {
     mockUsers,
     mockRoles,
     mockUpdateUserRoles,
-    mockUpdateUserRolesFailure
+    mockUpdateUserRolesFailure, mockCsrf
 } from "../../routes";
 
-test.beforeEach(async ({ clearStorage, page }) => {
-    await clearStorage();
+test.beforeEach(async ({ context, page }) => {
+    await context.clearCookies();
 
     await page.addInitScript(
         ({ key, value }) => sessionStorage.setItem(key, value),
@@ -22,6 +22,8 @@ test.beforeEach(async ({ clearStorage, page }) => {
         email: "admin@example.com",
         userRoles: [{ roleId: 1, roleName: "ADMIN" }],
     });
+
+    await mockCsrf(page);
 });
 
 test("/admin/users loads users + roles and renders total", async ({ page }) => {

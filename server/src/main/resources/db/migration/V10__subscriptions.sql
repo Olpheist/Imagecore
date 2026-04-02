@@ -16,14 +16,18 @@ values
     ('PRO', 'Pro', 'Unlock the full experience.', 999, 2);
 
 alter table tools
-    add column required_tier_code varchar(50) references subscription_tiers(code);
+    add column required_tier_id bigint references subscription_tiers(id);
 
 update tools
-set required_tier_code = 'FREE'
-where required_tier_code is null;
+set required_tier_id = (
+    select id
+    from subscription_tiers
+    where code = 'FREE'
+)
+where required_tier_id is null;
 
 alter table tools
-    alter column required_tier_code set not null;
+    alter column required_tier_id set not null;
 
 create table user_subscriptions (
     id bigserial primary key,
@@ -66,3 +70,25 @@ create table billing_events (
 create unique index ux_billing_events_provider_event_id
     on billing_events(provider_event_id)
     where provider_event_id is not null;
+
+insert into user_subscriptions (
+    user_id,
+    tier_id,
+    status,
+    auto_renew,
+    is_active
+)
+select
+    u.id,
+    st.id,
+    'ACTIVE',
+    false,
+    true
+from users u
+         join subscription_tiers st on st.code = 'FREE'
+where not exists (
+    select 1
+    from user_subscriptions us
+    where us.user_id = u.id
+      and us.is_active = true
+);

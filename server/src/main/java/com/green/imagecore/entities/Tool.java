@@ -37,6 +37,6 @@ public class Tool {
     private String imageTag;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "required_tier_code", referencedColumnName = "code", nullable = false)
+    @JoinColumn(name = "required_tier_id", nullable = false)
     private SubscriptionTier requiredTier;
 }

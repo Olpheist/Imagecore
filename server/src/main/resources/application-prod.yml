@@ -37,6 +37,8 @@ app:
   base-url: https://imagecore.org
   send-grid:
     api-key: ${SEND_GRID_API_KEY}
+  cookie:
+    secure: true
   aws:
     s3:
       bucket-name: ${AWS_S3_BUCKET_NAME}

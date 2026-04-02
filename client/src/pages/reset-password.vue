@@ -66,7 +66,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useRoute, navigateTo } from "nuxt/app";
+import { useRoute } from "nuxt/app";
 import { useApiFetch } from "~/composables/useApiFetch";
 import type { ApiError } from "~/models/error";
 import Card from "~/components/Card.vue";

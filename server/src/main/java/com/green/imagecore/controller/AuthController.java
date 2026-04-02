@@ -4,17 +4,22 @@ import com.green.imagecore.entities.User;
 import com.green.imagecore.service.PasswordResetService;
 import com.green.imagecore.service.UserService;
 import com.green.imagecore.service.JwtService;
-import com.green.imagecore.service.UserAuthenticationService; // Crucial import
+import com.green.imagecore.service.UserAuthenticationService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -23,14 +28,20 @@ import org.springframework.web.bind.annotation.*;
  * JSON Web Tokens (JWT) instead of relying on traditional HTTP sessions.
  */
 @RestController
-@AllArgsConstructor
+@RequiredArgsConstructor
 @RequestMapping("/api/auth")
 public class AuthController {
     private final UserService userService;
-    private final UserAuthenticationService userAuthenticationService; // Inject this
+    private final UserAuthenticationService userAuthenticationService;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final PasswordResetService passwordResetService;
+
+    @Value("${app.jwt.access-ttl-minutes}")
+    private int jwtExpirationInMinutes;
+
+    @Value("${app.cookie.secure}")
+    private boolean cookieSecure;
 
     /**
      * Data Transfer Object for authentication responses.
@@ -38,7 +49,6 @@ public class AuthController {
      * required by the Nuxt frontend for state management.
      */
     public record AuthResponse(
-            String token,
             Long id,
             String email,
             String username
@@ -53,7 +63,7 @@ public class AuthController {
      * @return AuthResponse containing the new user's profile and access token.
      */
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req) {
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest req, HttpServletResponse response) {
         if (!req.password().equals(req.confirmPassword())) {
             throw new IllegalArgumentException("Passwords do not match");
         }
@@ -68,7 +78,9 @@ public class AuthController {
         // Issue the token containing the user's ID and assigned roles
         String token = jwtService.generateToken(userDetails, u.getId().toString());
 
-        return ResponseEntity.ok(new AuthResponse(token, u.getId(), u.getEmail(), u.getUsername()));
+        addAccessTokenCookie(response, token);
+
+        return ResponseEntity.ok(new AuthResponse(u.getId(), u.getEmail(), u.getUsername()));
     }
 
     /**
@@ -80,7 +92,7 @@ public class AuthController {
      * @return AuthResponse containing the access token if authentication is successful.
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest req, HttpServletResponse response) {
         // Utilize the AuthenticationManager to verify the username and password against the database.
         // This triggers the UserAuthenticationService to load authorities.
         Authentication auth = authenticationManager.authenticate(
@@ -96,7 +108,20 @@ public class AuthController {
         // Generate the token. The backend will verify this token's signature on every future request.
         String token = jwtService.generateToken(userDetails, u.getId().toString());
 
-        return ResponseEntity.ok(new AuthResponse(token, u.getId(), u.getEmail(), u.getUsername()));
+        addAccessTokenCookie(response, token);
+
+        return ResponseEntity.ok(new AuthResponse(u.getId(), u.getEmail(), u.getUsername()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletResponse response) {
+        clearAccessTokenCookie(response);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/csrf")
+    public CsrfToken csrf(CsrfToken token) {
+        return token;
     }
 
     @PostMapping("/forgot-password")
@@ -113,6 +138,30 @@ public class AuthController {
 
         passwordResetService.resetPassword(body.token(), body.newPassword());
         return ResponseEntity.noContent().build();
+    }
+
+    private void addAccessTokenCookie(HttpServletResponse response, String token) {
+        ResponseCookie cookie = ResponseCookie.from("access_token", token)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .sameSite("Lax")
+                .maxAge(jwtExpirationInMinutes * 60L)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void clearAccessTokenCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from("access_token", "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .sameSite("Lax")
+                .maxAge(0)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     // Request Data Transfer Objects (DTOs)

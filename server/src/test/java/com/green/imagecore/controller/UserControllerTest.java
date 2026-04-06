@@ -1,17 +1,12 @@
 package com.green.imagecore.controller;
 
-import com.green.imagecore.config.RequestLogFilter;
-import com.green.imagecore.config.SecurityConfig;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.service.UserService;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.http.MediaType;
 
 import java.util.Collections;
@@ -22,7 +17,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(UserController.class)
-@Import({SecurityConfig.class, RequestLogFilter.class})
 @TestPropertySource(properties = "app.jwt.secret=test-secret-key-that-is-long-enough-for-hmac")
 class UserControllerTest extends BaseControllerTest {
 

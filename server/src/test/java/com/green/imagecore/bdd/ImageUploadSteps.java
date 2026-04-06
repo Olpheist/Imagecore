@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -58,6 +59,7 @@ public class ImageUploadSteps {
     public void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(springSecurity())
+                .defaultRequest(multipart("/").with(csrf()))
                 .build();
 
         Mockito.reset(s3Client, medicalImagingClient);

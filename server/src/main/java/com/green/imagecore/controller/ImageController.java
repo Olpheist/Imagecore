@@ -41,17 +41,19 @@ public class ImageController {
     }
 
     /**
-     * Multi-file upload. Each file is validated and stored individually.
+     * Batch upload. All files are treated as a single series — they are uploaded to a shared
+     * S3 prefix and processed by one HealthImaging import job. Returns a single DTO representing
+     * the series record.
      */
     @PostMapping("/upload-batch")
     @PreAuthorize("hasAnyRole('CLINICIAN', 'RESEARCHER')")
-    public ResponseEntity<List<DicomImageDto>> uploadBatch(
+    public ResponseEntity<DicomImageDto> uploadBatch(
             @RequestParam("files") List<MultipartFile> files,
             Authentication authentication
     ) {
         Long userId = parseUserId(authentication);
-        List<DicomImage> images = dicomUploadService.uploadBatch(files, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(DicomImageMapper.toDtos(images));
+        DicomImage image = dicomUploadService.uploadBatch(files, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(DicomImageMapper.toDto(image));
     }
 
     /**

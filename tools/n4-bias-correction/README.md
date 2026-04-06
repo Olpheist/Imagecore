@@ -80,6 +80,35 @@ n4-bias-correction \
 | NRRD | `.nrrd`, `.nhdr` |
 | AWS HealthImaging | HTJ2K via `--image-set-id` |
 
+## Building the Docker Image
+
+From the `tools/n4-bias-correction/` directory:
+
+```bash
+docker build -f Dockerfile_n4-bias-correction -t n4-bias-correction .
+```
+
+## Running Unit Tests
+
+Unit tests for pipeline functions are in `tests/test_pipeline.py` and run with pytest.
+
+Install dependencies and run:
+
+```bash
+pip install -e ".[dev]"
+pytest tests/
+```
+
+Inside Docker:
+
+```bash
+docker run --rm \
+  -v $(pwd):/work \
+  --entrypoint pytest \
+  n4-bias-correction \
+  tests/
+```
+
 ## Local Inspection
 
 `inspect_dicom_output.py` is a manual inspection script for verifying the pipeline output locally before running against HealthImaging. It loads a local DICOM file or series, builds the same `frame_descriptors` structure that the HealthImaging loader produces, runs N4, and writes the corrected DICOM series and PDF report so you can inspect them in a local DICOM viewer.

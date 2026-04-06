@@ -8,15 +8,24 @@ import com.green.imagecore.repositories.DicomImageRepository;
 import com.green.imagecore.repositories.UserRepository;
 import com.green.imagecore.service.DicomCatalogService;
 import io.cucumber.java.After;
+import io.cucumber.java.Before;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 /**
  * Step definitions for DICOM catalog management.
@@ -35,11 +44,27 @@ public class DicomCatalogSteps {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private S3Client s3Client;
+
     private User catalogUser;
     private User otherUser;
     private List<DicomImage> retrievedImages;
     private DicomImage selectedImage;
     private Exception thrownException;
+
+    @Before
+    public void setUpS3Mocks() {
+        // Mock S3 to respond to listObjectsV2 and deleteObjects requests
+        Mockito.reset(s3Client);
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class))).thenAnswer(inv -> {
+            ListObjectsV2Request req = inv.getArgument(0);
+            // Return an empty list by default (for tests that don't upload files)
+            return ListObjectsV2Response.builder().contents(java.util.Collections.emptyList()).build();
+        });
+        // deleteObjects returns null successfully
+        when(s3Client.deleteObjects(any(DeleteObjectsRequest.class))).thenReturn(null);
+    }
 
     @After
     public void cleanUp() {
@@ -75,7 +100,8 @@ public class DicomCatalogSteps {
             img.setUser(catalogUser);
             img.setFilename("scan" + i + ".dcm");
             img.setFileSize(1024L);
-            img.setS3Key("dicom/" + catalogUser.getId() + "/" + UUID.randomUUID() + ".dcm");
+            img.setFileCount(1);
+            img.setS3Key("dicom/" + catalogUser.getId() + "/" + UUID.randomUUID() + "/");
             img.setImportStatus(ImportStatus.PENDING);
             selectedImage = dicomImageRepository.save(img);
         }
@@ -96,7 +122,8 @@ public class DicomCatalogSteps {
         img.setUser(otherUser);
         img.setFilename("other.dcm");
         img.setFileSize(512L);
-        img.setS3Key("dicom/" + otherUser.getId() + "/" + UUID.randomUUID() + ".dcm");
+        img.setFileCount(1);
+        img.setS3Key("dicom/" + otherUser.getId() + "/" + UUID.randomUUID() + "/");
         img.setImportStatus(ImportStatus.PENDING);
         selectedImage = dicomImageRepository.save(img);
     }
@@ -111,7 +138,15 @@ public class DicomCatalogSteps {
 
     @When("the catalog user deletes that image")
     public void the_catalog_user_deletes_that_image() {
-        // S3Client is already mocked in CucumberSpringConfiguration — returns default response
+        // Configure S3 mock to return the image's S3 objects when listing
+        if (selectedImage != null && selectedImage.getS3Key() != null) {
+            when(s3Client.listObjectsV2(any(ListObjectsV2Request.class))).thenAnswer(inv -> {
+                ListObjectsV2Request req = inv.getArgument(0);
+                // Return an object under the series prefix
+                S3Object obj = S3Object.builder().key(req.prefix() + "instance.dcm").build();
+                return ListObjectsV2Response.builder().contents(obj).build();
+            });
+        }
         try {
             dicomCatalogService.delete(selectedImage.getId(), catalogUser.getId());
             thrownException = null;

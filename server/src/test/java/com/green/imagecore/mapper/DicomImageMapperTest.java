@@ -24,6 +24,7 @@ class DicomImageMapperTest {
         img.setUser(user);
         img.setFilename(filename);
         img.setFileSize(fileSize);
+        img.setFileCount(1);
         img.setS3Key(s3Key);
         img.setUploadedAt(uploadedAt);
         return img;
@@ -48,6 +49,7 @@ class DicomImageMapperTest {
         assertEquals(7L, dto.getId());
         assertEquals("brain.dcm", dto.getFilename());
         assertEquals(204800L, dto.getFileSize());
+        assertEquals(1, dto.getFileCount());
         assertEquals(now.toString(), dto.getUploadedAt());
     }
 

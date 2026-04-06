@@ -25,17 +25,33 @@
         </p>
       </template>
       <template v-else>
-        <ul class="space-y-1 text-left">
-          <li
-            v-for="file in selectedFiles"
-            :key="file.name"
-            class="flex items-center justify-between text-sm"
+        <!-- Compact summary -->
+        <div class="text-center">
+          <p class="text-sm font-medium text-gray-700">
+            {{ selectedFiles.length }} file{{ selectedFiles.length !== 1 ? 's' : '' }} selected
+            <span class="text-xs text-gray-500">({{ formatBytes(totalSize) }})</span>
+          </p>
+
+          <!-- Expandable file list -->
+          <button
+            type="button"
+            class="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+            @click.stop="showFileList = !showFileList"
           >
-            <span class="font-medium text-gray-800 truncate max-w-xs">{{ file.name }}</span>
-            <span class="text-xs text-gray-500 ml-4 shrink-0">{{ formatBytes(file.size) }}</span>
-          </li>
-        </ul>
-        <p class="text-xs text-gray-400 mt-3">{{ selectedFiles.length }} file{{ selectedFiles.length !== 1 ? 's' : '' }} selected</p>
+            {{ showFileList ? '▼' : '▶' }} {{ showFileList ? 'Hide' : 'Show' }} files
+          </button>
+
+          <ul v-if="showFileList" class="space-y-1 text-left mt-3 max-h-48 overflow-y-auto">
+            <li
+              v-for="file in selectedFiles"
+              :key="file.name"
+              class="flex items-center justify-between text-sm"
+            >
+              <span class="font-medium text-gray-800 truncate max-w-xs">{{ file.name }}</span>
+              <span class="text-xs text-gray-500 ml-4 shrink-0">{{ formatBytes(file.size) }}</span>
+            </li>
+          </ul>
+        </div>
       </template>
     </div>
 
@@ -100,10 +116,12 @@ const emit = defineEmits<{
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput');
 const selectedFiles = ref<File[]>([]);
 const isDragging = ref(false);
+const showFileList = ref(false);
 const uploadProgress = ref(0); // 0–100; 0 = idle, 1–99 = in progress, 100 = server processing
 const uploading = computed(() => uploadProgress.value > 0 && uploadProgress.value < 100);
 const uploadError = ref<ApiError | null>(null);
 const uploadedCount = ref(0);
+const totalSize = computed(() => selectedFiles.value.reduce((sum, f) => sum + f.size, 0));
 
 function openFilePicker() {
   fileInput.value?.click();
@@ -114,6 +132,7 @@ function onFileChange(event: Event) {
   selectedFiles.value = Array.from(input.files ?? []);
   uploadError.value = null;
   uploadedCount.value = 0;
+  showFileList.value = false;
 }
 
 function onDrop(event: DragEvent) {
@@ -125,6 +144,7 @@ function onDrop(event: DragEvent) {
     selectedFiles.value = dropped;
     uploadError.value = null;
     uploadedCount.value = 0;
+    showFileList.value = false;
   }
 }
 
@@ -133,6 +153,7 @@ function reset() {
   uploadError.value = null;
   uploadedCount.value = 0;
   uploadProgress.value = 0;
+  showFileList.value = false;
   if (fileInput.value) fileInput.value.value = '';
 }
 

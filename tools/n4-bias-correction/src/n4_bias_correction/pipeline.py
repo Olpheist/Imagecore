@@ -467,8 +467,8 @@ def write_corrected_dicom_series(
         ds.BitsStored = 16
         ds.HighBit = 15
         ds.PixelRepresentation = 0  # unsigned
-        ds.RescaleSlope = str(slope)
-        ds.RescaleIntercept = str(intercept)
+        ds.RescaleSlope = f"{slope:.6g}"
+        ds.RescaleIntercept = f"{intercept:.6g}"
         ds.PixelData = slice_2d.tobytes()
 
         pydicom.dcmwrite(str(out_dir / f"slice_{i:04d}.dcm"), ds)

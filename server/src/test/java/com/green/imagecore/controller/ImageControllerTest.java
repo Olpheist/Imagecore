@@ -81,26 +81,24 @@ class ImageControllerTest {
     // POST /upload-batch
 
     @Test
-    void uploadBatch_Returns201Created_WithListOfImageDtos() throws Exception {
-        when(dicomUploadService.uploadBatch(anyList(), anyLong()))
-                .thenReturn(List.of(
-                        stubImage(1L, "scan1.dcm", 200L, ImportStatus.SUBMITTED),
-                        stubImage(2L, "scan2.dcm", 200L, ImportStatus.SUBMITTED)
-                ));
+    void uploadBatch_Returns201Created_WithSingleImageDto() throws Exception {
+        DicomImage batchImage = stubImage(1L, "series label", 600L, ImportStatus.SUBMITTED);
+        batchImage.setFileCount(3);
+        when(dicomUploadService.uploadBatch(anyList(), anyLong())).thenReturn(batchImage);
 
         mockMvc.perform(multipart("/api/images/upload-batch")
                         .file(anyDicomFile("files"))
                         .file(anyDicomFile("files"))
+                        .file(anyDicomFile("files"))
                         .principal(authTokenForUser("42")))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[1].id").value(2));
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.fileCount").value(3));
     }
 
     @Test
     void uploadBatch_PassesUserIdFromJwtToService() throws Exception {
-        when(dicomUploadService.uploadBatch(anyList(), anyLong())).thenReturn(List.of());
+        when(dicomUploadService.uploadBatch(anyList(), anyLong())).thenReturn(new DicomImage());
 
         mockMvc.perform(multipart("/api/images/upload-batch")
                         .file(anyDicomFile("files"))
@@ -211,6 +209,7 @@ class ImageControllerTest {
         img.setImportStatus(status);
         img.setS3Key("dicom/" + id + "/test-uuid/instance.dcm");
         img.setUploadedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        img.setFileCount(1);
         return img;
     }
 }

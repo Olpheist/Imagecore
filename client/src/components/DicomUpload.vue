@@ -39,6 +39,20 @@
       </template>
     </div>
 
+    <!-- Upload progress bar -->
+    <div v-if="uploadProgress > 0 && uploadProgress < 100" class="mt-4">
+      <div class="flex justify-between text-xs text-gray-500 mb-1">
+        <span>Uploading…</span>
+        <span>{{ uploadProgress }}%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2">
+        <div
+          class="bg-blue-500 h-2 rounded-full transition-all duration-150"
+          :style="{ width: uploadProgress + '%' }"
+        />
+      </div>
+    </div>
+
     <!-- Success -->
     <div
       v-if="uploadedCount > 0"
@@ -74,19 +88,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import type { ApiError } from '~/models/error';
 import type { DicomImageDto } from '~/models/dicom';
 import { formatBytes } from '~/utils/formatters';
 
 const emit = defineEmits<{
-  uploaded: [images: DicomImageDto[]]
+  uploaded: [image: DicomImageDto]
 }>()
 
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput');
 const selectedFiles = ref<File[]>([]);
 const isDragging = ref(false);
-const uploading = ref(false);
+const uploadProgress = ref(0); // 0–100; 0 = idle, 1–99 = in progress, 100 = server processing
+const uploading = computed(() => uploadProgress.value > 0 && uploadProgress.value < 100);
 const uploadError = ref<ApiError | null>(null);
 const uploadedCount = ref(0);
 
@@ -98,7 +113,7 @@ function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
   selectedFiles.value = Array.from(input.files ?? []);
   uploadError.value = null;
-  uploadedCount.value = 0
+  uploadedCount.value = 0;
 }
 
 function onDrop(event: DragEvent) {
@@ -116,7 +131,8 @@ function onDrop(event: DragEvent) {
 function reset() {
   selectedFiles.value = [];
   uploadError.value = null;
-  uploadedCount.value = 0
+  uploadedCount.value = 0;
+  uploadProgress.value = 0;
   if (fileInput.value) fileInput.value.value = '';
 }
 
@@ -125,7 +141,8 @@ async function doUpload() {
 
   uploading.value = true;
   uploadError.value = null;
-  uploadedCount.value = 0
+  uploadedCount.value = 0;
+  uploadProgress.value = 1; // show bar immediately
 
   const formData = new FormData();
   for (const file of selectedFiles.value) {
@@ -147,5 +164,74 @@ async function doUpload() {
   } finally {
     uploading.value = false;
   }
+
+  return new Promise<void>((resolve) => {
+    const xhr = new XMLHttpRequest();
+
+    // Track HTTP upload progress (browser → server). Cap at 90% to leave room for
+    // server-side processing (S3 parallel uploads + HealthImaging job submission).
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        uploadProgress.value = Math.max(1, Math.round((event.loaded / event.total) * 90));
+      }
+    };
+
+    xhr.onload = async () => {
+      uploadProgress.value = 0;
+
+      if (xhr.status === 401) {
+        await navigateTo('/login');
+        resolve();
+        return;
+      }
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        try {
+          const data = JSON.parse(xhr.responseText) as Partial<ApiError>;
+          uploadError.value = {
+            status: data.status ?? xhr.status,
+            error: data.error ?? xhr.statusText,
+            message: data.message ?? `Upload failed (${xhr.status})`,
+            path: data.path ?? '/images/upload-batch',
+            details: data.details ?? null,
+            timestamp: data.timestamp,
+          };
+        } catch {
+          uploadError.value = {
+            status: xhr.status,
+            error: xhr.statusText,
+            message: `Upload failed (${xhr.status})`,
+            path: '/images/upload-batch',
+            details: null,
+          };
+        }
+        resolve();
+        return;
+      }
+
+      const image = JSON.parse(xhr.responseText) as DicomImageDto;
+      uploadedCount.value = image.fileCount;
+      selectedFiles.value = [];
+      if (fileInput.value) fileInput.value.value = '';
+      emit('uploaded', image);
+      resolve();
+    };
+
+    xhr.onerror = () => {
+      uploadProgress.value = 0;
+      uploadError.value = {
+        status: 0,
+        error: 'Network Error',
+        message: 'Could not reach the server. Please check your connection.',
+        path: '/images/upload-batch',
+        details: null,
+      };
+      resolve();
+    };
+
+    xhr.open('POST', `${baseUrl}/images/upload-batch`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.send(formData);
+  });
 }
 </script>

@@ -8,6 +8,8 @@ import com.green.imagecore.repositories.DicomImageRepository;
 import com.green.imagecore.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,9 +18,12 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 
 @Slf4j
 @Service
@@ -33,6 +38,10 @@ public class DicomUploadService {
     private final DicomImageRepository dicomImageRepository;
     private final UserRepository userRepository;
     private final HealthImagingService healthImagingService;
+
+    @Autowired
+    @Qualifier("dicomS3UploadExecutor")
+    private ExecutorService s3UploadExecutor;
 
     @Value("${app.aws.s3.bucket-name}")
     private String bucketName;
@@ -78,6 +87,7 @@ public class DicomUploadService {
                         .s3Key(s3Key)
                         .filename(file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown.dcm")
                         .fileSize(file.getSize())
+                        .fileCount(1)
                         .importStatus(ImportStatus.PENDING)
                         .build()
         );
@@ -93,12 +103,94 @@ public class DicomUploadService {
     }
 
     /**
-     * Uploads multiple DICOM files and persists a DB record for each.
+     * Uploads a batch of DICOM files as a single series. All files are placed under one shared
+     * S3 prefix, then a single HealthImaging import job is started for that prefix.
+     * <p>
+     * S3 prefix:            dicom/{userId}/{batchId}/
+     * HealthImaging input:  s3://{bucket}/dicom/{userId}/{batchId}/
+     * HealthImaging output: s3://{bucket}/health-imaging-output/{userId}/{batchId}/
+     * <p>
+     * Note: if two files in the batch share the same original filename, the last write wins.
+     * DICOM series files are typically uniquely named (SOP Instance UID), so this is not a
+     * practical concern.
+     *
+     * @param files  The list of multipart DICOM files from the client.
+     * @param userId The authenticated user's database ID.
+     * @return A single DicomImage record representing the entire series.
      */
-    public List<DicomImage> uploadBatch(List<MultipartFile> files, Long userId) {
-        return files.stream()
-                .map(file -> upload(file, userId))
-                .collect(Collectors.toList());
+    public DicomImage uploadBatch(List<MultipartFile> files, Long userId) {
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("At least one file must be provided");
+        }
+
+        // Phase 1: validate all files before touching S3
+        for (MultipartFile file : files) {
+            validateDicom(file);
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        String batchId = UUID.randomUUID().toString();
+        String prefix  = "dicom/" + userId + "/" + batchId + "/";
+
+        // Phase 2: upload all files to the shared S3 prefix in parallel
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        for (MultipartFile file : files) {
+            String filename = file.getOriginalFilename() != null ? file.getOriginalFilename() : UUID.randomUUID() + ".dcm";
+            String s3Key = prefix + filename;
+            futures.add(CompletableFuture.runAsync(() -> {
+                try {
+                    s3Client.putObject(
+                            PutObjectRequest.builder()
+                                    .bucket(bucketName)
+                                    .key(s3Key)
+                                    .contentType("application/dicom")
+                                    .contentLength(file.getSize())
+                                    .build(),
+                            RequestBody.fromInputStream(file.getInputStream(), file.getSize())
+                    );
+                } catch (IOException e) {
+                    throw new CompletionException(new RuntimeException("S3 upload failed for " + s3Key, e));
+                }
+            }, s3UploadExecutor));
+        }
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (CompletionException ex) {
+            throw new RuntimeException("One or more S3 uploads failed for batch " + batchId, ex.getCause());
+        }
+
+        // Phase 3: build a display label for the series record
+        String firstFilename = files.get(0).getOriginalFilename() != null
+                ? files.get(0).getOriginalFilename() : "unknown.dcm";
+        String label = files.size() == 1
+                ? firstFilename
+                : firstFilename + " + " + (files.size() - 1) + " more";
+
+        long totalSize = files.stream().mapToLong(MultipartFile::getSize).sum();
+
+        DicomImage image = dicomImageRepository.save(
+                DicomImage.builder()
+                        .user(user)
+                        .s3Key(prefix)
+                        .filename(label)
+                        .fileSize(totalSize)
+                        .fileCount(files.size())
+                        .importStatus(ImportStatus.PENDING)
+                        .build()
+        );
+
+        // Phase 4: start ONE HealthImaging import job for the entire series prefix
+        String inputS3Uri  = "s3://" + bucketName + "/" + prefix;
+        String outputS3Uri = "s3://" + bucketName + "/health-imaging-output/" + userId + "/" + batchId + "/";
+
+        String jobId = healthImagingService.startImportJob(inputS3Uri, outputS3Uri);
+        image.setHealthImagingJobId(jobId);
+        image.setImportStatus(ImportStatus.SUBMITTED);
+
+        return dicomImageRepository.save(image);
     }
 
     /**

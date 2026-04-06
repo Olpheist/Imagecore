@@ -15,6 +15,7 @@ public class DicomImageMapper {
         dto.setId(image.getId());
         dto.setFilename(image.getFilename());
         dto.setFileSize(image.getFileSize());
+        dto.setFileCount(image.getFileCount());
         dto.setImportStatus(image.getImportStatus());
         dto.setImageSetId(image.getImageSetId());
         dto.setUploadedAt(image.getUploadedAt() != null ? image.getUploadedAt().toString() : null);

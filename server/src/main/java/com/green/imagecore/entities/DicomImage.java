@@ -22,6 +22,10 @@ public class DicomImage {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /**
+     * S3 prefix (folder) containing all DICOM files for this series upload,
+     * e.g. {@code dicom/{userId}/{batchId}/}. Used for bulk delete via ListObjectsV2.
+     */
     @Column(name = "s3_key", nullable = false, length = 512)
     private String s3Key;
 
@@ -30,6 +34,10 @@ public class DicomImage {
 
     @Column(name = "file_size", nullable = false)
     private Long fileSize;
+
+    /** Number of DICOM instances in this series upload. */
+    @Column(name = "file_count", nullable = false)
+    private Integer fileCount = 1;
 
     // ID of the HealthImaging import job, populated immediately after StartDICOMImportJob
     @Column(name = "health_imaging_job_id", columnDefinition = "text")

@@ -105,6 +105,7 @@ resource "aws_iam_role_policy" "ecs_task" {
           "medical-imaging:GetDICOMImportJob",     #check the status of a running or completed import job
           "medical-imaging:ListDICOMImportJobs",   #list all import jobs for a datastore
           "medical-imaging:GetImageSet",           #retrieve metadata for an imported image set
+          "medical-imaging:GetImageSetMetadata",   #retrieve DICOM metadata blob for an image set (spatial info, frame IDs)
           "medical-imaging:SearchImageSets",       #query image sets by patient/study attributes
           "medical-imaging:ListImageSetVersions",  #list versions of an image set (HealthImaging is immutable; updates create new versions)
           "medical-imaging:GetImageFrame"          #retrieve individual image frames for WADO-RS serving

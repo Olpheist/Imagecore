@@ -5,7 +5,7 @@ import type { ApiError } from "~/models/error";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-const getBaseUrl = (): string => {
+export const getBaseUrl = (): string => {
     return process.dev ? "http://localhost:8080/api" : "/api";
 };
 
@@ -68,7 +68,7 @@ async function toApiError(res: Response, url: string): Promise<ApiError> {
     };
 }
 
-async function ensureCsrfCookie(): Promise<void> {
+export async function ensureCsrfCookie(): Promise<void> {
     if (typeof window === "undefined") return;
 
     if (!csrfPromise) {

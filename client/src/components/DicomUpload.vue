@@ -108,6 +108,7 @@ import { ref, computed } from 'vue';
 import type { ApiError } from '~/models/error';
 import type { DicomImageDto } from '~/models/dicom';
 import { formatBytes } from '~/utils/formatters';
+import { getBaseUrl, ensureCsrfCookie } from '~/composables/useApiFetch';
 
 const emit = defineEmits<{
   uploaded: [image: DicomImageDto]
@@ -160,7 +161,6 @@ function reset() {
 async function doUpload() {
   if (selectedFiles.value.length === 0) return;
 
-  uploading.value = true;
   uploadError.value = null;
   uploadedCount.value = 0;
   uploadProgress.value = 1; // show bar immediately
@@ -170,21 +170,11 @@ async function doUpload() {
     formData.append('files', file);
   }
 
-  try {
-    const images = await useApiFetch<DicomImageDto[]>(`/images/upload-batch`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    uploadedCount.value = images.length;
-    selectedFiles.value = [];
-    if (fileInput.value) fileInput.value.value = '';
-    emit('uploaded', images);
-  } catch (e) {
-    uploadError.value = e as ApiError;
-  } finally {
-    uploading.value = false;
-  }
+  await ensureCsrfCookie();
+  const csrfToken = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith('XSRF-TOKEN='))
+    ?.split('=')[1];
 
   return new Promise<void>((resolve) => {
     const xhr = new XMLHttpRequest();
@@ -250,8 +240,9 @@ async function doUpload() {
       resolve();
     };
 
-    xhr.open('POST', `${baseUrl}/images/upload-batch`);
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.open('POST', `${getBaseUrl()}/images/upload-batch`);
+    xhr.withCredentials = true; // Send http-only cookies with request
+    if (csrfToken) xhr.setRequestHeader('X-XSRF-TOKEN', decodeURIComponent(csrfToken));
     xhr.send(formData);
   });
 }

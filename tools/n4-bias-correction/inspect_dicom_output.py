@@ -194,7 +194,7 @@ def main():
     # Verify StudyInstanceUID was preserved from input
     src_ds = pydicom.dcmread(str(dcm_files[0]), stop_before_pixels=True)
     if str(first.StudyInstanceUID) == str(src_ds.StudyInstanceUID):
-        print("\n  StudyInstanceUID matches source,OHIF association will work.")
+        print("\n  StudyInstanceUID matches source.")
     else:
         print("\n  WARNING: StudyInstanceUID mismatch,check _get_tag / raw_dicom.")
 

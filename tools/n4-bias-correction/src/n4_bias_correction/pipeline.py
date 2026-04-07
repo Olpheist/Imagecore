@@ -3,17 +3,14 @@ pipeline.py - N4 Bias Field Correction Tool
 
 Corrects B1 field inhomogeneity in MRI volumes using the ITK N4 algorithm.
 Produces a PDF report with side-by-side comparison of the original, corrected,
-and bias field middle slices. Optionally writes the corrected volume as a DICOM
-series and reimports it into AWS HealthImaging under the same study as the source.
+and bias field middle slices. When the source is AWS HealthImaging, the corrected
+volume is always written as a DICOM series and reimported under the same study.
 
 Usage (local file):
     n4-bias-correction --input <image_path> [--output-dir <dir>] [--shrink-factor <n>]
 
 Usage (AWS HealthImaging):
-    n4-bias-correction --datastore-id <id> --image-set-id <id> [--output-dir <dir>] [--shrink-factor <n>]
-
-Usage (AWS HealthImaging with reimport):
-    n4-bias-correction --datastore-id <id> --image-set-id <id> --reimport
+    n4-bias-correction --datastore-id <id> --image-set-id <id>
                        --s3-bucket <bucket> --import-role-arn <arn>
                        [--output-dir <dir>] [--shrink-factor <n>]
 
@@ -383,8 +380,8 @@ def write_corrected_dicom_series(
     Write the corrected float32 volume as a DICOM series ready for HealthImaging reimport.
 
     Each z-slice becomes one .dcm file. The output series shares the original
-    Study Instance UID (so HealthImaging and the OHIF viewer associate it with
-    the original upload) but gets a new Series Instance UID and new SOP Instance
+    Study Instance UID (so HealthImaging associates it with the original upload)
+    but gets a new Series Instance UID and new SOP Instance
     UIDs, and is tagged as DERIVED\\SECONDARY.
 
     Float32 pixel values are linearly scaled to uint16 using global min/max.
@@ -431,7 +428,7 @@ def write_corrected_dicom_series(
         ds.PatientBirthDate = _get_tag(raw, "00100030", "")
         ds.PatientSex = _get_tag(raw, "00100040", "")
 
-        # Study tags, copied from original (same Study UID links series in OHIF)
+        # Study tags, copied from original (same Study UID keeps series associated in HealthImaging)
         ds.StudyInstanceUID = _get_tag(raw, "0020000D", "")
         ds.StudyDate = _get_tag(raw, "00080020", "")
         ds.StudyTime = _get_tag(raw, "00080030", "")
@@ -502,7 +499,7 @@ def start_healthimaging_import(
 
     HealthImaging fetches the DICOM files from input_s3_uri using import_role_arn,
     converts them to HTJ2K, and stores them under the same Study Instance UID as
-    the original series, making them visible alongside the original in the OHIF viewer.
+    the original series, keeping it associated with the same study in HealthImaging.
     """
     client = boto3.client("medical-imaging", **({"region_name": region} if region else {}))
     response = client.start_dicom_import_job(
@@ -748,16 +745,10 @@ def main():
              "Use 1 to run at full resolution (slower).",
     )
     parser.add_argument(
-        "--reimport",
-        action="store_true",
-        help="After correction, write a DICOM series and reimport it into HealthImaging "
-             "under the same study as the source image set. Requires --image-set-id, "
-             "--s3-bucket, and --import-role-arn.",
-    )
-    parser.add_argument(
         "--s3-bucket",
         metavar="BUCKET",
-        help="S3 bucket used to stage the corrected DICOM files before reimport.",
+        help="S3 bucket used to stage the corrected DICOM files before reimport "
+             "(required with --image-set-id).",
     )
     parser.add_argument(
         "--s3-prefix",
@@ -767,19 +758,18 @@ def main():
     parser.add_argument(
         "--import-role-arn",
         metavar="ARN",
-        help="IAM role ARN that HealthImaging assumes to read the staged DICOM from S3.",
+        help="IAM role ARN that HealthImaging assumes to read the staged DICOM from S3 "
+             "(required with --image-set-id).",
     )
     args = parser.parse_args()
 
     if args.image_set_id and not args.datastore_id:
         parser.error("--datastore-id is required when using --image-set-id")
-    if args.reimport:
-        if not args.image_set_id:
-            parser.error("--reimport requires --image-set-id (HealthImaging source)")
+    if args.image_set_id:
         if not args.s3_bucket:
-            parser.error("--reimport requires --s3-bucket")
+            parser.error("--s3-bucket is required when using --image-set-id")
         if not args.import_role_arn:
-            parser.error("--reimport requires --import-role-arn")
+            parser.error("--import-role-arn is required when using --image-set-id")
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -878,12 +868,12 @@ def main():
     print(f"  PDF report     : {pdf_path}")
     build_pdf(pdf_path, orig_png, corr_png, bias_png, meta)
 
-    # --- Reimport corrected series into HealthImaging (optional) ---
+    # --- Reimport corrected series into HealthImaging ---
     # Converts the corrected float32 volume to a DICOM series that shares the
     # original Study Instance UID, stages it on S3, and triggers a HealthImaging
-    # import job. The corrected series will appear alongside the original in the
-    # OHIF viewer once the job completes.
-    if args.reimport:
+    # import job. The corrected series will appear alongside the original in
+    # HealthImaging once the job completes.
+    if args.image_set_id:
         s3_prefix = args.s3_prefix or f"n4-corrected/{stem}"
 
         print("  Writing DICOM  : corrected series")
@@ -909,7 +899,7 @@ def main():
 
     print("\nDone.")
     print(f"  PDF report      : {pdf_path}")
-    if args.reimport:
+    if args.image_set_id:
         print(f"  Import job ID   : {job_id}")
 
 

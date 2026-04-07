@@ -24,25 +24,15 @@ n4-bias-correction --input scan.dcm --output-dir ./results
 
 ### AWS HealthImaging
 
-```bash
-n4-bias-correction \
-  --datastore-id <datastore-id> \
-  --image-set-id <image-set-id> \
-  --output-dir ./results
-```
-
-### HealthImaging with reimport
-
-Fetches the image from HealthImaging, runs N4, and reimports the corrected series back under the same study so it appears alongside the original in the OHIF viewer.
+Fetches the image from HealthImaging, runs N4, and always reimports the corrected series back into HealthImaging under the same study.
 
 ```bash
 n4-bias-correction \
   --datastore-id <datastore-id> \
   --image-set-id <image-set-id> \
-  --output-dir ./results \
-  --reimport \
   --s3-bucket <bucket> \
-  --import-role-arn <arn>
+  --import-role-arn <arn> \
+  --output-dir ./results
 ```
 
 ## Options
@@ -55,10 +45,9 @@ n4-bias-correction \
 | `--region` | boto3 default | AWS region for HealthImaging. |
 | `--output-dir` | `./output` | Directory where outputs are written. |
 | `--shrink-factor` | `2` | Uniform downsample factor applied before N4 estimation. Use `1` to run at full resolution (slower). |
-| `--reimport` | | Write a corrected DICOM series and reimport it into HealthImaging. Requires `--image-set-id`, `--s3-bucket`, and `--import-role-arn`. |
-| `--s3-bucket` | | S3 bucket used to stage corrected DICOM files before reimport. |
+| `--s3-bucket` | | S3 bucket used to stage corrected DICOM files before reimport (required with `--image-set-id`). |
 | `--s3-prefix` | `n4-corrected/<image-set-id>` | S3 key prefix for staged DICOM files. |
-| `--import-role-arn` | | IAM role ARN that HealthImaging assumes to read the staged DICOM from S3. |
+| `--import-role-arn` | | IAM role ARN that HealthImaging assumes to read the staged DICOM from S3 (required with `--image-set-id`). |
 
 ## Outputs
 
@@ -68,7 +57,7 @@ n4-bias-correction \
 | `<stem>_orig_slice.png` | Middle slice of the original image |
 | `<stem>_corr_slice.png` | Middle slice of the corrected image |
 | `<stem>_bias_slice.png` | Middle slice of the multiplicative bias field |
-| `<stem>-corrected-dicom/` | Per-slice DICOM series ready for HealthImaging reimport (only with `--reimport`) |
+| `<stem>-corrected-dicom/` | Per-slice DICOM series reimported into HealthImaging (only when using `--image-set-id`) |
 
 ## Supported Input Formats
 
@@ -134,7 +123,7 @@ docker run --rm \
   inspect_dicom_output.py --input /data/scan.dcm --output-dir /data/results
 ```
 
-The script prints a tag summary on completion, including a confirmation that `StudyInstanceUID` matches the source — the critical check for OHIF association.
+The script prints a tag summary on completion, including a confirmation that `StudyInstanceUID` matches the source.
 
 ## Algorithm Parameters
 
@@ -154,15 +143,15 @@ When running against AWS HealthImaging the ECS task role requires:
 |------------|---------|
 | `medical-imaging:GetImageSetMetadata` | Fetch DICOM metadata to extract frame IDs and spatial info |
 | `medical-imaging:GetImageFrame` | Fetch individual HTJ2K frames |
-| `medical-imaging:StartDICOMImportJob` | Trigger reimport of the corrected series (only with `--reimport`) |
-| `s3:PutObject` on the staging bucket | Upload corrected DICOM files before reimport (only with `--reimport`) |
-| `iam:PassRole` for the import role | Allow HealthImaging to assume the import role to read from S3 (only with `--reimport`) |
+| `medical-imaging:StartDICOMImportJob` | Trigger reimport of the corrected series |
+| `s3:PutObject` on the staging bucket | Upload corrected DICOM files before reimport |
+| `iam:PassRole` for the import role | Allow HealthImaging to assume the import role to read from S3 |
 
 ## Notes
 
 - Input images with very small or negative intensity values can produce poor results, as N4 operates in log-intensity space.
 - The `--shrink-factor` controls how much the image is downsampled before bias estimation. The bias field is always applied at full resolution. Higher shrink factors are faster but may reduce correction accuracy for fine-scale inhomogeneity.
-- When `--reimport` is used, the corrected DICOM series shares the original Study Instance UID, so the OHIF viewer will display it alongside the original series under the same study.
+- When using `--image-set-id`, the corrected DICOM series shares the original Study Instance UID, keeping it associated with the same study in HealthImaging.
 
 ## Future Plans
 

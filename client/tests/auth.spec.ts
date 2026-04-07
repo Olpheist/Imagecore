@@ -1,11 +1,10 @@
 import { test, expect } from "./fixtures";
-import { makeJwt, mockMeUser } from "./mocks";
+import { mockMeUser } from "./mocks";
 import {
-    mockLogin,
+    mockCsrf,
     mockLoginFailure,
-    mockMe,
-    mockRegister,
     mockRegisterFailure,
+    mockMeUnauthorized,
 } from "./routes";
 
 const getFormLoginButton = (page: any) =>
@@ -14,11 +13,13 @@ const getFormLoginButton = (page: any) =>
 const getFormRegisterButton = (page: any) =>
     page.getByRole("main").getByRole("button", { name: /^register$/i });
 
-test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage();
+test.beforeEach(async ({ context }) => {
+    await context.clearCookies();
 });
 
 test("login page renders", async ({ page }) => {
+    await mockMeUnauthorized(page);
+
     await page.goto("/login");
 
     await expect(page).toHaveURL(/\/login$/);
@@ -29,12 +30,54 @@ test("login page renders", async ({ page }) => {
 });
 
 test("login success: mocks backend + header flips", async ({ page }) => {
-    const token = makeJwt();
+    let loggedIn = false;
 
-    await mockLogin(page, token);
-    await mockMe(page, mockMeUser);
+    await mockMeUnauthorized(page);
+    await mockCsrf(page);
+
+    await page.unroute("**/api/users/me");
+    await page.route("**/api/users/me", async (route) => {
+        if (!loggedIn) {
+            await route.fulfill({
+                status: 401,
+                contentType: "application/json",
+                body: JSON.stringify({
+                    status: 401,
+                    error: "Unauthorized",
+                    message: "Unauthorized",
+                    path: "/users/me",
+                }),
+            });
+            return;
+        }
+
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(mockMeUser),
+        });
+    });
+
+    await page.route("**/api/auth/login", async (route) => {
+        loggedIn = true;
+
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            headers: {
+                "set-cookie": "access_token=fake-cookie-jwt; HttpOnly; Path=/",
+            },
+            body: JSON.stringify({
+                id: mockMeUser.id,
+                username: mockMeUser.username,
+                email: mockMeUser.email,
+            }),
+        });
+    });
 
     await page.goto("/login");
+
+    await expect(page.getByPlaceholder("Username")).toBeVisible();
     await page.getByPlaceholder("Username").fill("testuser");
     await page.getByPlaceholder("Password").fill("password");
     await getFormLoginButton(page).click();
@@ -44,24 +87,68 @@ test("login success: mocks backend + header flips", async ({ page }) => {
 });
 
 test("login failure shows error message", async ({ page }) => {
+    await mockMeUnauthorized(page);
+    await mockCsrf(page);
     await mockLoginFailure(page);
 
     await page.goto("/login");
+    await expect(page.getByPlaceholder("Username")).toBeVisible();
     await page.getByPlaceholder("Username").fill("nope");
     await page.getByPlaceholder("Password").fill("nope");
     await getFormLoginButton(page).click();
 
-    await expect(page.locator(".text-red-600")).toBeVisible();
+    await expect(page.getByText(/invalid|bad credentials|error/i)).toBeVisible();
 });
 
 test("register success: mocks backend + header flips", async ({ page }) => {
-    const token = makeJwt();
+    let registered = false;
 
-    await mockRegister(page, token);
-    await mockMe(page, mockMeUser);
+    await mockMeUnauthorized(page);
+    await mockCsrf(page);
+
+    await page.unroute("**/api/users/me");
+    await page.route("**/api/users/me", async (route) => {
+        if (!registered) {
+            await route.fulfill({
+                status: 401,
+                contentType: "application/json",
+                body: JSON.stringify({
+                    status: 401,
+                    error: "Unauthorized",
+                    message: "Unauthorized",
+                    path: "/users/me",
+                }),
+            });
+            return;
+        }
+
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(mockMeUser),
+        });
+    });
+
+    await page.route("**/api/auth/register", async (route) => {
+        registered = true;
+
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            headers: {
+                "set-cookie": "access_token=fake-cookie-jwt; HttpOnly; Path=/",
+            },
+            body: JSON.stringify({
+                id: mockMeUser.id,
+                username: mockMeUser.username,
+                email: mockMeUser.email,
+            }),
+        });
+    });
 
     await page.goto("/register");
 
+    await expect(page.getByPlaceholder("Username")).toBeVisible();
     await page.getByPlaceholder("Username").fill("testuser");
     await page.getByPlaceholder("Email").fill("test@example.com");
 
@@ -76,11 +163,13 @@ test("register success: mocks backend + header flips", async ({ page }) => {
 });
 
 test("register failure shows error message", async ({ page }) => {
-    // make the backend fail regardless of password validity
+    await mockMeUnauthorized(page);
+    await mockCsrf(page);
     await mockRegisterFailure(page);
 
     await page.goto("/register");
 
+    await expect(page.getByPlaceholder("Username")).toBeVisible();
     await page.getByPlaceholder("Username").fill("testuser");
     await page.getByPlaceholder("Email").fill("test@example.com");
 
@@ -90,5 +179,5 @@ test("register failure shows error message", async ({ page }) => {
 
     await getFormRegisterButton(page).click();
 
-    await expect(page.getByText(/already in use|bad request|error/i)).toBeVisible();
+    await expect(page.getByText(/already in use/i)).toBeVisible();
 });

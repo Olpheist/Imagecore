@@ -18,8 +18,10 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,6 +52,8 @@ class DicomUploadServiceTest {
     void setUp() {
         // @Value fields are not injected by Mockito, so set via reflection
         ReflectionTestUtils.setField(dicomUploadService, "bucketName", "test-bucket");
+        // Inject a real single-threaded executor for testing
+        ReflectionTestUtils.setField(dicomUploadService, "s3UploadExecutor", Executors.newSingleThreadExecutor());
 
         testUser = User.builder()
                 .id(42L).email("test@test.com").username("testuser").passwordHash("hash")
@@ -58,8 +62,14 @@ class DicomUploadServiceTest {
         // Lenient: sad-path tests reject files before reaching these stubs
         lenient().when(userRepository.findById(42L)).thenReturn(Optional.of(testUser));
         lenient().when(healthImagingService.startImportJob(anyString(), anyString())).thenReturn("test-job-id");
-        // Return the DicomImage passed in so the service can mutate and re-save it
-        lenient().when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> inv.getArgument(0));
+        // Return the DicomImage passed in, assigning an ID on first save if needed
+        lenient().when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+            DicomImage img = inv.getArgument(0);
+            if (img.getId() == null) {
+                img.setId(999L); // assign ID on first save
+            }
+            return img;
+        });
     }
 
 
@@ -131,24 +141,61 @@ class DicomUploadServiceTest {
     }
 
     @Test
-    void uploadBatch_ReturnsOneImagePerFile() {
+    void uploadBatch_ReturnsSingleDicomImage() {
         List<org.springframework.web.multipart.MultipartFile> files = List.of(
                 validDicomFile("scan1.dcm"),
                 validDicomFile("scan2.dcm"),
                 validDicomFile("scan3.dcm")
         );
 
-        List<DicomImage> results = dicomUploadService.uploadBatch(files, 42L);
+        DicomImage result = dicomUploadService.uploadBatch(files, 42L);
 
-        assertEquals(3, results.size());
+        assertNotNull(result);
+        assertNotNull(result.getId());
+        assertEquals(3, result.getFileCount());
+        assertEquals(600L, result.getFileSize()); // 3 files * 200 bytes each
         verify(s3Client, times(3)).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        verify(healthImagingService, times(1)).startImportJob(anyString(), anyString());
     }
 
     @Test
-    void uploadBatch_EmptyList_ReturnsEmptyList() {
-        List<DicomImage> results = dicomUploadService.uploadBatch(List.of(), 42L);
+    void uploadBatch_EmptyList_ThrowsIllegalArgument() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> dicomUploadService.uploadBatch(List.of(), 42L));
 
-        assertTrue(results.isEmpty());
+        assertEquals("At least one file must be provided", ex.getMessage());
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    void uploadBatch_AllFilesShareSameS3Prefix() {
+        List<org.springframework.web.multipart.MultipartFile> files = List.of(
+                validDicomFile("scan1.dcm"),
+                validDicomFile("scan2.dcm")
+        );
+
+        ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        dicomUploadService.uploadBatch(files, 42L);
+
+        verify(s3Client, times(2)).putObject(captor.capture(), any(RequestBody.class));
+        List<PutObjectRequest> requests = captor.getAllValues();
+
+        String prefix1 = requests.get(0).key().substring(0, requests.get(0).key().lastIndexOf('/') + 1);
+        String prefix2 = requests.get(1).key().substring(0, requests.get(1).key().lastIndexOf('/') + 1);
+
+        assertEquals(prefix1, prefix2, "Both files should share the same S3 prefix");
+    }
+
+    @Test
+    void uploadBatch_ValidationFailureSkipsAllS3Calls() {
+        List<org.springframework.web.multipart.MultipartFile> files = List.of(
+                validDicomFile("scan1.dcm"),
+                new MockMultipartFile("file", "invalid.dcm", "application/dicom", new byte[50]) // too small
+        );
+
+        assertThrows(IllegalArgumentException.class,
+                () -> dicomUploadService.uploadBatch(files, 42L));
+
         verifyNoInteractions(s3Client);
     }
 

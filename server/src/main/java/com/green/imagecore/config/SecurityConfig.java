@@ -15,10 +15,13 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.util.List;
@@ -44,9 +47,10 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, RequestLogFilter requestLogFilter) throws Exception {
         return http
                 .cors(Customizer.withDefaults())
-                // CSRF is disabled because JWTs are passed via headers,
-                // protecting against cross-site request forgery inherently.
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                )
 
                 // Enforce statelessness by preventing the creation of HTTP sessions.
                 // This is critical for horizontal scaling on cloud infrastructure.
@@ -59,6 +63,7 @@ public class SecurityConfig {
 
                 // Configure the app to treat incoming requests as Bearer tokens (JWT).
                 .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenResolver(bearerTokenResolver())
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 )
 
@@ -124,5 +129,10 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;
+    }
+
+    @Bean
+    public BearerTokenResolver bearerTokenResolver() {
+        return new CookieBearerTokenResolver();
     }
 }

@@ -1,10 +1,11 @@
 import { test, expect } from "../fixtures";
 import { makeJwt, mockMeUser, mockResearcherUser, mockAdminUser, mockTools } from "../mocks";
-import { mockLogin, mockMe, mockToolsAll, mockToolsGet, mockToolsDelete } from "../routes";
+import {mockLogin, mockMe, mockToolsAll, mockToolsGet, mockToolsDelete, mockCsrf} from "../routes";
 
 
-test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage();
+test.beforeEach(async ({ context, page }) => {
+    await context.clearCookies();
+    await mockCsrf(page);
 });
 
 // Auth

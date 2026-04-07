@@ -1,35 +1,24 @@
 package com.green.imagecore.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.green.imagecore.entities.User;
-import com.green.imagecore.exception.GlobalExceptionHandler;
 import com.green.imagecore.service.JwtService;
 import com.green.imagecore.service.PasswordResetService;
 import com.green.imagecore.service.UserService;
 import com.green.imagecore.service.UserAuthenticationService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.mockito.Mockito.doNothing;
@@ -70,7 +59,7 @@ class AuthControllerTest extends BaseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("mock-token"));
+                .andExpect(cookie().value("access_token", "mock-token"));
     }
 
     @Test
@@ -143,7 +132,7 @@ class AuthControllerTest extends BaseControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("valid-jwt"));
+                .andExpect(cookie().value("access_token", "valid-jwt"));
     }
 
     @Test
@@ -254,5 +243,19 @@ class AuthControllerTest extends BaseControllerTest {
                 .andExpect(content().string(containsString("Invalid or expired token")));
 
         verify(passwordResetService, times(1)).resetPassword("bad-token", "password10");
+    }
+
+    @Test
+    void logout_Success_ClearsCookieAndReturns204() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().value("access_token", ""))
+                .andExpect(cookie().maxAge("access_token", 0));
+    }
+
+    @Test
+    void csrf_ReturnsToken() throws Exception {
+        mockMvc.perform(get("/api/auth/csrf"))
+                .andExpect(status().isOk());
     }
 }

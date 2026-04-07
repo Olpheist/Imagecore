@@ -13,7 +13,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
+
+import static org.mockito.Mockito.lenient;
 
 import java.time.Instant;
 import java.util.List;
@@ -38,6 +43,13 @@ class DicomCatalogServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(dicomCatalogService, "bucketName", "test-bucket");
+        // Mock default S3 responses for delete tests (lenient so non-delete tests don't fail on unused stubbing)
+        lenient().when(s3Client.listObjectsV2(any(ListObjectsV2Request.class))).thenAnswer(inv -> {
+            ListObjectsV2Request req = inv.getArgument(0);
+            S3Object obj = S3Object.builder().key(req.prefix() + "instance.dcm").build();
+            return ListObjectsV2Response.builder().contents(obj).build();
+        });
+        lenient().when(s3Client.deleteObjects(any(DeleteObjectsRequest.class))).thenReturn(null);
     }
 
 
@@ -112,32 +124,32 @@ class DicomCatalogServiceTest {
     // delete
 
     @Test
-    void delete_CallsS3DeleteWithCorrectKey() {
-        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid.dcm");
+    void delete_ListsObjectsUnderPrefixAndDeletesThem() {
+        DicomImage image = buildImage(5L, 42L, "series label", "dicom/42/batch-uuid/");
         when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
 
         dicomCatalogService.delete(5L, 42L);
 
-        ArgumentCaptor<DeleteObjectRequest> captor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
-        verify(s3Client).deleteObject(captor.capture());
-        assertEquals("test-bucket", captor.getValue().bucket());
-        assertEquals("dicom/42/uuid.dcm", captor.getValue().key());
+        verify(s3Client).listObjectsV2(any(ListObjectsV2Request.class));
+        verify(s3Client).deleteObjects(any(DeleteObjectsRequest.class));
+        verify(dicomImageRepository).delete(image);
     }
 
     @Test
-    void delete_CallsS3BeforeRepository() {
-        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid.dcm");
+    void delete_CallsListObjectsBeforeDeleteObjects() {
+        DicomImage image = buildImage(5L, 42L, "series label", "dicom/42/batch-uuid/");
         when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
 
         var order = inOrder(s3Client, dicomImageRepository);
         dicomCatalogService.delete(5L, 42L);
-        order.verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
+        order.verify(s3Client).listObjectsV2(any(ListObjectsV2Request.class));
+        order.verify(s3Client).deleteObjects(any(DeleteObjectsRequest.class));
         order.verify(dicomImageRepository).delete(image);
     }
 
     @Test
     void delete_DeletesImageFromRepository() {
-        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid.dcm");
+        DicomImage image = buildImage(5L, 42L, "series label", "dicom/42/batch-uuid/");
         when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
 
         dicomCatalogService.delete(5L, 42L);
@@ -157,9 +169,9 @@ class DicomCatalogServiceTest {
 
     @Test
     void delete_DoesNotDeleteFromRepository_WhenS3Throws() {
-        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid.dcm");
+        DicomImage image = buildImage(5L, 42L, "series label", "dicom/42/batch-uuid/");
         when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
-        doThrow(new RuntimeException("S3 unavailable")).when(s3Client).deleteObject(any(DeleteObjectRequest.class));
+        doThrow(new RuntimeException("S3 unavailable")).when(s3Client).listObjectsV2(any(ListObjectsV2Request.class));
 
         assertThrows(RuntimeException.class,
                 () -> dicomCatalogService.delete(5L, 42L));
@@ -190,6 +202,7 @@ class DicomCatalogServiceTest {
         img.setUser(user);
         img.setFilename(filename);
         img.setFileSize(1024L);
+        img.setFileCount(1);
         img.setS3Key(s3Key);
         img.setUploadedAt(Instant.parse("2026-01-01T00:00:00Z"));
         return img;

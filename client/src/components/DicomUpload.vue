@@ -25,18 +25,48 @@
         </p>
       </template>
       <template v-else>
-        <ul class="space-y-1 text-left">
-          <li
-            v-for="file in selectedFiles"
-            :key="file.name"
-            class="flex items-center justify-between text-sm"
+        <!-- Compact summary -->
+        <div class="text-center">
+          <p class="text-sm font-medium text-gray-700">
+            {{ selectedFiles.length }} file{{ selectedFiles.length !== 1 ? 's' : '' }} selected
+            <span class="text-xs text-gray-500">({{ formatBytes(totalSize) }})</span>
+          </p>
+
+          <!-- Expandable file list -->
+          <button
+            type="button"
+            class="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+            @click.stop="showFileList = !showFileList"
           >
-            <span class="font-medium text-gray-800 truncate max-w-xs">{{ file.name }}</span>
-            <span class="text-xs text-gray-500 ml-4 shrink-0">{{ formatBytes(file.size) }}</span>
-          </li>
-        </ul>
-        <p class="text-xs text-gray-400 mt-3">{{ selectedFiles.length }} file{{ selectedFiles.length !== 1 ? 's' : '' }} selected</p>
+            {{ showFileList ? '▼' : '▶' }} {{ showFileList ? 'Hide' : 'Show' }} files
+          </button>
+
+          <ul v-if="showFileList" class="space-y-1 text-left mt-3 max-h-48 overflow-y-auto">
+            <li
+              v-for="file in selectedFiles"
+              :key="file.name"
+              class="flex items-center justify-between text-sm"
+            >
+              <span class="font-medium text-gray-800 truncate max-w-xs">{{ file.name }}</span>
+              <span class="text-xs text-gray-500 ml-4 shrink-0">{{ formatBytes(file.size) }}</span>
+            </li>
+          </ul>
+        </div>
       </template>
+    </div>
+
+    <!-- Upload progress bar -->
+    <div v-if="uploadProgress > 0 && uploadProgress < 100" class="mt-4">
+      <div class="flex justify-between text-xs text-gray-500 mb-1">
+        <span>Uploading…</span>
+        <span>{{ uploadProgress }}%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2">
+        <div
+          class="bg-blue-500 h-2 rounded-full transition-all duration-150"
+          :style="{ width: uploadProgress + '%' }"
+        />
+      </div>
     </div>
 
     <!-- Success -->
@@ -74,24 +104,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { getToken } from '~/utils/authToken';
-import { isExpired } from '~/utils/jwt';
-import { navigateTo } from 'nuxt/app';
+import { ref, computed } from 'vue';
 import type { ApiError } from '~/models/error';
 import type { DicomImageDto } from '~/models/dicom';
 import { formatBytes } from '~/utils/formatters';
+import { getBaseUrl, ensureCsrfCookie } from '~/composables/useApiFetch';
 
 const emit = defineEmits<{
-  uploaded: [images: DicomImageDto[]]
+  uploaded: [image: DicomImageDto]
 }>()
 
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput');
 const selectedFiles = ref<File[]>([]);
 const isDragging = ref(false);
-const uploading = ref(false);
+const showFileList = ref(false);
+const uploadProgress = ref(0); // 0–100; 0 = idle, 1–99 = in progress, 100 = server processing
+const uploading = computed(() => uploadProgress.value > 0 && uploadProgress.value < 100);
 const uploadError = ref<ApiError | null>(null);
 const uploadedCount = ref(0);
+const totalSize = computed(() => selectedFiles.value.reduce((sum, f) => sum + f.size, 0));
 
 function openFilePicker() {
   fileInput.value?.click();
@@ -101,7 +132,8 @@ function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
   selectedFiles.value = Array.from(input.files ?? []);
   uploadError.value = null;
-  uploadedCount.value = 0
+  uploadedCount.value = 0;
+  showFileList.value = false;
 }
 
 function onDrop(event: DragEvent) {
@@ -113,86 +145,105 @@ function onDrop(event: DragEvent) {
     selectedFiles.value = dropped;
     uploadError.value = null;
     uploadedCount.value = 0;
+    showFileList.value = false;
   }
 }
 
 function reset() {
   selectedFiles.value = [];
   uploadError.value = null;
-  uploadedCount.value = 0
+  uploadedCount.value = 0;
+  uploadProgress.value = 0;
+  showFileList.value = false;
   if (fileInput.value) fileInput.value.value = '';
 }
 
 async function doUpload() {
   if (selectedFiles.value.length === 0) return;
 
-  const token = getToken();
-  if (!token || isExpired(token)) {
-    await navigateTo('/login');
-    return;
-  }
-
-  uploading.value = true;
   uploadError.value = null;
-  uploadedCount.value = 0
+  uploadedCount.value = 0;
+  uploadProgress.value = 1; // show bar immediately
 
-  const baseUrl = import.meta.dev ? 'http://localhost:8080/api' : '/api';
   const formData = new FormData();
   for (const file of selectedFiles.value) {
     formData.append('files', file);
   }
 
-  try {
-    const res = await fetch(`${baseUrl}/images/upload-batch`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+  await ensureCsrfCookie();
+  const csrfToken = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith('XSRF-TOKEN='))
+    ?.split('=')[1];
 
-    if (res.status === 401) {
-      await navigateTo('/login');
-      return;
-    }
+  return new Promise<void>((resolve) => {
+    const xhr = new XMLHttpRequest();
 
-    if (!res.ok) {
-      const contentType = res.headers.get('content-type') ?? '';
-      if (contentType.includes('application/json')) {
-        const data = (await res.json()) as Partial<ApiError>;
-        uploadError.value = {
-          status: data.status ?? res.status,
-          error: data.error ?? res.statusText,
-          message: data.message ?? `Upload failed (${res.status})`,
-          path: data.path ?? '/images/upload-batch',
-          details: data.details ?? null,
-          timestamp: data.timestamp,
-        };
-      } else {
-        uploadError.value = {
-          status: res.status,
-          error: res.statusText,
-          message: `Upload failed (${res.status})`,
-          path: '/images/upload-batch',
-          details: null,
-        };
+    // Track HTTP upload progress (browser → server). Cap at 90% to leave room for
+    // server-side processing (S3 parallel uploads + HealthImaging job submission).
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        uploadProgress.value = Math.max(1, Math.round((event.loaded / event.total) * 90));
       }
-      return;
-    }
-
-    const images = (await res.json()) as DicomImageDto[];
-    uploadedCount.value = images.length;
-    selectedFiles.value = [];
-    if (fileInput.value) fileInput.value.value = '';
-    emit('uploaded', images);
-  } catch {
-    uploadError.value = {
-      status: 0,
-      error: 'Network Error',
-      message: 'Could not reach the server. Please check your connection.',
-      path: '/images/upload-batch',
-      details: null,
     };
-  } finally {
-    uploading.value = false;
-  }
+
+    xhr.onload = async () => {
+      uploadProgress.value = 0;
+
+      if (xhr.status === 401) {
+        await navigateTo('/login');
+        resolve();
+        return;
+      }
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        try {
+          const data = JSON.parse(xhr.responseText) as Partial<ApiError>;
+          uploadError.value = {
+            status: data.status ?? xhr.status,
+            error: data.error ?? xhr.statusText,
+            message: data.message ?? `Upload failed (${xhr.status})`,
+            path: data.path ?? '/images/upload-batch',
+            details: data.details ?? null,
+            timestamp: data.timestamp,
+          };
+        } catch {
+          uploadError.value = {
+            status: xhr.status,
+            error: xhr.statusText,
+            message: `Upload failed (${xhr.status})`,
+            path: '/images/upload-batch',
+            details: null,
+          };
+        }
+        resolve();
+        return;
+      }
+
+      const image = JSON.parse(xhr.responseText) as DicomImageDto;
+      uploadedCount.value = image.fileCount;
+      selectedFiles.value = [];
+      if (fileInput.value) fileInput.value.value = '';
+      emit('uploaded', image);
+      resolve();
+    };
+
+    xhr.onerror = () => {
+      uploadProgress.value = 0;
+      uploadError.value = {
+        status: 0,
+        error: 'Network Error',
+        message: 'Could not reach the server. Please check your connection.',
+        path: '/images/upload-batch',
+        details: null,
+      };
+      resolve();
+    };
+
+    xhr.open('POST', `${getBaseUrl()}/images/upload-batch`);
+    xhr.withCredentials = true; // Send http-only cookies with request
+    if (csrfToken) xhr.setRequestHeader('X-XSRF-TOKEN', decodeURIComponent(csrfToken));
+    xhr.send(formData);
+  });
 }
 </script>

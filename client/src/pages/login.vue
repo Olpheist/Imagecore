@@ -67,12 +67,11 @@
 
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { setToken } from "~/utils/authToken";
 import { navigateTo } from "nuxt/app";
-import type {AuthResponse} from "~/models/auth";
+import type { AuthResponse } from "~/models/auth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useUserStore } from "~/stores/user";
-import type {ApiError} from "~/models/error";
+import type { ApiError } from "~/models/error";
 
 useHead({
   title: "Login",
@@ -91,14 +90,12 @@ const onLogin = async (): Promise<void> => {
   loading.value = true;
 
   try {
-    const resp = await useApiFetch<AuthResponse>("/auth/login", {
+    await useApiFetch<AuthResponse>("/auth/login", {
       method: "POST",
       body: { username: username.value, password: password.value },
     });
 
-    setToken(resp.token);
     await userStore.fetchMe();
-
     await navigateTo("/");
   } catch (e: unknown) {
     error.value = e as ApiError;
@@ -108,8 +105,8 @@ const onLogin = async (): Promise<void> => {
 };
 
 const onRegister = async (): Promise<void> => {
-  await navigateTo('/register');
-}
+  await navigateTo("/register");
+};
 
 const onForgotPassword = async (): Promise<void> => {
   await navigateTo("/forgot-password");

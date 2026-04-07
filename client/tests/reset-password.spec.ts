@@ -1,11 +1,11 @@
-import { test, expect } from "./fixtures";
-import { mockResetPassword, mockResetPasswordFailure } from "./routes";
+ import { test, expect } from "./fixtures";
+import {mockCsrf, mockResetPassword, mockResetPasswordFailure} from "./routes";
 
 const getUpdateButton = (page: any) =>
     page.getByRole("button", { name: /update password/i });
 
-test.beforeEach(async ({ clearStorage }) => {
-    await clearStorage();
+test.beforeEach(async ({ context }) => {
+    await context.clearCookies();
 });
 
 test("reset password page renders", async ({ page }) => {
@@ -20,6 +20,7 @@ test("reset password page renders", async ({ page }) => {
 
 test("reset password success shows success message", async ({ page }) => {
     await mockResetPassword(page);
+    await mockCsrf(page);
 
     await page.goto("/reset-password?token=fake-token");
 
@@ -35,6 +36,7 @@ test("reset password success shows success message", async ({ page }) => {
 
 test("reset password failure shows error component", async ({ page }) => {
     await mockResetPasswordFailure(page);
+    await mockCsrf(page);
 
     await page.goto("/reset-password?token=fake-token");
 

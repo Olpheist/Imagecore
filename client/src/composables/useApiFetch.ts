@@ -1,14 +1,33 @@
 import { process } from "std-env";
-import { clearToken, getToken } from "~/utils/authToken";
-import { isExpired } from "~/utils/jwt";
-import { navigateTo} from "nuxt/app";
-import type {ApiError} from "~/models/error";
+import { navigateTo } from "nuxt/app";
+import { useUserStore } from "~/stores/user";
+import type { ApiError } from "~/models/error";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-const getBaseUrl = (): string => {
+export const getBaseUrl = (): string => {
     return process.dev ? "http://localhost:8080/api" : "/api";
 };
+
+let csrfPromise: Promise<void> | null = null;
+
+function getCookie(name: string): string | null {
+    if (typeof document === "undefined") return null;
+
+    const cookies = document.cookie ? document.cookie.split("; ") : [];
+
+    for (const cookie of cookies) {
+        if (cookie.startsWith(`${name}=`)) {
+            return decodeURIComponent(cookie.substring(name.length + 1));
+        }
+    }
+
+    return null;
+}
+
+function isUnsafeMethod(method: HttpMethod): boolean {
+    return method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE";
+}
 
 async function toApiError(res: Response, url: string): Promise<ApiError> {
     const contentType = res.headers.get("content-type") ?? "";
@@ -28,11 +47,9 @@ async function toApiError(res: Response, url: string): Promise<ApiError> {
                 };
             }
         } catch {
-            // fall through to text fallback
         }
     }
 
-    // Fallback: plain text / HTML / anything else
     let text = "";
     try {
         text = await res.text();
@@ -40,51 +57,90 @@ async function toApiError(res: Response, url: string): Promise<ApiError> {
         text = "";
     }
 
-    const msg = text?.trim() ? text.trim() : `Request failed (${res.status})`;
+    const message = text.trim() ? text.trim() : `Request failed (${res.status})`;
 
     return {
         status: res.status,
         error: res.statusText || "Error",
-        message: msg,
+        message,
         path: url,
         details: null,
     };
+}
+
+export async function ensureCsrfCookie(): Promise<void> {
+    if (typeof window === "undefined") return;
+
+    if (!csrfPromise) {
+        csrfPromise = (async () => {
+            const res = await fetch(`${getBaseUrl()}/auth/csrf`, {
+                method: "GET",
+                credentials: "include",
+            });
+
+            if (!res.ok) {
+                throw await toApiError(res, "/auth/csrf");
+            }
+        })().finally(() => {
+            csrfPromise = null;
+        });
+    }
+
+    await csrfPromise;
 }
 
 export async function useApiFetch<T = unknown>(
     url: string,
     options: {
         method?: HttpMethod;
-        body?: unknown;
+        body?: BodyInit | Record<string, unknown> | null;
         headers?: HeadersInit;
     } = {},
 ): Promise<T> {
     const method = options.method ?? "GET";
 
-    const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        ...options.headers,
-    };
+    if (isUnsafeMethod(method)) {
+        await ensureCsrfCookie();
+    }
 
-    const token = getToken();
-    if (token) {
-        if (isExpired(token)) {
-            clearToken();
-        } else {
-            (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+    const headers = new Headers(options.headers);
+    const body = options.body;
+
+    const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+    const isBlob = typeof Blob !== "undefined" && body instanceof Blob;
+    const isUrlSearchParams = typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams;
+    const isJsonBody =
+        body !== undefined &&
+        body !== null &&
+        !isFormData &&
+        !isBlob &&
+        !isUrlSearchParams &&
+        typeof body === "object";
+
+    if (isJsonBody && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+    }
+
+    if (isUnsafeMethod(method)) {
+        const csrfToken = getCookie("XSRF-TOKEN");
+
+        if (csrfToken) {
+            headers.set("X-XSRF-TOKEN", csrfToken);
         }
     }
 
     const res = await fetch(`${getBaseUrl()}${url}`, {
         method,
         headers,
-        body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+        credentials: "include",
+        body: isJsonBody ? JSON.stringify(body) : (body as BodyInit | null | undefined),
     });
 
     if (res.status === 401) {
-        clearToken();
+        const userStore = useUserStore();
+        userStore.user = null;
+        userStore.ready = false;
         await navigateTo("/login");
-
         throw await toApiError(res, url);
     }
 
@@ -93,6 +149,11 @@ export async function useApiFetch<T = unknown>(
     }
 
     if (res.status === 204) {
+        return undefined as T;
+    }
+
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
         return undefined as T;
     }
 

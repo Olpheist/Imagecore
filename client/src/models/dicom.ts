@@ -4,7 +4,10 @@ export interface DicomImageDto {
   id: number
   filename: string
   fileSize: number
+  fileCount: number
   uploadedAt: string
+  importStatus: string
+  imageSetId: string | null
 }
 
 export interface DicomSeries {

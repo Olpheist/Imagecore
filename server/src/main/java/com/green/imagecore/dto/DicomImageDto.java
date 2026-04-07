@@ -14,6 +14,7 @@ public class DicomImageDto {
     private Long id;
     private String filename;
     private Long fileSize;
+    private Integer fileCount;
     private ImportStatus importStatus;
     private String imageSetId;
     private String uploadedAt;

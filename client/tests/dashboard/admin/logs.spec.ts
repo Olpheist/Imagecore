@@ -1,6 +1,6 @@
 import { test, expect } from "../../fixtures";
 import { makeJwt, TOKEN_KEY } from "../../mocks";
-import { mockMe } from "../../routes";
+import {mockCsrf, mockMe} from "../../routes";
 
 function makeLogsPage(content: unknown[], totalElements?: number) {
     return {
@@ -16,8 +16,8 @@ function makeLogsPage(content: unknown[], totalElements?: number) {
     };
 }
 
-test.beforeEach(async ({ clearStorage, page }) => {
-    await clearStorage();
+test.beforeEach(async ({ context, page }) => {
+    await context.clearCookies();
 
     await page.addInitScript(
         ({ key, value }) => sessionStorage.setItem(key, value),
@@ -125,6 +125,7 @@ test("logs fetch failure shows error component", async ({ page }) => {
 });
 
 test("purge logs sends delete request and clears table", async ({ page }) => {
+    await mockCsrf(page);
     const logs = [
         {
             id: 1,

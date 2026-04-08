@@ -34,4 +34,20 @@ public class S3Config {
                 new ThreadPoolExecutor.CallerRunsPolicy()
         );
     }
+
+    /**
+     * Thread pool for async HealthImaging import job listeners.
+     * Each listener thread sleeps between polls, so a small pool is sufficient.
+     * Sized to handle up to 20 concurrent in-flight imports without blocking.
+     */
+    @Bean(destroyMethod = "shutdown")
+    @Qualifier("dicomImportListenerExecutor")
+    public ExecutorService dicomImportListenerExecutor() {
+        return new ThreadPoolExecutor(
+                4, 20,
+                60L, TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(100),
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+    }
 }

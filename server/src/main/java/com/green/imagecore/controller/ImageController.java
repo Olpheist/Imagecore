@@ -1,9 +1,13 @@
 package com.green.imagecore.controller;
 
+import com.green.imagecore.dto.AnalysisJobDto;
 import com.green.imagecore.dto.DicomImageDto;
 import com.green.imagecore.dto.DicomSeriesGroupDto;
+import com.green.imagecore.entities.AnalysisJob;
 import com.green.imagecore.entities.DicomImage;
+import com.green.imagecore.mapper.AnalysisJobMapper;
 import com.green.imagecore.mapper.DicomImageMapper;
+import com.green.imagecore.service.AnalysisJobService;
 import com.green.imagecore.service.DicomCatalogService;
 import com.green.imagecore.service.DicomUploadService;
 import com.green.imagecore.service.HealthImagingService;
@@ -27,6 +31,7 @@ public class ImageController {
     private final DicomUploadService dicomUploadService;
     private final HealthImagingService healthImagingService;
     private final DicomCatalogService dicomCatalogService;
+    private final AnalysisJobService analysisJobService;
 
     /**
      * Single-file upload. Validates the file, stores it in S3, and queues a HealthImaging import job.
@@ -112,10 +117,24 @@ public class ImageController {
         return ResponseEntity.noContent().build();
     }
 
-    // TODO: analysis job submission — implement in a future story
-    // POST /api/images/{imageId}/jobs
-    // Body: { toolId: Long }
-    // Will create an AnalysisJob record (PENDING) linking image + tool + user
+    /**
+     * Submits an analysis job for a DICOM image set using the specified tool.
+     * Creates an AnalysisJob record and dispatches a Fargate task to run the tool.
+     * Returns 404 if the image does not exist or does not belong to the authenticated user.
+     */
+    @PostMapping("/{imageId}/jobs")
+    @PreAuthorize("hasAnyRole('CLINICIAN', 'RESEARCHER')")
+    public ResponseEntity<AnalysisJobDto> submitJob(
+            @PathVariable Long imageId,
+            @RequestBody SubmitJobRequest request,
+            Authentication authentication
+    ) {
+        Long userId = parseUserId(authentication);
+        AnalysisJob job = analysisJobService.submit(imageId, request.toolId(), userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(AnalysisJobMapper.toDto(job));
+    }
+
+    public record SubmitJobRequest(Long toolId) {}
 
     private Long parseUserId(Authentication authentication) {
         return Long.parseLong(

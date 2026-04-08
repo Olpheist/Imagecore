@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -53,4 +54,63 @@ public class DicomImage {
 
     @Column(name = "uploaded_at", nullable = false, insertable = false, updatable = false)
     private Instant uploadedAt;
+
+    @Column(name = "study_instance_uid", columnDefinition = "text")
+    private String studyInstanceUid;
+
+    @Column(name = "series_instance_uid", columnDefinition = "text")
+    private String seriesInstanceUid;
+
+    @Column(name = "sop_instance_uid", columnDefinition = "text")
+    private String sopInstanceUid;
+
+    @Column(name = "study_description", columnDefinition = "text")
+    private String studyDescription;
+
+    @Column(name = "series_description", columnDefinition = "text")
+    private String seriesDescription;
+
+    @Column(name = "body_part", length = 64)
+    private String bodyPart;
+
+    @Column(name = "modality", length = 16)
+    private String modality;
+
+    @Column(name = "patient_id", length = 64)
+    private String patientId;
+
+    @Column(name = "study_date")
+    private LocalDate studyDate;
+
+    @Column(name = "physician", length = 255)
+    private String physician;
+
+    @Column(name = "frame_count", nullable = false)
+    @Builder.Default
+    private int frameCount = 1;
+
+    @Column(name = "image_frame_id", columnDefinition = "text")
+    private String imageFrameId;
+
+    // DICOM tag 00200013 — used to sort slices within a series across multiple DB records
+    @Column(name = "instance_number")
+    private Integer instanceNumber;
+
+    // Ordered JSON array of HealthImaging frame IDs for all frames in this image set.
+    // For single-frame uploads this is a one-element array; for true multi-frame DICOMs
+    // it contains all frame IDs in acquisition order.
+    @Column(name = "frame_ids", columnDefinition = "text")
+    private String frameIds;
+
+    // Ordered JSON array of all SOP instance UIDs in this image set, sorted by InstanceNumber.
+    // For batch uploads (N slices in one DB row) this holds all N SOP UIDs.
+    // Example: ["1.2.3.4.5", "1.2.3.4.6", ...]
+    @Column(name = "sop_instance_uids", columnDefinition = "text")
+    private String sopInstanceUids;
+
+    // JSON object mapping each SOP UID to its HealthImaging frame ID.
+    // Used by the WADO-RS controller to resolve the correct frame for each slice in a batch.
+    // Example: {"1.2.3.4.5": "frameId1", "1.2.3.4.6": "frameId2"}
+    @Column(name = "sop_frame_map", columnDefinition = "text")
+    private String sopFrameMap;
 }

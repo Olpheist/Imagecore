@@ -16,6 +16,13 @@ export default defineNuxtPlugin(async () => {
   // Order matters — cs first, then dicomImageLoader, then csTools
   await cs.init()
 
+  // Register the built-in streaming volume loader for MPR viewports
+  const { cornerstoneStreamingImageVolumeLoader } = cs
+  cs.volumeLoader.registerVolumeLoader(
+    'cornerstoneStreamingImageVolume',
+    cornerstoneStreamingImageVolumeLoader as unknown as cs.Types.VolumeLoaderFn,
+  )
+
   // Fully await worker registration before anything else
   await new Promise<void>((resolve) => {
     dicomImageLoader.init({

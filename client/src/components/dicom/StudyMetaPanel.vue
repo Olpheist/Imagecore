@@ -14,7 +14,7 @@ const fmtDate = (iso: string) =>
 const metaRows = computed(() => {
   if (!props.study) return []
   return [
-    { label: 'Modality',   value: 'MRI (MR)',                              mono: false },
+    { label: 'Modality',   value: props.study.modality,                     mono: false },
     { label: 'Study',      value: props.study.description,                 mono: false },
     { label: 'Series',     value: props.study.seriesDescription,           mono: false },
     { label: 'Body Part',  value: props.study.bodyPart,                    mono: false },

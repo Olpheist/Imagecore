@@ -10,6 +10,7 @@ const emit = defineEmits<{
   (e: 'tool-change',   tool:   ViewerTool):     void
   (e: 'layout-change', layout: ViewportLayout): void
   (e: 'reset'):                                  void
+  (e: 'invert'):                                 void
 }>()
 
 const tools: { icon: string; label: string; value: ViewerTool }[] = [
@@ -19,11 +20,10 @@ const tools: { icon: string; label: string; value: ViewerTool }[] = [
   { icon: '✥', label: 'PAN',    value: 'pan'    },
 ]
 
-// 1x2 and 2x2 disabled until series support is added later
 const layouts: { label: ViewportLayout; disabled: boolean }[] = [
   { label: '1x1', disabled: false },
-  { label: '1x2', disabled: true  },
-  { label: '2x2', disabled: true  },
+  { label: '1x2', disabled: false },
+  { label: '2x2', disabled: false },
 ]
 </script>
 
@@ -60,6 +60,7 @@ const layouts: { label: ViewportLayout; disabled: boolean }[] = [
     <button
       title="Invert"
       class="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg border border-transparent text-gray-400 hover:bg-gray-100 hover:border-gray-200 hover:text-gray-600 transition-all duration-150"
+      @click="emit('invert')"
     >
       <span class="text-base leading-none">◐</span>
       <span class="font-mono leading-none" style="font-size: 8px">INVERT</span>

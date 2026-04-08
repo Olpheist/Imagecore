@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useDicomStore } from '@/stores/dicom'
 import MriCanvas         from '@/components/dicom/MriCanvas.vue'
 import StudyRow          from '@/components/dicom/StudyRow.vue'
@@ -19,6 +20,7 @@ const metaOpen     = ref(false)
 const search       = ref('')
 const activeTool   = ref<ViewerTool>('scroll')
 const activeLayout = ref<ViewportLayout>('1x1')
+const canvasRef    = ref<InstanceType<typeof MriCanvas> | null>(null)
 
 const selected = computed<DicomSeries | null>(
   () => dicomStore.series.find(s => s.id === selectedId.value) ?? null
@@ -35,17 +37,19 @@ const totalInstances = computed(() =>
   dicomStore.series.reduce((acc, s) => acc + s.instanceCount, 0)
 )
 
+const route = useRoute()
+
 onMounted(async () => {
   await dicomStore.fetchSeries()
-  if (dicomStore.series.length > 0) {
-    selectedId.value = dicomStore.series[0].id
-  }
+  const targetUid = route.query.seriesUid as string | undefined
+  const match = targetUid
+    ? dicomStore.series.find(s => s.seriesUid === targetUid)
+    : null
+  selectedId.value = (match ?? dicomStore.series[0])?.id ?? null
 })
 
 async function selectStudy(study: DicomSeries): Promise<void> {
   selectedId.value = study.id
-  // Sprint 2: fetch presigned URL — MriCanvas.vue will react via watch on study prop
-  // await dicomStore.fetchViewUrl(study.id)
 }
 
 function onToolChange(tool: ViewerTool): void {
@@ -57,7 +61,11 @@ function onLayoutChange(layout: ViewportLayout): void {
 }
 
 function onReset(): void {
-  // Sprint 2: reset Cornerstone viewport via useDicomViewer
+  canvasRef.value?.resetViewports()
+}
+
+function onInvert(): void {
+  canvasRef.value?.invertViewports()
 }
 </script>
 
@@ -101,9 +109,9 @@ function onReset(): void {
 
       <!-- Dataset badge -->
       <div class="flex items-center gap-1.5 px-3 py-1 bg-violet-50 border border-violet-200 rounded-full">
-        <span class="font-mono font-semibold text-violet-600" style="font-size: 10px">MR</span>
+        <span class="font-mono font-semibold text-violet-600" style="font-size: 10px">{{ selected?.modality ?? 'MR' }}</span>
         <span class="text-violet-300">·</span>
-        <span class="font-mono text-violet-400" style="font-size: 9px">LOCAL DATASET</span>
+        <span class="font-mono text-violet-400" style="font-size: 9px">HEALTHIMAGING</span>
       </div>
 
       <!-- Study info toggle -->
@@ -186,14 +194,17 @@ function onReset(): void {
           @tool-change="onToolChange"
           @layout-change="onLayoutChange"
           @reset="onReset"
+          @invert="onInvert"
         />
 
         <div class="flex-1 overflow-hidden">
           <ClientOnly>
             <MriCanvas
               v-if="selected"
+              ref="canvasRef"
               :study="selected"
               :tool="activeTool"
+              :layout="activeLayout"
             />
             <div
               v-else

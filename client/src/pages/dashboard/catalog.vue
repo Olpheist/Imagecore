@@ -84,7 +84,7 @@
                       v-for="tool in categoryTools"
                       :key="tool.toolId"
                       class="w-full text-left pl-6 pr-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded cursor-pointer"
-                      @click="onSingleAnalysisToolSelect(row, tool, close)"
+                      @click="onRunToolSelect(row, tool, close)"
                     >
                       {{ tool.name }}
                     </button>
@@ -107,7 +107,7 @@
               rounded
               :disabled="!row.imageSetId"
               :title="!row.imageSetId ? 'Image not yet imported into HealthImaging' : 'Start an analysis tool workflow'"
-              @click="onCustomAnalysisClick(row)"
+              @click="onRunToolWorkflowClick(row)"
             >
               Run Tool Workflow
             </Button>
@@ -200,13 +200,13 @@ function onViewImageClick(image: DicomImageDto) {
   navigateTo({ path: '/dashboard/dicom', query: { imageSetId: image.imageSetId! } });
 }
 
-function onSingleAnalysisToolSelect(image: DicomImageDto, tool: ToolDto, close: () => void) {
+function onRunToolSelect(image: DicomImageDto, tool: ToolDto, close: () => void) {
   close();
   // TODO: submit single analysis job for image using tool
 }
 
-function onCustomAnalysisClick(image: DicomImageDto) {
-  // TODO: open custom analysis modal
+function onRunToolWorkflowClick(image: DicomImageDto) {
+  // TODO: open custom analysis modal or tool workflow page, not sure which yet
 }
 
 function onDeleteClick(image: DicomImageDto) {

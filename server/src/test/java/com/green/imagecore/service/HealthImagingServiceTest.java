@@ -12,23 +12,22 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
-import software.amazon.awssdk.services.medicalimaging.model.DICOMImportJobProperties;
-import software.amazon.awssdk.services.medicalimaging.model.GetDicomImportJobRequest;
-import software.amazon.awssdk.services.medicalimaging.model.GetDicomImportJobResponse;
-import software.amazon.awssdk.services.medicalimaging.model.JobStatus;
-import software.amazon.awssdk.services.medicalimaging.model.StartDicomImportJobRequest;
-import software.amazon.awssdk.services.medicalimaging.model.StartDicomImportJobResponse;
+import software.amazon.awssdk.services.medicalimaging.model.*;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.util.zip.GZIPOutputStream;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class HealthImagingServiceTest {
@@ -153,6 +152,9 @@ class HealthImagingServiceTest {
         DicomImage image = buildImageWithJobId("job-123", ImportStatus.IN_PROGRESS);
         stubGetImportJob("job-123", JobStatus.COMPLETED, "s3://bucket/health-imaging-output/1/uuid/");
         stubS3Manifest("{\"imageSetsSummary\":[{\"imageSetId\":\"image-set-abc\"}]}");
+        // populateMetadata is called on COMPLETED — stub the metadata call to avoid NPE
+        when(medicalImagingClient.getImageSetMetadata(any(GetImageSetMetadataRequest.class)))
+                .thenThrow(new RuntimeException("metadata not available in test"));
         when(dicomImageRepository.save(image)).thenReturn(image);
 
         DicomImage result = healthImagingService.syncImportStatus(image);
@@ -189,6 +191,110 @@ class HealthImagingServiceTest {
         assertThat(result.getImageSetId()).isNull();
     }
 
+    // tests for populateMetadata()
+
+    @Test
+    void populateMetadata_extractsAllFieldsFromMetadataResponse() {
+        DicomImage image = DicomImage.builder()
+                .imageSetId("image-set-abc")
+                .importStatus(ImportStatus.COMPLETED)
+                .build();
+
+        String metadataJson = """
+                {
+                  "DatastoreID": "test-datastore-id",
+                  "ImageSetID": "image-set-abc",
+                  "Patient": {
+                    "DICOM": {
+                      "00100020": "PT-001"
+                    }
+                  },
+                  "Study": {
+                    "DICOM": {
+                      "0020000D": "1.2.3.4.5",
+                      "00081030": "Brain MRI",
+                      "00080020": "20260301",
+                      "00080090": "Dr. Smith"
+                    },
+                    "Series": {
+                      "1.2.3.4.5.1": {
+                        "DICOM": {
+                          "0020000E": "1.2.3.4.5.1",
+                          "0008103E": "T1 MPRAGE",
+                          "00080060": "MR",
+                          "00180015": "Brain"
+                        },
+                        "Instances": {
+                          "1.2.3.4.5.1.1": {
+                            "DICOM": {},
+                            "DICOMVRs": {},
+                            "ImageFrames": [
+                              {"ID": "frame-001"},
+                              {"ID": "frame-002"}
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+        stubGetImageSetMetadata(metadataJson);
+
+        healthImagingService.populateMetadata(image);
+
+        assertThat(image.getPatientId()).isEqualTo("PT-001");
+        assertThat(image.getStudyInstanceUid()).isEqualTo("1.2.3.4.5");
+        assertThat(image.getStudyDescription()).isEqualTo("Brain MRI");
+        assertThat(image.getStudyDate()).isEqualTo(LocalDate.of(2026, 3, 1));
+        assertThat(image.getPhysician()).isEqualTo("Dr. Smith");
+        assertThat(image.getSeriesInstanceUid()).isEqualTo("1.2.3.4.5.1");
+        assertThat(image.getSeriesDescription()).isEqualTo("T1 MPRAGE");
+        assertThat(image.getModality()).isEqualTo("MR");
+        assertThat(image.getBodyPart()).isEqualTo("Brain");
+        assertThat(image.getSopInstanceUid()).isEqualTo("1.2.3.4.5.1.1");
+        assertThat(image.getImageFrameId()).isEqualTo("frame-001");
+        assertThat(image.getFrameCount()).isEqualTo(2);
+    }
+
+    @Test
+    void populateMetadata_handlesErrorGracefully() {
+        DicomImage image = DicomImage.builder()
+                .imageSetId("image-set-abc")
+                .importStatus(ImportStatus.COMPLETED)
+                .build();
+
+        when(medicalImagingClient.getImageSetMetadata(any(GetImageSetMetadataRequest.class)))
+                .thenThrow(new RuntimeException("AWS error"));
+
+        // Should not throw
+        healthImagingService.populateMetadata(image);
+
+        // Fields remain null
+        assertThat(image.getStudyInstanceUid()).isNull();
+    }
+
+    // tests for streamImageFrame()
+
+    @Test
+    void streamImageFrame_callsGetImageFrameWithCorrectParams() throws IOException {
+        ResponseInputStream<GetImageFrameResponse> mockResponse =
+                new ResponseInputStream<>(mock(GetImageFrameResponse.class),
+                        new ByteArrayInputStream(new byte[]{1, 2, 3}));
+        when(medicalImagingClient.getImageFrame(any(GetImageFrameRequest.class)))
+                .thenReturn(mockResponse);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        healthImagingService.streamImageFrame("image-set-abc", "frame-001", out);
+
+        ArgumentCaptor<GetImageFrameRequest> captor = ArgumentCaptor.forClass(GetImageFrameRequest.class);
+        verify(medicalImagingClient).getImageFrame(captor.capture());
+        assertThat(captor.getValue().datastoreId()).isEqualTo("test-datastore-id");
+        assertThat(captor.getValue().imageSetId()).isEqualTo("image-set-abc");
+        assertThat(captor.getValue().imageFrameInformation().imageFrameId()).isEqualTo("frame-001");
+        assertThat(out.toByteArray()).containsExactly(1, 2, 3);
+    }
+
     // helper methods to reduce repetition in the tests above
 
     private DicomImage buildImageWithJobId(String jobId, ImportStatus status) {
@@ -214,5 +320,21 @@ class HealthImagingServiceTest {
         ResponseBytes<GetObjectResponse> responseBytes = mock(ResponseBytes.class);
         when(responseBytes.asByteArray()).thenReturn(json.getBytes());
         when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
+    }
+
+    private void stubGetImageSetMetadata(String json) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzip = new GZIPOutputStream(baos)) {
+                gzip.write(json.getBytes());
+            }
+            ResponseInputStream<GetImageSetMetadataResponse> mockResponse =
+                    new ResponseInputStream<>(mock(GetImageSetMetadataResponse.class),
+                            new ByteArrayInputStream(baos.toByteArray()));
+            when(medicalImagingClient.getImageSetMetadata(any(GetImageSetMetadataRequest.class)))
+                    .thenReturn(mockResponse);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

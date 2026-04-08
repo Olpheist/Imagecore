@@ -29,14 +29,15 @@ test("catalog page displays images returned from the API", async ({ page, setTok
     }
 });
 
-test("catalog page shows empty table when no images exist", async ({ page, setToken }) => {
+test("catalog page shows fallback sample image when no images exist", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
     await mockImagesGet(page, []);
 
     await page.goto("/dashboard/catalog");
 
-    await expect(page.getByText(/no data available/i)).toBeVisible();
+    // The dicomCatalog store injects a local fallback when the API returns empty
+    await expect(page.getByText("/dicom-samples/mri-001/sample.dcm")).toBeVisible();
 });
 
 test("catalog page shows error when API call fails", async ({ page, setToken }) => {
@@ -58,28 +59,44 @@ test("catalog page: clicking Delete opens confirmation modal", async ({ page, se
 
     await page.goto("/dashboard/catalog");
 
+    const firstImage = mockImages[0]!;
     await page.getByRole("button", { name: /^delete$/i }).first().click();
 
     await expect(page.getByRole("heading", { name: /delete image/i })).toBeVisible();
     // The filename appears in the modal confirmation text
-    await expect(page.locator("span.font-medium").filter({ hasText: mockImages[0].filename })).toBeVisible();
+    await expect(page.locator("span.font-medium").filter({ hasText: firstImage.filename })).toBeVisible();
 });
 
 test("catalog page: confirming delete removes image from list", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
     await mockImagesGet(page);
-    await mockImageDelete(page, mockImages[0].id);
     await mockCsrf(page);
+    const firstImage = mockImages[0]!;
+    await mockImageDelete(page, firstImage.id);
 
     await page.goto("/dashboard/catalog");
 
-    await expect(page.getByText(mockImages[0].filename)).toBeVisible();
+    await expect(page.getByText(firstImage.filename)).toBeVisible();
     await page.getByRole("button", { name: /^delete$/i }).first().click();
     await page.getByRole("button", { name: /^delete$/i, exact: true }).last().click();
 
     // Check the table cell (not the modal span) is gone
-    await expect(page.getByRole("cell", { name: mockImages[0].filename })).not.toBeVisible();
+    await expect(page.getByRole("cell", { name: firstImage.filename })).not.toBeVisible();
+});
+
+// View Image
+
+test("catalog page: View Image button navigates to DICOM viewer", async ({ page, setToken }) => {
+    await setToken(makeJwt());
+    await mockMe(page, mockClinicianUser);
+    await mockImagesGet(page);
+
+    await page.goto("/dashboard/catalog");
+
+    await page.getByRole("button", { name: /view image/i }).first().click();
+
+    await expect(page).toHaveURL(/\/dashboard\/dicom$/);
 });
 
 // Analysis stub

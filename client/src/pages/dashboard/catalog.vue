@@ -13,6 +13,7 @@
     <!-- Error -->
     <div class="max-w-5xl mx-auto mb-6">
       <Error :error="catalogStore.error" dismissible @close="catalogStore.error = null" />
+      <Error :error="jobError" dismissible @close="jobError = null" />
     </div>
 
     <!-- Loading Skeleton -->
@@ -55,9 +56,10 @@
                 <Button
                   variant="secondary"
                   rounded
+                  :disabled="submittingImageId === row.id"
                   title="Run an analysis tool"
                 >
-                  Run Tool
+                  {{ submittingImageId === row.id ? 'Submitting…' : 'Run Tool' }}
                 </Button>
               </template>
               <template #menu="{ close }">
@@ -154,6 +156,8 @@ import { useDicomCatalogStore } from '~/stores/dicomCatalog';
 import { useApiFetch } from '~/composables/useApiFetch';
 import type { DicomImageDto } from '~/models/dicom';
 import type { ToolDto } from '~/models/tool';
+import type { AnalysisJobDto } from '~/models/analysisJob';
+import type { ApiError } from '~/models/error';
 import type { Column } from '~/components/Table.vue';
 import { formatBytes, formatDate } from '~/utils/formatters';
 import { capitalizeFirstLetter } from '~/utils/stringFunctions';
@@ -192,6 +196,10 @@ async function fetchTools(): Promise<void> {
   }
 }
 
+// Job submission state
+const jobError          = ref<ApiError | null>(null);
+const submittingImageId = ref<number | null>(null);
+
 const showDeleteModal = ref(false);
 const pendingDelete   = ref<DicomImageDto | null>(null);
 const deletingId      = ref<number | null>(null);
@@ -200,9 +208,20 @@ function onViewImageClick(image: DicomImageDto) {
   navigateTo({ path: '/dashboard/dicom', query: { imageSetId: image.imageSetId! } });
 }
 
-function onRunToolSelect(image: DicomImageDto, tool: ToolDto, close: () => void) {
+async function onRunToolSelect(image: DicomImageDto, tool: ToolDto, close: () => void) {
   close();
-  // TODO: submit single analysis job for image using tool
+  jobError.value          = null;
+  submittingImageId.value = image.id;
+  try {
+    await useApiFetch<AnalysisJobDto>(`/images/${image.id}/jobs`, {
+      method: 'POST',
+      body: { toolId: tool.toolId },
+    });
+  } catch (e: unknown) {
+    jobError.value = e as ApiError;
+  } finally {
+    submittingImageId.value = null;
+  }
 }
 
 function onRunToolWorkflowClick(image: DicomImageDto) {

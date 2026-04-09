@@ -16,7 +16,7 @@ public class StripeService {
     public Session createCheckoutSession(Long userId) throws StripeException {
         SessionCreateParams params = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                .setSuccessUrl(stripeConfig.getSuccessUrl())
+                .setSuccessUrl(stripeConfig.getSuccessUrl() + "?session_id={CHECKOUT_SESSION_ID}")
                 .setCancelUrl(stripeConfig.getCancelUrl())
                 .addLineItem(
                         SessionCreateParams.LineItem.builder()
@@ -25,6 +25,11 @@ public class StripeService {
                                 .build()
                 )
                 .putMetadata("userId", String.valueOf(userId))
+                .setSubscriptionData(
+                        SessionCreateParams.SubscriptionData.builder()
+                                .putMetadata("userId", String.valueOf(userId))
+                                .build()
+                )
                 .build();
 
         return Session.create(params);

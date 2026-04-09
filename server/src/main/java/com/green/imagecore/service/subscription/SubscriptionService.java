@@ -18,20 +18,20 @@ public class SubscriptionService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionTierRepository subscriptionTierRepository;
 
-    @Transactional(readOnly = true)
-    public boolean canUserAccessTool(Long userId, Long toolId) {
-        Tool tool = toolRepository.findById(toolId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tool not found"));
-
-        SubscriptionTier requiredTier = tool.getRequiredTier();
-
-        SubscriptionTierCode userTierCode = userSubscriptionRepository.findByUserIdAndActiveTrue(userId)
-                .map(sub -> sub.getTier().getCode())
-                .orElse(SubscriptionTierCode.FREE);
-
-        SubscriptionTier userTier = subscriptionTierRepository.findByCode(userTierCode)
-                .orElseThrow(() -> new IllegalStateException("User tier not found"));
-
-        return userTier.getSortOrder() >= requiredTier.getSortOrder();
-    }
+//    @Transactional(readOnly = true)
+//    public boolean canUserAccessTool(Long userId, Long toolId) {
+//        Tool tool = toolRepository.findById(toolId)
+//                .orElseThrow(() -> new ResourceNotFoundException("Tool not found"));
+//
+//        SubscriptionTier requiredTier = tool.getRequiredTier();
+//
+//        SubscriptionTierCode userTierCode = userSubscriptionRepository.findByUserIdAndActiveTrue(userId)
+//                .map(sub -> sub.getTier().getCode())
+//                .orElse(SubscriptionTierCode.FREE);
+//
+//        SubscriptionTier userTier = subscriptionTierRepository.findByCode(userTierCode)
+//                .orElseThrow(() -> new IllegalStateException("User tier not found"));
+//
+//        return userTier.getSortOrder() >= requiredTier.getSortOrder();
+//    }
 }

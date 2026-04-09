@@ -31,11 +31,6 @@ public class UserSubscription {
     @JoinColumn(name = "tier_id", nullable = false)
     private SubscriptionTier tier;
 
-    // status
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private SubscriptionStatus status;
-
     @Column(name = "provider_customer_id", length = 255)
     private String providerCustomerId;
 
@@ -62,9 +57,6 @@ public class UserSubscription {
 
     @Column(name = "auto_renew", nullable = false)
     private boolean autoRenew = true;
-
-    @Column(name = "is_active", nullable = false)
-    private boolean active = false;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

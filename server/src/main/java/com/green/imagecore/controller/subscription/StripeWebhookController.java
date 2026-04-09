@@ -21,8 +21,12 @@ public class StripeWebhookController {
     @PostMapping("/webhook")
     public ResponseEntity<String> handleWebhook(
             @RequestBody String payload,
-            @RequestHeader("Stripe-Signature") String signature
+            @RequestHeader(value = "Stripe-Signature", required = false) String signature
     ) {
+        if (signature == null) {
+            throw new IllegalArgumentException("Missing signature");
+        }
+
         Event event;
 
         try {

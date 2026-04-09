@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -156,17 +157,106 @@ class DicomWebControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    // ── QIDO-RS: /studies/{uid}/series/{seriesUID}/instances ────────────
+
+    @Test
+    void searchInstances_returnsInstancesForMatchingSeries() throws Exception {
+        DicomImage image = stubCompletedImage();
+        when(dicomImageRepository.findByUserIdAndStudyInstanceUidAndImportStatus(
+                42L, "1.2.3.4.5", ImportStatus.COMPLETED))
+                .thenReturn(List.of(image));
+
+        mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances")
+                        .principal(authTokenForUser("42")))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/dicom+json"))
+                .andExpect(jsonPath("$[0].00080018.Value[0]").value("1.2.3.4.5.1.1"));
+    }
+
+    @Test
+    void searchInstances_returnsEmptyList_WhenSeriesUidDoesNotMatch() throws Exception {
+        DicomImage image = stubCompletedImage(); // seriesInstanceUid = "1.2.3.4.5.1"
+        when(dicomImageRepository.findByUserIdAndStudyInstanceUidAndImportStatus(
+                42L, "1.2.3.4.5", ImportStatus.COMPLETED))
+                .thenReturn(List.of(image));
+
+        mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/9.9.9.OTHER/instances")
+                        .principal(authTokenForUser("42")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    // ── Bulk metadata ────────────────────────────────────────────────────
+
+    @Test
+    void getImageSetAllMetadata_returns200WithMetadataMap() throws Exception {
+        when(dicomImageRepository.findByImageSetIdAndUserId("image-set-abc", 42L))
+                .thenReturn(Optional.of(stubCompletedImage()));
+        when(healthImagingService.getAllInstancesDicomJson("image-set-abc"))
+                .thenReturn(Map.of("1.2.3.4.5.1.1", List.of(Map.of("00080018",
+                        Map.of("vr", "UI", "Value", List.of("1.2.3.4.5.1.1"))))));
+
+        mockMvc.perform(get("/api/dicomweb/imagesets/image-set-abc/instances/metadata")
+                        .principal(authTokenForUser("42")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['1.2.3.4.5.1.1']").exists());
+    }
+
+    @Test
+    void getImageSetAllMetadata_returns404_WhenImageSetNotOwnedByUser() throws Exception {
+        when(dicomImageRepository.findByImageSetIdAndUserId("image-set-abc", 42L))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/dicomweb/imagesets/image-set-abc/instances/metadata")
+                        .principal(authTokenForUser("42")))
+                .andExpect(status().isNotFound());
+    }
+
+    // ── getFrame — streaming failure path ───────────────────────────────
+
+    @Test
+    void getFrame_returns502_WhenStreamingFails() throws Exception {
+        DicomImage image = stubCompletedImage();
+        when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
+                .thenReturn(Optional.of(image));
+        when(healthImagingService.resolveFrameIdForSop(any(), eq("1.2.3.4.5.1.1"), eq(1)))
+                .thenReturn("frame-001");
+        doThrow(new RuntimeException("HealthImaging down"))
+                .when(healthImagingService).streamImageFrame(any(), any(), any());
+
+        mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/frames/1")
+                        .principal(authTokenForUser("42")))
+                .andExpect(status().isBadGateway());
+    }
+
     // ── WADO-RS: metadata ───────────────────────────────────────────────
 
     @Test
     void getInstanceMetadata_returnsMetadataForOwnedInstance() throws Exception {
         when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
                 .thenReturn(Optional.of(stubCompletedImage()));
+        when(healthImagingService.getInstanceDicomJson(any(), eq("1.2.3.4.5.1.1")))
+                .thenReturn(List.of(Map.of("00080018",
+                        Map.of("vr", "UI", "Value", List.of("1.2.3.4.5.1.1")))));
 
         mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/metadata")
                         .principal(authTokenForUser("42")))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/dicom+json"))
+                .andExpect(jsonPath("$[0].00080018.Value[0]").value("1.2.3.4.5.1.1"));
+    }
+
+    @Test
+    void getInstanceMetadata_fallsBackToHandBuiltJson_WhenHealthImagingReturnsEmpty() throws Exception {
+        when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
+                .thenReturn(Optional.of(stubCompletedImage()));
+        when(healthImagingService.getInstanceDicomJson(any(), eq("1.2.3.4.5.1.1")))
+                .thenReturn(List.of()); // HealthImaging metadata unavailable
+
+        mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/metadata")
+                        .principal(authTokenForUser("42")))
+                .andExpect(status().isOk())
+                // Falls back to the hand-built partial JSON — sopInstanceUid tag must be present
                 .andExpect(jsonPath("$[0].00080018.Value[0]").value("1.2.3.4.5.1.1"));
     }
 

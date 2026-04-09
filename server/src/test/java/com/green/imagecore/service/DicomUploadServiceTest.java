@@ -208,6 +208,34 @@ class DicomUploadServiceTest {
     // sad paths
 
     @Test
+    void upload_throwsResourceNotFoundException_WhenUserNotFound() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(com.green.imagecore.exception.ResourceNotFoundException.class,
+                () -> dicomUploadService.upload(validDicomFile("scan.dcm"), 99L));
+
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    void uploadBatch_throwsResourceNotFoundException_WhenUserNotFound() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(com.green.imagecore.exception.ResourceNotFoundException.class,
+                () -> dicomUploadService.uploadBatch(List.of(validDicomFile("scan.dcm")), 99L));
+
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    void uploadBatch_usesSingleFilenameAsLabel_WhenOnlyOneFile() {
+        DicomImage result = dicomUploadService.uploadBatch(List.of(validDicomFile("only.dcm")), 42L);
+
+        // When there is exactly one file, the label should be the filename alone (no "+ N more")
+        assertEquals("only.dcm", result.getFilename());
+    }
+
+    @Test
     void upload_ThrowsException_WhenFileIsEmpty() {
         MockMultipartFile emptyFile = new MockMultipartFile(
                 "file", "empty.dcm", "application/dicom", new byte[0]);

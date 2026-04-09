@@ -93,9 +93,9 @@ class DicomWebControllerTest {
     @Test
     void getFrame_streamsFrameDataForOwnedImage() throws Exception {
         DicomImage image = stubCompletedImage();
-        when(dicomImageRepository.findBySopInstanceUidAndUserId("1.2.3.4.5.1.1", 42L))
+        when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
                 .thenReturn(Optional.of(image));
-        when(healthImagingService.resolveFrameId(any(), eq(1))).thenReturn("frame-001");
+        when(healthImagingService.resolveFrameIdForSop(any(), eq("1.2.3.4.5.1.1"), eq(1))).thenReturn("frame-001");
 
         mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/frames/1")
                         .principal(authTokenForUser("42")))
@@ -109,9 +109,9 @@ class DicomWebControllerTest {
         DicomImage image = stubCompletedImage();
         image.setFrameIds("[\"frame-001\",\"frame-002\",\"frame-003\"]");
         image.setFrameCount(3);
-        when(dicomImageRepository.findBySopInstanceUidAndUserId("1.2.3.4.5.1.1", 42L))
+        when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
                 .thenReturn(Optional.of(image));
-        when(healthImagingService.resolveFrameId(any(), eq(2))).thenReturn("frame-002");
+        when(healthImagingService.resolveFrameIdForSop(any(), eq("1.2.3.4.5.1.1"), eq(2))).thenReturn("frame-002");
 
         mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/frames/2")
                         .principal(authTokenForUser("42")))
@@ -122,7 +122,7 @@ class DicomWebControllerTest {
 
     @Test
     void getFrame_returns404WhenImageNotOwnedByUser() throws Exception {
-        when(dicomImageRepository.findBySopInstanceUidAndUserId("1.2.3.4.5.1.1", 42L))
+        when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
                 .thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/frames/1")
@@ -133,9 +133,9 @@ class DicomWebControllerTest {
     @Test
     void getFrame_returns404WhenFrameNumberOutOfRange() throws Exception {
         DicomImage image = stubCompletedImage();
-        when(dicomImageRepository.findBySopInstanceUidAndUserId("1.2.3.4.5.1.1", 42L))
+        when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
                 .thenReturn(Optional.of(image));
-        // resolveFrameId returns null for out-of-range frame numbers (default mock behaviour)
+        // resolveFrameIdForSop returns null for out-of-range frame numbers (default mock behaviour)
 
         mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/frames/99")
                         .principal(authTokenForUser("42")))
@@ -147,9 +147,9 @@ class DicomWebControllerTest {
         DicomImage image = stubCompletedImage();
         image.setImageFrameId(null);
         image.setFrameIds(null);
-        when(dicomImageRepository.findBySopInstanceUidAndUserId("1.2.3.4.5.1.1", 42L))
+        when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
                 .thenReturn(Optional.of(image));
-        // resolveFrameId returns null when both frameIds and imageFrameId are null (default mock)
+        // resolveFrameIdForSop returns null when both frameIds and imageFrameId are null (default mock)
 
         mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/frames/1")
                         .principal(authTokenForUser("42")))
@@ -160,7 +160,7 @@ class DicomWebControllerTest {
 
     @Test
     void getInstanceMetadata_returnsMetadataForOwnedInstance() throws Exception {
-        when(dicomImageRepository.findBySopInstanceUidAndUserId("1.2.3.4.5.1.1", 42L))
+        when(dicomImageRepository.findBySopUidForUser("1.2.3.4.5.1.1", 42L))
                 .thenReturn(Optional.of(stubCompletedImage()));
 
         mockMvc.perform(get("/api/dicomweb/studies/1.2.3.4.5/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1/metadata")

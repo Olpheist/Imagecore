@@ -85,8 +85,15 @@ class HealthImagingServiceTest {
 
     @Test
     void syncImportStatus_skipsAwsCallWhenAlreadyCompleted() {
+        // A fully-resolved COMPLETED record (imageSetId + all metadata fields populated)
+        // should short-circuit without calling AWS or saving to the DB.
         DicomImage image = DicomImage.builder()
                 .importStatus(ImportStatus.COMPLETED)
+                .imageSetId("image-set-abc")
+                .seriesInstanceUid("1.2.3.4.5.1")
+                .sopInstanceUid("1.2.3.4.5.1.1")
+                .sopInstanceUids("[\"1.2.3.4.5.1.1\"]")
+                .sopFrameMap("{\"1.2.3.4.5.1.1\":\"frame-001\"}")
                 .build();
 
         DicomImage result = healthImagingService.syncImportStatus(image);
@@ -165,7 +172,9 @@ class HealthImagingServiceTest {
     }
 
     @Test
-    void syncImportStatus_setsCompletedWithNullImageSetIdWhenS3ManifestUnreadable() {
+    void syncImportStatus_setsFailedWhenJobCompletedButManifestUnreadable() {
+        // If the S3 manifest can't be read, no imageSetId is available — treat as FAILED
+        // so the catalog shows an error state rather than a misleading COMPLETED with no data.
         DicomImage image = buildImageWithJobId("job-123", ImportStatus.IN_PROGRESS);
         stubGetImportJob("job-123", JobStatus.COMPLETED, "s3://bucket/health-imaging-output/1/uuid/");
         when(s3Client.getObjectAsBytes(any(GetObjectRequest.class)))
@@ -174,12 +183,13 @@ class HealthImagingServiceTest {
 
         DicomImage result = healthImagingService.syncImportStatus(image);
 
-        assertThat(result.getImportStatus()).isEqualTo(ImportStatus.COMPLETED);
+        assertThat(result.getImportStatus()).isEqualTo(ImportStatus.FAILED);
         assertThat(result.getImageSetId()).isNull();
     }
 
     @Test
-    void syncImportStatus_setsCompletedWithNullImageSetIdWhenManifestJsonMalformed() {
+    void syncImportStatus_setsFailedWhenJobCompletedButManifestJsonMalformed() {
+        // Malformed manifest → no imageSetId → FAILED (same reasoning as unreadable manifest)
         DicomImage image = buildImageWithJobId("job-123", ImportStatus.IN_PROGRESS);
         stubGetImportJob("job-123", JobStatus.COMPLETED, "s3://bucket/health-imaging-output/1/uuid/");
         stubS3Manifest("not-valid-json");
@@ -187,7 +197,7 @@ class HealthImagingServiceTest {
 
         DicomImage result = healthImagingService.syncImportStatus(image);
 
-        assertThat(result.getImportStatus()).isEqualTo(ImportStatus.COMPLETED);
+        assertThat(result.getImportStatus()).isEqualTo(ImportStatus.FAILED);
         assertThat(result.getImageSetId()).isNull();
     }
 
@@ -200,38 +210,41 @@ class HealthImagingServiceTest {
                 .importStatus(ImportStatus.COMPLETED)
                 .build();
 
+        // HealthImaging metadata uses keyword names (not hex tags) as JSON keys.
+        // Two SOP instances → frameCount = 2 (one frame ID stored per instance).
         String metadataJson = """
                 {
                   "DatastoreID": "test-datastore-id",
                   "ImageSetID": "image-set-abc",
                   "Patient": {
                     "DICOM": {
-                      "00100020": "PT-001"
+                      "PatientID": "PT-001"
                     }
                   },
                   "Study": {
                     "DICOM": {
-                      "0020000D": "1.2.3.4.5",
-                      "00081030": "Brain MRI",
-                      "00080020": "20260301",
-                      "00080090": "Dr. Smith"
+                      "StudyInstanceUID": "1.2.3.4.5",
+                      "StudyDescription": "Brain MRI",
+                      "StudyDate": "20260301",
+                      "ReferringPhysicianName": "Dr. Smith"
                     },
                     "Series": {
                       "1.2.3.4.5.1": {
                         "DICOM": {
-                          "0020000E": "1.2.3.4.5.1",
-                          "0008103E": "T1 MPRAGE",
-                          "00080060": "MR",
-                          "00180015": "Brain"
+                          "SeriesDescription": "T1 MPRAGE",
+                          "Modality": "MR",
+                          "BodyPartExamined": "Brain"
                         },
                         "Instances": {
                           "1.2.3.4.5.1.1": {
-                            "DICOM": {},
+                            "DICOM": { "InstanceNumber": "1" },
                             "DICOMVRs": {},
-                            "ImageFrames": [
-                              {"ID": "frame-001"},
-                              {"ID": "frame-002"}
-                            ]
+                            "ImageFrames": [{ "ID": "frame-001" }]
+                          },
+                          "1.2.3.4.5.1.2": {
+                            "DICOM": { "InstanceNumber": "2" },
+                            "DICOMVRs": {},
+                            "ImageFrames": [{ "ID": "frame-002" }]
                           }
                         }
                       }

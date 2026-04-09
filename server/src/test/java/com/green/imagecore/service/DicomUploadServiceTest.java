@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -42,6 +43,9 @@ class DicomUploadServiceTest {
 
     @Mock
     private HealthImagingService healthImagingService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private DicomUploadService dicomUploadService;
@@ -126,10 +130,11 @@ class DicomUploadServiceTest {
     }
 
     @Test
-    void upload_ReturnsImageWithSubmittedStatus() {
+    void upload_ReturnsImageWithInProgressStatus() {
         DicomImage result = dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
 
-        assertEquals(ImportStatus.SUBMITTED, result.getImportStatus());
+        // upload() calls startImportJob synchronously and then advances the status to IN_PROGRESS
+        assertEquals(ImportStatus.IN_PROGRESS, result.getImportStatus());
         assertNotNull(result.getHealthImagingJobId());
     }
 

@@ -18,14 +18,18 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
 import software.amazon.awssdk.services.medicalimaging.model.DICOMImportJobProperties;
 import software.amazon.awssdk.services.medicalimaging.model.GetDicomImportJobRequest;
 import software.amazon.awssdk.services.medicalimaging.model.GetDicomImportJobResponse;
+import software.amazon.awssdk.services.medicalimaging.model.GetImageSetMetadataRequest;
 import software.amazon.awssdk.services.medicalimaging.model.JobStatus;
 import software.amazon.awssdk.services.medicalimaging.model.StartDicomImportJobRequest;
 import software.amazon.awssdk.services.medicalimaging.model.StartDicomImportJobResponse;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import java.util.List;
 
@@ -133,13 +137,25 @@ public class HealthImagingSteps {
 
         DICOMImportJobProperties props = Mockito.mock(DICOMImportJobProperties.class);
         Mockito.when(props.jobStatus()).thenReturn(jobStatus);
-        // outputS3Uri is read when status is COMPLETED; s3Client.getObjectAsBytes is already mocked
-        // and will throw on null return, which extractImageSetId catches — imageSetId will be null
         Mockito.when(props.outputS3Uri()).thenReturn("s3://test-bucket/health-imaging-output/1/test/");
 
         GetDicomImportJobResponse statusResponse = Mockito.mock(GetDicomImportJobResponse.class);
         Mockito.when(statusResponse.jobProperties()).thenReturn(props);
         Mockito.when(medicalImagingClient.getDICOMImportJob(any(GetDicomImportJobRequest.class))).thenReturn(statusResponse);
+
+        if (jobStatus == JobStatus.COMPLETED) {
+            // Stub S3 manifest so extractImageSetId can read the imageSetId.
+            // Without this, imageSetId is null and syncImportStatus marks the record FAILED.
+            @SuppressWarnings("unchecked")
+            ResponseBytes<GetObjectResponse> manifestBytes = Mockito.mock(ResponseBytes.class);
+            Mockito.when(manifestBytes.asByteArray()).thenReturn(
+                    "{\"imageSetsSummary\":[{\"imageSetId\":\"test-image-set-id\"}]}".getBytes());
+            Mockito.when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(manifestBytes);
+
+            // populateMetadata runs after COMPLETED — stub getImageSetMetadata to avoid NPE.
+            Mockito.when(medicalImagingClient.getImageSetMetadata(any(GetImageSetMetadataRequest.class)))
+                    .thenThrow(new RuntimeException("metadata not available in test"));
+        }
     }
 
 

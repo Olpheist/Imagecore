@@ -23,6 +23,7 @@ Supported local input formats (anything itk can read):
 import argparse
 import gzip
 import json
+import os
 import sys
 import tempfile
 from datetime import datetime
@@ -715,7 +716,7 @@ def main():
         description="Apply N4 bias field correction to an MRI volume and produce a PDF report."
     )
 
-    source = parser.add_mutually_exclusive_group(required=True)
+    source = parser.add_mutually_exclusive_group(required=False)
     source.add_argument("--input", metavar="PATH", help="Path to a local image file")
     source.add_argument(
         "--image-set-id",
@@ -762,6 +763,23 @@ def main():
              "(required with --image-set-id).",
     )
     args = parser.parse_args()
+
+    # When running as an ECS Fargate task, arguments are passed as environment
+    # variables rather than CLI flags. Fall back to env vars for any arg not
+    # supplied on the command line so both invocation styles work.
+    if not args.image_set_id and not args.input:
+        args.image_set_id = os.environ.get("IMAGE_SET_ID")
+    if not args.datastore_id:
+        args.datastore_id = os.environ.get("DATASTORE_ID")
+    if not args.s3_bucket:
+        args.s3_bucket = os.environ.get("OUTPUT_S3_BUCKET")
+    if not args.s3_prefix:
+        args.s3_prefix = os.environ.get("OUTPUT_S3_PREFIX")
+    if not args.import_role_arn:
+        args.import_role_arn = os.environ.get("IMPORT_ROLE_ARN")
+
+    if not args.image_set_id and not args.input:
+        parser.error("one of the arguments --input/--image-set-id is required")
 
     if args.image_set_id and not args.datastore_id:
         parser.error("--datastore-id is required when using --image-set-id")
@@ -867,6 +885,17 @@ def main():
     pdf_path = out_dir / f"{stem}_n4_report.pdf"
     print(f"  PDF report     : {pdf_path}")
     build_pdf(pdf_path, orig_png, corr_png, bias_png, meta)
+
+    # --- Upload PDF report to S3 ---
+    # When running as an ECS task the report is uploaded so the application can
+    # generate a presigned download URL for the user. The key is fixed as
+    # <s3_prefix>/report.pdf so the backend can derive it from the job ID alone,
+    # without storing anything extra in the database.
+    if args.s3_bucket and args.s3_prefix:
+        s3 = boto3.client("s3", **({"region_name": args.region} if args.region else {}))
+        pdf_s3_key = args.s3_prefix.rstrip("/") + "/report.pdf"
+        s3.upload_file(str(pdf_path), args.s3_bucket, pdf_s3_key)
+        print(f"  PDF uploaded   : s3://{args.s3_bucket}/{pdf_s3_key}")
 
     # --- Reimport corrected series into HealthImaging ---
     # Converts the corrected float32 volume to a DICOM series that shares the

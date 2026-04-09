@@ -1,6 +1,7 @@
 package com.green.imagecore.controller;
 
 import com.green.imagecore.dto.DicomImageDto;
+import com.green.imagecore.dto.DicomSeriesGroupDto;
 import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.mapper.DicomImageMapper;
 import com.green.imagecore.service.DicomCatalogService;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @AllArgsConstructor
@@ -65,6 +67,18 @@ public class ImageController {
         Long userId = parseUserId(authentication);
         List<DicomImage> images = dicomCatalogService.findAllForUser(userId);
         return ResponseEntity.ok(DicomImageMapper.toDtos(images));
+    }
+
+    /**
+     * Returns one entry per HealthImaging imageSet (DICOM series) owned by the authenticated user.
+     * Images sharing the same imageSetId are collapsed into a single row with combined metadata,
+     * and instanceCount reflects the actual DICOM slice count from HealthImaging.
+     */
+    @GetMapping("/series")
+    @PreAuthorize("hasAnyRole('CLINICIAN', 'RESEARCHER')")
+    public ResponseEntity<List<DicomSeriesGroupDto>> listSeries(Authentication authentication) {
+        Long userId = parseUserId(authentication);
+        return ResponseEntity.ok(dicomCatalogService.findSeriesGroupsForUser(userId));
     }
 
     /**

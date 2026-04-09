@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen px-6 py-12">
     <!-- Header -->
-    <div class="max-w-5xl mx-auto mb-10 flex items-start justify-between">
+    <div class="max-w-6xl mx-auto mb-10 flex items-start justify-between">
       <div>
         <h1 class="text-2xl font-semibold">My DICOM Images</h1>
         <p class="text-sm text-gray-500 mt-1">
@@ -11,12 +11,12 @@
     </div>
 
     <!-- Error -->
-    <div class="max-w-5xl mx-auto mb-6">
+    <div class="max-w-6xl mx-auto mb-6">
       <Error :error="catalogStore.error" dismissible @close="catalogStore.error = null" />
     </div>
 
     <!-- Loading Skeleton -->
-    <div v-if="catalogStore.loading" class="max-w-5xl mx-auto">
+    <div v-if="catalogStore.loading" class="max-w-6xl mx-auto">
       <Card variant="elevated" rounded class="animate-pulse">
         <div class="space-y-3 p-2">
           <div v-for="n in 4" :key="n" class="h-4 bg-gray-100 rounded w-full" />
@@ -25,35 +25,71 @@
     </div>
 
     <!-- Table -->
-    <div v-else class="max-w-5xl mx-auto">
+    <div v-else class="max-w-6xl mx-auto">
       <Table
         :columns="columns"
-        :rows="catalogStore.images"
-        row-key="id"
+        :rows="catalogStore.seriesGroups"
+        row-key="key"
       >
-        <template #cell-fileSize="{ value }">
-          {{ formatBytes(value) }}
+        <template #cell-displayName="{ value }">
+          <span class="font-medium text-gray-800 block truncate" :title="value">{{ value }}</span>
         </template>
-        <template #cell-uploadedAt="{ value }">
-          {{ formatDate(value) }}
+        <template #cell-modality="{ value }">
+          <span class="font-mono text-xs bg-violet-50 text-violet-700 border border-violet-200 rounded-full px-2 py-0.5">
+            {{ value ?? '—' }}
+          </span>
+        </template>
+        <template #cell-bodyPart="{ value }">
+          {{ value ?? '—' }}
+        </template>
+        <template #cell-studyDate="{ value }">
+          {{ value ? formatDate(value) : '—' }}
+        </template>
+        <template #cell-instanceCount="{ value }">
+          {{ value }}
+        </template>
+        <template #cell-status="{ value }">
+          <span
+            class="text-xs font-semibold rounded-full px-2 py-0.5 border"
+            :class="{
+              'bg-green-50 text-green-700 border-green-200':  value === 'COMPLETED',
+              'bg-yellow-50 text-yellow-700 border-yellow-200': value === 'IN_PROGRESS' || value === 'SUBMITTED',
+              'bg-red-50 text-red-700 border-red-200':        value === 'FAILED',
+              'bg-gray-50 text-gray-500 border-gray-200':     value === 'PENDING',
+            }"
+          >
+            {{ value }}
+          </span>
         </template>
         <template #cell-actions="{ row }">
-          <div class="flex gap-2">
+          <div class="flex gap-1.5 flex-nowrap">
             <Button
-              variant="danger"
+              variant="secondary"
+              size="sm"
               rounded
-              :disabled="deletingId === row.id"
-              @click="onDeleteClick(row)"
+              :disabled="row.status !== 'COMPLETED'"
+              :title="row.status !== 'COMPLETED' ? 'Image not yet ready' : 'View image in DICOM viewer'"
+              @click="viewInViewer(row)"
             >
-              {{ deletingId === row.id ? 'Deleting…' : 'Delete' }}
+              View Image
             </Button>
             <Button
               variant="secondary"
+              size="sm"
               rounded
               disabled
               title="Coming soon"
             >
               Send to Analysis
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              rounded
+              :disabled="deletingKey === row.key"
+              @click="onDeleteClick(row)"
+            >
+              {{ deletingKey === row.key ? 'Deleting…' : 'Delete' }}
             </Button>
           </div>
         </template>
@@ -63,19 +99,22 @@
     <!-- Delete Confirmation Modal -->
     <Modal
       v-model="showDeleteModal"
-      title="Delete Image"
+      title="Delete Image Set"
       description="This action cannot be undone."
       size="sm"
     >
       <p class="text-sm text-gray-700">
         Are you sure you want to delete
-        <span class="font-medium">{{ pendingDelete?.filename }}</span>?
+        <span class="font-medium">{{ pendingDelete?.displayName }}</span>?
+        <span v-if="pendingDelete && pendingDelete.imageIds.length > 1" class="text-gray-500">
+          ({{ pendingDelete.imageIds.length }} record{{ pendingDelete.imageIds.length !== 1 ? 's' : '' }})
+        </span>
       </p>
 
       <template #footer>
         <Button variant="secondary" rounded hover @click="showDeleteModal = false">Cancel</Button>
-        <Button variant="danger" rounded hover :disabled="deletingId !== null" @click="confirmDelete">
-          {{ deletingId !== null ? 'Deleting…' : 'Delete' }}
+        <Button variant="danger" rounded hover :disabled="deletingKey !== null" @click="confirmDelete">
+          {{ deletingKey !== null ? 'Deleting…' : 'Delete' }}
         </Button>
       </template>
     </Modal>
@@ -84,38 +123,50 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useDicomCatalogStore } from '~/stores/dicomCatalog';
-import type { DicomImageDto } from '~/models/dicom';
+import type { DicomImageSetGroup } from '~/models/dicom';
 import type { Column } from '~/components/Table.vue';
-import { formatBytes, formatDate } from '~/utils/formatters';
+import { formatDate } from '~/utils/formatters';
 
 const catalogStore = useDicomCatalogStore();
+const router = useRouter();
 
 const columns: Column[] = [
-  { key: 'filename',   label: 'Filename'    },
-  { key: 'fileSize',   label: 'Size'        },
-  { key: 'uploadedAt', label: 'Upload Date' },
-  { key: 'actions',    label: 'Actions'     },
+  { key: 'displayName',   label: 'Series / Study', class: 'w-[26%]'  },
+  { key: 'modality',      label: 'Modality',       class: 'w-[8%]'   },
+  { key: 'bodyPart',      label: 'Body Part',      class: 'w-[10%]'  },
+  { key: 'studyDate',     label: 'Study Date',     class: 'w-[10%]'  },
+  { key: 'instanceCount', label: 'Instances',      class: 'w-[8%]'   },
+  { key: 'status',        label: 'Status',         class: 'w-[10%]'  },
+  { key: 'actions',       label: 'Actions',        class: 'w-[28%]'  },
 ];
 
 const showDeleteModal = ref(false);
-const pendingDelete   = ref<DicomImageDto | null>(null);
-const deletingId      = ref<number | null>(null);
+const pendingDelete   = ref<DicomImageSetGroup | null>(null);
+const deletingKey     = ref<string | null>(null);
 
-function onDeleteClick(image: DicomImageDto) {
-  pendingDelete.value   = image;
+function onDeleteClick(group: DicomImageSetGroup) {
+  pendingDelete.value   = group;
   showDeleteModal.value = true;
+}
+
+function viewInViewer(group: DicomImageSetGroup) {
+  const query = group.seriesInstanceUid
+    ? { seriesUid: group.seriesInstanceUid }
+    : {};
+  router.push({ path: '/dashboard/dicom', query });
 }
 
 async function confirmDelete() {
   if (!pendingDelete.value) return;
-  deletingId.value = pendingDelete.value.id;
+  deletingKey.value = pendingDelete.value.key;
   try {
-    await catalogStore.deleteImage(pendingDelete.value.id);
+    await catalogStore.deleteImageSet(pendingDelete.value.imageIds);
     showDeleteModal.value = false;
     pendingDelete.value   = null;
   } finally {
-    deletingId.value = null;
+    deletingKey.value = null;
   }
 }
 

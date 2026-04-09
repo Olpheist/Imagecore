@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { mockMeUser, mockTools, mockImages } from "./mocks";
+import { mockMeUser, mockTools, mockImages, mockStudies, mockSeriesGroups } from "./mocks";
 import type {LogDto} from "../src/models/log";
 
 export async function mockCsrf(page: any) {
@@ -279,7 +279,35 @@ export const mockToolsDelete = async (page: any, toolId: number, status = 204): 
     });
 };
 
+export const mockImageStudies = async (page: any, studies: typeof mockStudies = mockStudies, status = 200): Promise<void> => {
+    await page.route("**/api/images", async (route: any, request: any) => {
+        if (request.method() !== "GET") {
+            await route.continue();
+            return;
+        }
+        await route.fulfill({
+            status,
+            contentType: "application/json",
+            body: JSON.stringify(status === 200 ? studies : { message: "Server error" }),
+        });
+    });
+};
+
 // image catalog routes
+
+export const mockImagesSeriesGet = async (page: Page, groups = mockSeriesGroups, status = 200): Promise<void> => {
+    await page.route("**/api/images/series", async (route: any, request: any) => {
+        if (request.method() !== "GET") {
+            await route.continue();
+            return;
+        }
+        await route.fulfill({
+            status,
+            contentType: "application/json",
+            body: JSON.stringify(status === 200 ? groups : { message: "Server error" }),
+        });
+    });
+};
 
 export const mockImagesGet = async (page: Page, images = mockImages, status = 200): Promise<void> => {
     await page.route("**/api/images", async (route: any, request: any) => {

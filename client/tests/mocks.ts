@@ -104,3 +104,55 @@ export const mockTools = [
         imageTag: null,
     },
 ];
+
+
+export const mockSeriesGroups = [
+  {
+    key: 'imgset-001',
+    imageSetId: 'imgset-001',
+    displayName: 'brain_mri.dcm',
+    modality: 'MR',
+    bodyPart: 'Brain',
+    studyDate: '2026-01-15',
+    instanceCount: 1,
+    status: 'COMPLETED',
+    seriesInstanceUid: null,
+    studyInstanceUid: '1.2.840.10008.5.1.4.1.1.4.001',
+    imageIds: [1],
+  },
+  {
+    key: '__pending__2',
+    imageSetId: null,
+    displayName: 'chest_ct.dcm',
+    modality: null,
+    bodyPart: null,
+    studyDate: null,
+    instanceCount: 1,
+    status: 'IN_PROGRESS',
+    seriesInstanceUid: null,
+    studyInstanceUid: null,
+    imageIds: [2],
+  },
+];
+
+export const mockStudies = [
+  {
+    id: 1,
+    filename: '/dicom-samples/mri-001/sample.dcm',
+    fileSize: 204800,
+    importStatus: 'COMPLETED',
+    imageSetId: 'imgset-001',
+    uploadedAt: '2026-03-01T10:00:00Z',
+    studyInstanceUid: '1.2.840.10008.5.1.4.1.1.4.001',
+    seriesInstanceUid: '1.3.6.1.4.1.9590.100.1.001',
+    sopInstanceUid: 'local.sop.1',
+    studyDescription: 'Brain — T1 Coronal',
+    seriesDescription: 'T1 MPRAGE Post-Contrast',
+    bodyPart: 'Brain',
+    modality: 'MR',
+    patientId: 'PT-00421',
+    studyDate: '2026-03-01',
+    physician: 'Dr. Apple',
+    frameCount: 1,
+  },
+]

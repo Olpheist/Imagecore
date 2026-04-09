@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -42,6 +43,9 @@ class DicomUploadServiceTest {
 
     @Mock
     private HealthImagingService healthImagingService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private DicomUploadService dicomUploadService;
@@ -126,10 +130,11 @@ class DicomUploadServiceTest {
     }
 
     @Test
-    void upload_ReturnsImageWithSubmittedStatus() {
+    void upload_ReturnsImageWithInProgressStatus() {
         DicomImage result = dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
 
-        assertEquals(ImportStatus.SUBMITTED, result.getImportStatus());
+        // upload() calls startImportJob synchronously and then advances the status to IN_PROGRESS
+        assertEquals(ImportStatus.IN_PROGRESS, result.getImportStatus());
         assertNotNull(result.getHealthImagingJobId());
     }
 
@@ -201,6 +206,34 @@ class DicomUploadServiceTest {
 
 
     // sad paths
+
+    @Test
+    void upload_throwsResourceNotFoundException_WhenUserNotFound() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(com.green.imagecore.exception.ResourceNotFoundException.class,
+                () -> dicomUploadService.upload(validDicomFile("scan.dcm"), 99L));
+
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    void uploadBatch_throwsResourceNotFoundException_WhenUserNotFound() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(com.green.imagecore.exception.ResourceNotFoundException.class,
+                () -> dicomUploadService.uploadBatch(List.of(validDicomFile("scan.dcm")), 99L));
+
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    void uploadBatch_usesSingleFilenameAsLabel_WhenOnlyOneFile() {
+        DicomImage result = dicomUploadService.uploadBatch(List.of(validDicomFile("only.dcm")), 42L);
+
+        // When there is exactly one file, the label should be the filename alone (no "+ N more")
+        assertEquals("only.dcm", result.getFilename());
+    }
 
     @Test
     void upload_ThrowsException_WhenFileIsEmpty() {

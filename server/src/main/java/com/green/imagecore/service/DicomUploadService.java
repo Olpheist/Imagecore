@@ -3,9 +3,11 @@ package com.green.imagecore.service;
 import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.ImportStatus;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.events.DicomImportSubmittedEvent;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.DicomImageRepository;
 import com.green.imagecore.repositories.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +40,7 @@ public class DicomUploadService {
     private final DicomImageRepository dicomImageRepository;
     private final UserRepository userRepository;
     private final HealthImagingService healthImagingService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     @Qualifier("dicomS3UploadExecutor")
@@ -95,11 +98,16 @@ public class DicomUploadService {
         String inputS3Uri  = "s3://" + bucketName + "/dicom/" + userId + "/" + uploadId + "/";
         String outputS3Uri = "s3://" + bucketName + "/health-imaging-output/" + userId + "/" + uploadId + "/";
 
-        String jobId = healthImagingService.startImportJob(inputS3Uri, outputS3Uri);
-        image.setHealthImagingJobId(jobId);
         image.setImportStatus(ImportStatus.SUBMITTED);
+        String jobId = healthImagingService.startImportJob(inputS3Uri, outputS3Uri);
+        image.setImportStatus(ImportStatus.IN_PROGRESS);
+        image.setHealthImagingJobId(jobId);
+        DicomImage saved = dicomImageRepository.save(image);
 
-        return dicomImageRepository.save(image);
+        // listener polls HealthImaging in the background and calls
+        // populateMetadata() when the job reaches COMPLETED, with no further action needed.
+        eventPublisher.publishEvent(new DicomImportSubmittedEvent(saved.getId()));
+        return saved;
     }
 
     /**
@@ -189,8 +197,10 @@ public class DicomUploadService {
         String jobId = healthImagingService.startImportJob(inputS3Uri, outputS3Uri);
         image.setHealthImagingJobId(jobId);
         image.setImportStatus(ImportStatus.SUBMITTED);
+        DicomImage saved = dicomImageRepository.save(image);
 
-        return dicomImageRepository.save(image);
+        eventPublisher.publishEvent(new DicomImportSubmittedEvent(saved.getId()));
+        return saved;
     }
 
     /**

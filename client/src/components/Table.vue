@@ -1,12 +1,13 @@
 <template>
-  <div class="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
-    <table class="min-w-full text-sm">
+  <div class="w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+    <table class="w-full table-fixed text-sm">
       <thead>
       <tr class="border-b border-slate-100">
         <th
             v-for="col in columns"
             :key="col.key"
             class="text-left px-5 py-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wider"
+            :class="col.class"
         >
           {{ col.label }}
         </th>
@@ -23,6 +24,7 @@
             v-for="col in columns"
             :key="col.key"
             class="px-5 py-4 text-slate-700"
+            :class="col.class"
         >
           <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
             {{ row[col.key] }}
@@ -44,6 +46,7 @@
 export interface Column {
   key: string;
   label: string;
+  class?: string;
 }
 defineProps<{
   columns: Column[];

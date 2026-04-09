@@ -7,7 +7,7 @@ Feature: HealthImaging import status and image listing
     Given I am a CLINICIAN with an uploaded DICOM file
     When I request my image list
     Then the image list response status is 200
-    And the image list contains 1 image with status "SUBMITTED"
+    And the image list contains 1 image with status "IN_PROGRESS"
 
   Scenario: A CLINICIAN with no uploads receives an empty image list
     Given I am a CLINICIAN with no uploaded images

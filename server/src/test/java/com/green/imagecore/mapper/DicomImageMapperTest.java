@@ -2,10 +2,12 @@ package com.green.imagecore.mapper;
 
 import com.green.imagecore.dto.DicomImageDto;
 import com.green.imagecore.entities.DicomImage;
+import com.green.imagecore.entities.ImportStatus;
 import com.green.imagecore.entities.User;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,6 +89,77 @@ class DicomImageMapperTest {
         assertEquals(3L, image.getId());
         assertEquals("ct.dcm", image.getFilename());
         assertEquals(512000L, image.getFileSize());
+    }
+
+
+    // toDto — DICOM metadata fields
+
+    @Test
+    void toDto_mapsDicomMetadataFields() {
+        DicomImage image = buildImage(1L, "scan.dcm", 1024L, "dicom/1/scan.dcm", Instant.now());
+        image.setImportStatus(ImportStatus.COMPLETED);
+        image.setImageSetId("imgset-abc");
+        image.setStudyInstanceUid("1.2.3.4.5");
+        image.setSeriesInstanceUid("1.2.3.4.5.1");
+        image.setSopInstanceUid("1.2.3.4.5.1.1");
+        image.setStudyDescription("Brain MRI");
+        image.setSeriesDescription("T1 MPRAGE");
+        image.setBodyPart("Brain");
+        image.setModality("MR");
+        image.setPatientId("PT-001");
+        image.setStudyDate(LocalDate.of(2026, 3, 1));
+        image.setPhysician("Dr. Smith");
+        image.setFrameCount(3);
+        image.setInstanceNumber(2);
+
+        DicomImageDto dto = DicomImageMapper.toDto(image);
+
+        assertEquals(ImportStatus.COMPLETED, dto.getImportStatus());
+        assertEquals("imgset-abc",     dto.getImageSetId());
+        assertEquals("1.2.3.4.5",      dto.getStudyInstanceUid());
+        assertEquals("1.2.3.4.5.1",    dto.getSeriesInstanceUid());
+        assertEquals("1.2.3.4.5.1.1",  dto.getSopInstanceUid());
+        assertEquals("Brain MRI",       dto.getStudyDescription());
+        assertEquals("T1 MPRAGE",       dto.getSeriesDescription());
+        assertEquals("Brain",           dto.getBodyPart());
+        assertEquals("MR",              dto.getModality());
+        assertEquals("PT-001",          dto.getPatientId());
+        assertEquals("2026-03-01",      dto.getStudyDate());
+        assertEquals("Dr. Smith",       dto.getPhysician());
+        assertEquals(3,                 dto.getFrameCount());
+        assertEquals(2,                 dto.getInstanceNumber());
+    }
+
+    @Test
+    void toDto_parsesSopInstanceUidsFromJsonArray() {
+        DicomImage image = buildImage(1L, "scan.dcm", 1024L, "dicom/1/scan.dcm", Instant.now());
+        image.setSopInstanceUids("[\"1.2.3.4.5\",\"1.2.3.4.6\",\"1.2.3.4.7\"]");
+
+        DicomImageDto dto = DicomImageMapper.toDto(image);
+
+        assertNotNull(dto.getSopInstanceUids());
+        assertEquals(List.of("1.2.3.4.5", "1.2.3.4.6", "1.2.3.4.7"), dto.getSopInstanceUids());
+    }
+
+    @Test
+    void toDto_handlesNullSopInstanceUids() {
+        DicomImage image = buildImage(1L, "scan.dcm", 1024L, "dicom/1/scan.dcm", Instant.now());
+        image.setSopInstanceUids(null);
+
+        DicomImageDto dto = DicomImageMapper.toDto(image);
+
+        assertNull(dto.getSopInstanceUids());
+    }
+
+    @Test
+    void toDto_handlesMalformedSopInstanceUidsGracefully() {
+        DicomImage image = buildImage(1L, "scan.dcm", 1024L, "dicom/1/scan.dcm", Instant.now());
+        image.setSopInstanceUids("not-valid-json");
+
+        // Should not throw; sopInstanceUids remains null (exception is silently ignored)
+        DicomImageDto dto = DicomImageMapper.toDto(image);
+
+        assertNull(dto.getSopInstanceUids());
     }
 
 

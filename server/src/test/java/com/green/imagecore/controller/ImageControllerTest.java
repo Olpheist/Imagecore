@@ -1,5 +1,6 @@
 package com.green.imagecore.controller;
 
+import com.green.imagecore.dto.DicomSeriesGroupDto;
 import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.ImportStatus;
 import com.green.imagecore.service.DicomCatalogService;
@@ -159,6 +160,48 @@ class ImageControllerTest {
         mockMvc.perform(get("/api/images/5/status").principal(authTokenForUser("42")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.importStatus").value("COMPLETED"));
+    }
+
+
+    // GET /api/images/series
+
+    @Test
+    void listSeries_Returns200_WithListOfSeriesGroups() throws Exception {
+        DicomSeriesGroupDto group = DicomSeriesGroupDto.builder()
+                .key("imgset-001")
+                .imageSetId("imgset-001")
+                .displayName("Brain MRI Series")
+                .status("COMPLETED")
+                .instanceCount(10)
+                .imageIds(List.of(1L))
+                .build();
+        when(dicomCatalogService.findSeriesGroupsForUser(42L)).thenReturn(List.of(group));
+
+        mockMvc.perform(get("/api/images/series").principal(authTokenForUser("42")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].displayName").value("Brain MRI Series"))
+                .andExpect(jsonPath("$[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$[0].instanceCount").value(10));
+    }
+
+    @Test
+    void listSeries_PassesUserIdFromJwtToService() throws Exception {
+        when(dicomCatalogService.findSeriesGroupsForUser(anyLong())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/images/series").principal(authTokenForUser("55")))
+                .andExpect(status().isOk());
+
+        verify(dicomCatalogService).findSeriesGroupsForUser(55L);
+    }
+
+    @Test
+    void listSeries_Returns200WithEmptyList_WhenNoSeries() throws Exception {
+        when(dicomCatalogService.findSeriesGroupsForUser(anyLong())).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/images/series").principal(authTokenForUser("42")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
 

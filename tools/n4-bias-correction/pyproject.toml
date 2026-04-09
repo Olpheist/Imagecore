@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+
+[project]
+name = "n4-bias-correction"
+version = "0.1.0"
+description = "Correct B1 field inhomogeneity in MRI volumes using the N4 algorithm and produce a PDF comparison report."
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "itk>=5.4.5",
+    "itk-ioopenjph>=1.0.0",
+    "numpy>=1.24",
+    "Pillow>=10.0",
+    "reportlab>=4.0",
+    "boto3>=1.34",
+    "pydicom>=2.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.4"]
+
+[project.scripts]
+n4-bias-correction = "n4_bias_correction.pipeline:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

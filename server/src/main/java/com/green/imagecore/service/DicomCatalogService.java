@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
 import software.amazon.awssdk.services.medicalimaging.model.DeleteImageSetRequest;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Delete;
@@ -15,10 +16,15 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
-import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
 
 
+import com.green.imagecore.dto.DicomSeriesGroupDto;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -42,11 +48,91 @@ public class DicomCatalogService {
         return dicomImageRepository.findByUserIdOrderByUploadedAtDesc(userId);
     }
 
+    /**
+     * Returns one {@link DicomSeriesGroupDto} per HealthImaging imageSet owned by the user.
+     *
+     * Images that share the same {@code imageSetId} are collapsed into a single row.
+     * Images still pending import (no imageSetId yet) each appear as their own row.
+     * Rows are ordered by the upload date of their earliest DB record (newest first).
+     */
+    @Transactional(readOnly = true)
+    public List<DicomSeriesGroupDto> findSeriesGroupsForUser(Long userId) {
+        List<DicomImage> images = dicomImageRepository.findByUserIdOrderByUploadedAtDesc(userId);
+
+        // Preserve insertion order (already newest-first from the query)
+        Map<String, List<DicomImage>> byKey = new LinkedHashMap<>();
+        for (DicomImage img : images) {
+            String key = img.getImageSetId() != null
+                    ? img.getImageSetId()
+                    : "__pending__" + img.getId();
+            byKey.computeIfAbsent(key, k -> new ArrayList<>()).add(img);
+        }
+
+        return byKey.entrySet().stream()
+                .map(e -> toGroupDto(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
+    }
+
+    private static final Map<String, Integer> STATUS_PRIORITY = Map.of(
+            "COMPLETED",   4,
+            "IN_PROGRESS", 3,
+            "SUBMITTED",   2,
+            "PENDING",     1,
+            "FAILED",      0
+    );
+
+    private DicomSeriesGroupDto toGroupDto(String key, List<DicomImage> group) {
+        DicomImage first = group.get(0);
+
+        String displayName =
+                first.getSeriesDescription() != null  ? first.getSeriesDescription()
+              : first.getStudyDescription()  != null  ? first.getStudyDescription()
+              : first.getImageSetId()        != null  ? first.getImageSetId()
+              : first.getFilename();
+
+        // frame_count is populated by populateMetadata() to the actual SOP instance count.
+        // For records not yet re-populated it defaults to 1; the sync endpoint will correct it.
+        int instanceCount = group.stream().mapToInt(img -> img.getFrameCount()).sum();
+
+        String status = group.stream()
+                .map(img -> img.getImportStatus().name())
+                .max(Comparator.comparingInt(s -> STATUS_PRIORITY.getOrDefault(s, 0)))
+                .orElse("PENDING");
+
+        List<Long> imageIds = group.stream()
+                .map(DicomImage::getId)
+                .collect(Collectors.toList());
+
+        return DicomSeriesGroupDto.builder()
+                .key(key)
+                .imageSetId(first.getImageSetId())
+                .displayName(displayName)
+                .modality(first.getModality())
+                .bodyPart(first.getBodyPart())
+                .studyDate(first.getStudyDate() != null ? first.getStudyDate().toString() : null)
+                .instanceCount(instanceCount)
+                .status(status)
+                .seriesInstanceUid(first.getSeriesInstanceUid())
+                .studyInstanceUid(first.getStudyInstanceUid())
+                .imageIds(imageIds)
+                .build();
+    }
+
     @Transactional(readOnly = true)
     public DicomImage findByIdAndUser(Long imageId, Long userId) {
         return dicomImageRepository.findByIdAndUserId(imageId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Image not found with id: " + imageId));
     }
+
+    @Transactional(readOnly = true)
+    public List<List<DicomImage>> findAllForUserGroupByImageSeries(Long userId) {
+        return new ArrayList<>(dicomImageRepository.findByUserId(userId).stream()
+                .collect(Collectors.groupingBy(img ->
+                        img.getSeriesInstanceUid() != null ? img.getSeriesInstanceUid() : "UNKNOWN_SERIES"
+                ))
+                .values());
+    }
+
 
     /**
      * Deletes a DICOM series — all S3 objects under the series prefix first, then the DB row.
@@ -64,13 +150,20 @@ public class DicomCatalogService {
     public void delete(Long imageId, Long userId) {
         DicomImage image = findByIdAndUser(imageId, userId);
 
-        // Delete from HealthImaging if the image set exists
+        // Delete from HealthImaging if the image set exists.
+        // When multiple DB rows share the same imageSetId (e.g. individually uploaded slices
+        // of the same series that AWS HealthImaging merged), the first delete removes the
+        // imageSet and subsequent calls will receive a ResourceNotFoundException — swallow it.
         if (image.getImageSetId() != null) {
-            DeleteImageSetRequest deleteImageSetRequest = DeleteImageSetRequest.builder()
-                    .datastoreId(datastoreId)
-                    .imageSetId(image.getImageSetId())
-                    .build();
-            medicalImagingClient.deleteImageSet(deleteImageSetRequest);
+            try {
+                DeleteImageSetRequest deleteImageSetRequest = DeleteImageSetRequest.builder()
+                        .datastoreId(datastoreId)
+                        .imageSetId(image.getImageSetId())
+                        .build();
+                medicalImagingClient.deleteImageSet(deleteImageSetRequest);
+            } catch (software.amazon.awssdk.services.medicalimaging.model.ResourceNotFoundException e) {
+                log.info("ImageSet {} already deleted, skipping HealthImaging removal for image {}", image.getImageSetId(), imageId);
+            }
         }
 
         // Delete from S3 (all files under the series prefix)

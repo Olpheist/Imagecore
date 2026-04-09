@@ -4,9 +4,12 @@ import com.green.imagecore.entities.Role;
 import com.green.imagecore.entities.RoleType;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.entities.UserRole;
+import com.green.imagecore.entities.subscription.SubscriptionTier;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.RoleRepository;
 import com.green.imagecore.repositories.UserRepository;
+import com.green.imagecore.repositories.subscription.SubscriptionTierRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,15 +42,25 @@ class UserServiceTest {
     @Mock
     private RoleRepository roleRepository;
 
+    @Mock
+    private SubscriptionTierRepository subscriptionTierRepository;
+
     @Test
     void register_Success() {
         String email = "doctor@imagecore.com";
         String username = "dr_smith";
         String password = "securePassword";
 
+        SubscriptionTier freeTier = new SubscriptionTier();
+        freeTier.setId(1L);
+        freeTier.setCode(SubscriptionTierCode.FREE);
+        freeTier.setName("Free");
+
         when(userRepository.existsByEmail(email)).thenReturn(false);
         when(userRepository.existsByUsername(username)).thenReturn(false);
         when(passwordEncoder.encode(password)).thenReturn("hashed_pw");
+        when(subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE))
+                .thenReturn(Optional.of(freeTier));
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArguments()[0]);
 
         User result = userService.register(email, username, password);

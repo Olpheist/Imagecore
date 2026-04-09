@@ -1,6 +1,9 @@
 package com.green.imagecore.controller;
 
 import com.green.imagecore.entities.User;
+import com.green.imagecore.entities.subscription.SubscriptionTier;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
+import com.green.imagecore.entities.subscription.UserSubscription;
 import com.green.imagecore.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -34,6 +37,16 @@ class UserControllerTest extends BaseControllerTest {
         mockUser.setEmail("jane@imagecore.com");
         mockUser.setEnabled(true);
         mockUser.setUserRoles(Collections.emptySet());
+
+        UserSubscription sub = new UserSubscription();
+
+        SubscriptionTier tier = new SubscriptionTier();
+        tier.setCode(SubscriptionTierCode.FREE);
+
+        sub.setTier(tier);
+        sub.setAutoRenew(false);
+
+        mockUser.setUserSubscription(sub);
 
         when(userService.findByUsernameWithRoles(username)).thenReturn(mockUser);
 
@@ -78,6 +91,16 @@ class UserControllerTest extends BaseControllerTest {
         updatedUser.setEmail("jane@imagecore.com");
         updatedUser.setEnabled(true);
         updatedUser.setUserRoles(Collections.emptySet());
+
+        UserSubscription sub = new UserSubscription();
+
+        SubscriptionTier tier = new SubscriptionTier();
+        tier.setCode(SubscriptionTierCode.FREE);
+
+        sub.setTier(tier);
+        sub.setAutoRenew(false);
+
+        updatedUser.setUserSubscription(sub);
 
         when(userService.updateUserRoles(userId, roleIds)).thenReturn(updatedUser);
 

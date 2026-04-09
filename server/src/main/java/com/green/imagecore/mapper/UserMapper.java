@@ -2,8 +2,10 @@ package com.green.imagecore.mapper;
 
 import com.green.imagecore.dto.UserDto;
 import com.green.imagecore.dto.UserRoleDto;
+import com.green.imagecore.dto.UserSubscriptionDto;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.entities.UserRole;
+import com.green.imagecore.entities.subscription.UserSubscription;
 
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -22,6 +24,8 @@ public class UserMapper {
 
         dto.setUserRoles(toRoleDtos(user.getUserRoles()));
 
+        dto.setSubscription(toSubscriptionDto(user.getUserSubscription()));
+
         return dto;
     }
 
@@ -38,5 +42,16 @@ public class UserMapper {
         d.setRoleId(ur.getRole().getId());
         d.setRoleName(ur.getRole().getName().name());
         return d;
+    }
+
+    private static UserSubscriptionDto toSubscriptionDto(UserSubscription sub) {
+        UserSubscriptionDto dto = new UserSubscriptionDto();
+
+        dto.setTierCode(sub.getTier().getCode().name());
+        dto.setAutoRenew(sub.isAutoRenew());
+        dto.setCurrentPeriodStart(sub.getCurrentPeriodStart());
+        dto.setCurrentPeriodEnd(sub.getCurrentPeriodEnd());
+
+        return dto;
     }
 }

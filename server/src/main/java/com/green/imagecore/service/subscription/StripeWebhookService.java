@@ -1,7 +1,6 @@
 package com.green.imagecore.service.subscription;
 
 import com.green.imagecore.entities.subscription.BillingEvent;
-import com.green.imagecore.entities.subscription.SubscriptionStatus;
 import com.green.imagecore.entities.subscription.SubscriptionTier;
 import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.entities.subscription.UserSubscription;

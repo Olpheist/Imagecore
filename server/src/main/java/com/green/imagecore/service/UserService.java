@@ -3,9 +3,13 @@ package com.green.imagecore.service;
 import com.green.imagecore.entities.Role;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.entities.UserRole;
+import com.green.imagecore.entities.subscription.SubscriptionTier;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
+import com.green.imagecore.entities.subscription.UserSubscription;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.RoleRepository;
 import com.green.imagecore.repositories.UserRepository;
+import com.green.imagecore.repositories.subscription.SubscriptionTierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +24,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SubscriptionTierRepository subscriptionTierRepository;
 
     @Transactional
     public User register(String email, String username, String password) {
@@ -30,13 +35,23 @@ public class UserService {
             throw new IllegalArgumentException("Username already in use");
         }
 
-        User u = new User();
-        u.setEmail(email.toLowerCase());
-        u.setUsername(username);
-        u.setPasswordHash(passwordEncoder.encode(password));
-        u.setEnabled(true);
+        SubscriptionTier freeTier = subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)
+                .orElseThrow(() -> new IllegalStateException("FREE subscription tier not found"));
 
-        return userRepository.save(u);
+        User user = new User();
+        user.setEmail(email.toLowerCase());
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setEnabled(true);
+
+        UserSubscription userSubscription = new UserSubscription();
+        userSubscription.setUser(user);
+        userSubscription.setTier(freeTier);
+        userSubscription.setAutoRenew(false);
+
+        user.setUserSubscription(userSubscription);
+
+        return userRepository.save(user);
     }
 
     @Transactional(readOnly = true)

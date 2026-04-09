@@ -1,5 +1,6 @@
 package com.green.imagecore.entities;
 
+import com.green.imagecore.entities.subscription.UserSubscription;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -36,4 +37,7 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<UserRole> userRoles = new HashSet<>();
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserSubscription userSubscription;
 }

@@ -106,6 +106,35 @@ export const mockTools = [
 ];
 
 
+export const mockSeriesGroups = [
+  {
+    key: 'imgset-001',
+    imageSetId: 'imgset-001',
+    displayName: 'brain_mri.dcm',
+    modality: 'MR',
+    bodyPart: 'Brain',
+    studyDate: '2026-01-15',
+    instanceCount: 1,
+    status: 'COMPLETED',
+    seriesInstanceUid: null,
+    studyInstanceUid: '1.2.840.10008.5.1.4.1.1.4.001',
+    imageIds: [1],
+  },
+  {
+    key: '__pending__2',
+    imageSetId: null,
+    displayName: 'chest_ct.dcm',
+    modality: null,
+    bodyPart: null,
+    studyDate: null,
+    instanceCount: 1,
+    status: 'IN_PROGRESS',
+    seriesInstanceUid: null,
+    studyInstanceUid: null,
+    imageIds: [2],
+  },
+];
+
 export const mockStudies = [
   {
     id: 1,

@@ -1,6 +1,6 @@
 import { test, expect } from "./fixtures";
 import { makeJwt, mockClinicianUser, mockResearcherUser, mockMeUser, mockImages } from "./mocks";
-import {mockMe, mockImagesGet, mockImageDelete, mockCsrf} from "./routes";
+import {mockMe, mockImagesSeriesGet, mockImageDelete, mockCsrf} from "./routes";
 
 test.beforeEach(async ({ context }) => {
     await context.clearCookies();
@@ -19,7 +19,7 @@ test("catalog page redirects unauthenticated user to /login", async ({ page }) =
 test("catalog page displays images returned from the API", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
-    await mockImagesGet(page);
+    await mockImagesSeriesGet(page);
 
     await page.goto("/dashboard/catalog");
 
@@ -29,21 +29,20 @@ test("catalog page displays images returned from the API", async ({ page, setTok
     }
 });
 
-test("catalog page shows fallback sample image when no images exist", async ({ page, setToken }) => {
+test("catalog page shows empty state when no images exist", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
-    await mockImagesGet(page, []);
+    await mockImagesSeriesGet(page, []);
 
     await page.goto("/dashboard/catalog");
 
-    // The dicomCatalog store injects a local fallback when the API returns empty
-    await expect(page.getByText("/dicom-samples/mri-001/sample.dcm")).toBeVisible();
+    await expect(page.getByText("No data available.")).toBeVisible();
 });
 
 test("catalog page shows error when API call fails", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
-    await mockImagesGet(page, [], 500);
+    await mockImagesSeriesGet(page, [], 500);
 
     await page.goto("/dashboard/catalog");
 
@@ -55,7 +54,7 @@ test("catalog page shows error when API call fails", async ({ page, setToken }) 
 test("catalog page: clicking Delete opens confirmation modal", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
-    await mockImagesGet(page);
+    await mockImagesSeriesGet(page);
 
     await page.goto("/dashboard/catalog");
 
@@ -63,14 +62,14 @@ test("catalog page: clicking Delete opens confirmation modal", async ({ page, se
     await page.getByRole("button", { name: /^delete$/i }).first().click();
 
     await expect(page.getByRole("heading", { name: /delete image/i })).toBeVisible();
-    // The filename appears in the modal confirmation text
-    await expect(page.locator("span.font-medium").filter({ hasText: firstImage.filename })).toBeVisible();
+    // The filename appears in the modal confirmation text (last match to avoid the table cell)
+    await expect(page.locator("span.font-medium").filter({ hasText: firstImage.filename }).last()).toBeVisible();
 });
 
 test("catalog page: confirming delete removes image from list", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
-    await mockImagesGet(page);
+    await mockImagesSeriesGet(page);
     await mockCsrf(page);
     const firstImage = mockImages[0]!;
     await mockImageDelete(page, firstImage.id);
@@ -90,7 +89,7 @@ test("catalog page: confirming delete removes image from list", async ({ page, s
 test("catalog page: View Image button navigates to DICOM viewer", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
-    await mockImagesGet(page);
+    await mockImagesSeriesGet(page);
 
     await page.goto("/dashboard/catalog");
 
@@ -104,7 +103,7 @@ test("catalog page: View Image button navigates to DICOM viewer", async ({ page,
 test("catalog page: Send to Analysis button is disabled", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
-    await mockImagesGet(page);
+    await mockImagesSeriesGet(page);
 
     await page.goto("/dashboard/catalog");
 
@@ -117,7 +116,7 @@ test("catalog page: Send to Analysis button is disabled", async ({ page, setToke
 test("catalog page is accessible to RESEARCHER role", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockResearcherUser);
-    await mockImagesGet(page);
+    await mockImagesSeriesGet(page);
 
     await page.goto("/dashboard/catalog");
 

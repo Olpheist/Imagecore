@@ -79,11 +79,11 @@ test.describe("Page navigation", () => {
 test.describe("Study sidebar", () => {
   test.setTimeout(15_000)
 
-  test("shows the Brain — T1 Coronal study", async ({ page, setToken }) => {
+  test("shows the study in the sidebar", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)
-    // Use the StudyRow span scoped to sidebar
+    // description = seriesDescription ?? studyDescription; mockStudies has seriesDescription set
     await expect(
-      sidebar(page).locator("span.font-semibold", { hasText: "Brain — T1 Coronal" })
+      sidebar(page).locator("span.font-semibold", { hasText: "T1 MPRAGE Post-Contrast" })
     ).toBeVisible()
   })
 
@@ -105,7 +105,7 @@ test.describe("Study sidebar", () => {
   test("auto-selects the first study and shows breadcrumb", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)
     await expect(
-      headerEl(page).getByText("Brain — T1 Coronal")
+      headerEl(page).getByText("T1 MPRAGE Post-Contrast")
     ).toBeVisible()
   })
 
@@ -116,7 +116,7 @@ test.describe("Study sidebar", () => {
     await expect(sidebar(page).getByText("No results")).toBeVisible()
     await input.clear()
     await expect(
-      sidebar(page).locator("span.font-semibold", { hasText: "Brain — T1 Coronal" })
+      sidebar(page).locator("span.font-semibold", { hasText: "T1 MPRAGE Post-Contrast" })
     ).toBeVisible()
   })
 
@@ -125,7 +125,7 @@ test.describe("Study sidebar", () => {
     const input = page.getByPlaceholder("Body part, series…")
     await input.fill("Brain")
     await expect(
-      sidebar(page).locator("span.font-semibold", { hasText: "Brain — T1 Coronal" })
+      sidebar(page).locator("span.font-semibold", { hasText: "T1 MPRAGE Post-Contrast" })
     ).toBeVisible()
   })
 
@@ -136,8 +136,8 @@ test.describe("Study sidebar", () => {
 
   test("clicking a study row activates it", async ({ page, setToken }) => {
     await gotoViewer(page, setToken)
-    await sidebar(page).locator("span.font-semibold", { hasText: "Brain — T1 Coronal" }).click()
-    await expect(headerEl(page).getByText("Brain — T1 Coronal")).toBeVisible()
+    await sidebar(page).locator("span.font-semibold", { hasText: "T1 MPRAGE Post-Contrast" }).click()
+    await expect(headerEl(page).getByText("T1 MPRAGE Post-Contrast")).toBeVisible()
   })
 })
 
@@ -244,7 +244,7 @@ test.describe("Study info panel", () => {
     await page.getByRole("button", { name: /study info/i }).click()
     const panel = metaPanel(page)
     await expect(panel.getByText("MR")).toBeVisible()
-    await expect(panel.getByText("T1 MPRAGE Post-Contrast")).toBeVisible()
+    await expect(panel.getByText("T1 MPRAGE Post-Contrast").first()).toBeVisible()
     await expect(panel.getByText("Dr. Apple")).toBeVisible()
     await expect(panel.getByText("PT-00421")).toBeVisible()
     await expect(panel.getByText("1 slice(s)")).toBeVisible()

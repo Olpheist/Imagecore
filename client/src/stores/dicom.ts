@@ -113,6 +113,7 @@ export const useDicomStore = defineStore('dicom', () => {
         })
 
         const first = group[0]
+        if (!first) throw new Error('Unexpected empty series group')
 
         // Build ordered SOP UID list from per-record sopInstanceUids (batch uploads have N SOPs
         // in one record), falling back to the single sopInstanceUid for legacy single-upload records.

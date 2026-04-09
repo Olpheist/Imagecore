@@ -162,6 +162,7 @@ async function preloadMetadata(imageIds: string[]): Promise<void> {
           const sopMatch = imageId.match(/\/instances\/([^/]+)\/frames\//)
           if (!sopMatch) continue
           const sopUid = sopMatch[1]
+          if (!sopUid) continue
           const metaArray = allMeta[sopUid]
           const meta = Array.isArray(metaArray) && metaArray.length > 0 ? metaArray[0] : null
           if (!meta) continue

@@ -115,8 +115,9 @@
             </Button>
             <Button
               v-if="lastJobByImageId.get(row.id)"
-              variant="secondary"
+              variant="primary"
               rounded
+              class="!bg-purple-400 hover:!bg-purple-500"
               title="Download the analysis report (available once the tool finishes)"
               @click="onDownloadReport(row)"
             >

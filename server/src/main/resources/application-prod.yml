@@ -39,6 +39,9 @@ app:
     api-key: ${SEND_GRID_API_KEY}
   cookie:
     secure: true
+  stripe:
+    success-url: https://imagecore.org/billing/success
+    cancel-url: https://imagecore.org/billing/cancel
   aws:
     s3:
       bucket-name: ${AWS_S3_BUCKET_NAME}

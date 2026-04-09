@@ -33,6 +33,8 @@ app:
     webhook-secret: ${STRIPE_WEBHOOK_SECRET}
     pro-monthly-price-id: ${STRIPE_PRO_MONTHLY_PRICE_ID}
     public-key: ${STRIPE_PUBLIC_KEY}
+    success-url: http://localhost:3000/billing/success
+    cancel-url: http://localhost:3000/billing/cancel
   send-grid:
     api-key: disabled
   cookie:

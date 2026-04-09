@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class SubscriptionService {
+public class SubscriptionAccessService {
     private final ToolRepository toolRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionTierRepository subscriptionTierRepository;

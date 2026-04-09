@@ -9,8 +9,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 /**
  * Global Spring configuration for Cucumber BDD tests.
@@ -38,6 +40,12 @@ public class CucumberSpringConfiguration {
     // (avoids needing real credentials or AWS configuration).
     @MockitoBean
     S3Client s3Client;
+
+    @MockitoBean
+    S3Presigner s3Presigner;
+
+    @MockitoBean
+    EcsClient ecsClient;
 
     @MockitoBean
     MedicalImagingClient medicalImagingClient;

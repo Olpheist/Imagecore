@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -132,6 +133,23 @@ public class ImageController {
         Long userId = parseUserId(authentication);
         AnalysisJob job = analysisJobService.submit(imageId, request.toolId(), userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(AnalysisJobMapper.toDto(job));
+    }
+
+    /**
+     * Returns a 302 redirect to a 15-minute presigned S3 URL for the job's PDF report.
+     * Returns 404 if the image or job does not exist, is not owned by the user, or the
+     * report has not been uploaded yet (tool may still be running).
+     */
+    @GetMapping("/{imageId}/jobs/{jobId}/report")
+    @PreAuthorize("hasAnyRole('CLINICIAN', 'RESEARCHER')")
+    public ResponseEntity<Void> getJobReport(
+            @PathVariable Long imageId,
+            @PathVariable Long jobId,
+            Authentication authentication
+    ) {
+        Long userId = parseUserId(authentication);
+        URI presignedUrl = analysisJobService.generateReportPresignedUrl(imageId, jobId, userId);
+        return ResponseEntity.status(HttpStatus.FOUND).location(presignedUrl).build();
     }
 
     public record SubmitJobRequest(Long toolId) {}

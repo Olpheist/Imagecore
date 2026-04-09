@@ -16,6 +16,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.*;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.Duration;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -31,6 +40,8 @@ public class AnalysisJobService {
     private final ToolRepository        toolRepository;
     private final UserRepository        userRepository;
     private final EcsClient             ecsClient;
+    private final S3Client              s3Client;
+    private final S3Presigner           s3Presigner;
 
     // which ECS cluster to run the tool task on
     @Value("${app.aws.ecs.cluster-arn}")
@@ -114,6 +125,50 @@ public class AnalysisJobService {
 
         job.setUpdatedAt(Instant.now());
         return analysisJobRepository.save(job);
+    }
+
+    /**
+     * Generates a 15-minute presigned S3 URL for the PDF report produced by an analysis job.
+     * The report key is derived from the job ID as {@code results/{jobId}/report.pdf},
+     * matching the prefix the ECS task writes to. No DB column is needed.
+     *
+     * @param imageId the ID of the DICOM image the job belongs to
+     * @param jobId   the ID of the analysis job
+     * @param userId  the ID of the authenticated user (ownership check)
+     * @return a presigned URI valid for 15 minutes
+     * @throws ResourceNotFoundException if the image, job, or report object does not exist
+     */
+    public URI generateReportPresignedUrl(Long imageId, Long jobId, Long userId) {
+        dicomImageRepository.findByIdAndUserId(imageId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Image not found with id: " + imageId));
+
+        AnalysisJob job = analysisJobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Job not found with id: " + jobId));
+
+        if (!job.getImage().getId().equals(imageId)) {
+            throw new ResourceNotFoundException("Job not found with id: " + jobId);
+        }
+
+        String reportKey = "results/" + jobId + "/report.pdf";
+
+        try {
+            s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(s3BucketName).key(reportKey).build());
+        } catch (NoSuchKeyException e) {
+            throw new ResourceNotFoundException(
+                    "Report not yet available for job " + jobId + ", the tool may still be running");
+        }
+
+        PresignedGetObjectRequest presigned = s3Presigner.presignGetObject(req ->
+                req.signatureDuration(Duration.ofMinutes(15))
+                   .getObjectRequest(get -> get.bucket(s3BucketName).key(reportKey))
+        );
+
+        try {
+            return presigned.url().toURI();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("Presigned URL from S3 is not a valid URI", e);
+        }
     }
 
     private String runEcsTask(AnalysisJob job, DicomImage image, Tool tool) {

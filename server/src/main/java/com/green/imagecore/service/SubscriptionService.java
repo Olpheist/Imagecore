@@ -1,4 +1,4 @@
-package com.green.imagecore.service.subscription;
+package com.green.imagecore.service;
 
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.entities.subscription.SubscriptionTier;
@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class SubscriptionAccessService {
+public class SubscriptionService {
     private final ToolRepository toolRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionTierRepository subscriptionTierRepository;

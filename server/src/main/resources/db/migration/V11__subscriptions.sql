@@ -16,7 +16,7 @@ values
     ('PRO', 'Pro', 'Unlock the full experience.', 999, 2);
 
 alter table tools
-    add column required_tier_id bigint references subscription_tiers(id);
+    add column required_tier_id bigint references subscription_tiers(id) default 1;
 
 update tools
 set required_tier_id = (

@@ -3,6 +3,7 @@ package com.green.imagecore.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.service.ToolService;
 import com.green.imagecore.service.UserService;
@@ -171,7 +172,8 @@ class ToolControllerTest extends BaseControllerTest {
                 ownerUser,
                 "segmentation",
                 "Segments brain MRI regions",
-                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
+                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                SubscriptionTierCode.FREE
         )).thenReturn(brainSegmentation);
 
         String body = objectMapper.writeValueAsString(new ToolController.CreateToolRequest(
@@ -201,7 +203,8 @@ class ToolControllerTest extends BaseControllerTest {
                 ownerUser,
                 "segmentation",
                 "Segments brain MRI regions",
-                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
+                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                SubscriptionTierCode.FREE
         )).thenReturn(brainSegmentation);
 
         String body = objectMapper.writeValueAsString(new ToolController.CreateToolRequest(
@@ -230,7 +233,7 @@ class ToolControllerTest extends BaseControllerTest {
         minimalTool.setCreatedBy(ownerUser);
 
         when(userService.findByUsername("dr.smith")).thenReturn(ownerUser);
-        when(toolService.create("minimal-tool", ownerUser, "detection", null, null))
+        when(toolService.create("minimal-tool", ownerUser, "detection", null, null, SubscriptionTierCode.FREE))
                 .thenReturn(minimalTool);
 
         String body = objectMapper.writeValueAsString(
@@ -251,7 +254,7 @@ class ToolControllerTest extends BaseControllerTest {
     @WithMockUser(username = "dr.smith", roles = "ADMIN")
     void createTool_duplicateName_returns400() throws Exception {
         when(userService.findByUsername("dr.smith")).thenReturn(ownerUser);
-        when(toolService.create(any(), any(), any(), any(), any()))
+        when(toolService.create(any(), any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("Name already in use"));
 
         String body = objectMapper.writeValueAsString(
@@ -275,7 +278,8 @@ class ToolControllerTest extends BaseControllerTest {
                 ownerUser,
                 "segmentation",
                 "Segments brain MRI regions",
-                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
+                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                SubscriptionTierCode.FREE
         )).thenReturn(brainSegmentation);
 
         String body = objectMapper.writeValueAsString(new ToolController.CreateToolRequest(

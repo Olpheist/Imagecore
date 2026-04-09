@@ -2,6 +2,7 @@ package com.green.imagecore.bdd;
 
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.ToolRepository;
 import com.green.imagecore.repositories.UserRepository;
@@ -112,7 +113,8 @@ public class ToolSteps {
                     user,
                     row.get("category"),
                     row.get("description"),
-                    row.get("image_tag")
+                    row.get("image_tag"),
+                    SubscriptionTierCode.FREE
             );
         }
     }
@@ -124,7 +126,7 @@ public class ToolSteps {
     @Given("a tool named {string} already exists")
     public void a_tool_named_already_exists(String name) {
         User user = currentAuthenticatedUser();
-        this.selectedTool = toolService.create(name, user, "segmentation", null, null);
+        this.selectedTool = toolService.create(name, user, "segmentation", null, null, SubscriptionTierCode.FREE);
     }
 
     /**
@@ -135,7 +137,7 @@ public class ToolSteps {
     public void a_tool_named_already_exists_created_by(String name, String username) {
         User owner = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
-        this.selectedTool = toolService.create(name, owner, "segmentation", null, null);
+        this.selectedTool = toolService.create(name, owner, "segmentation", null, null, SubscriptionTierCode.FREE);
     }
 
     @Given("no tools exist in the database")
@@ -177,7 +179,7 @@ public class ToolSteps {
     public void the_user_creates_a_tool_with_name_and_category(String name, String category) {
         User user = currentAuthenticatedUser();
         try {
-            this.selectedTool = toolService.create(name, user, category, null, null);
+            this.selectedTool = toolService.create(name, user, category, null, null, SubscriptionTierCode.FREE);
             this.thrownException = null;
         } catch (Exception e) {
             this.thrownException = e;
@@ -195,7 +197,8 @@ public class ToolSteps {
                     user,
                     fields.get("category"),
                     fields.getOrDefault("description", null),
-                    fields.getOrDefault("imageTag", null)
+                    fields.getOrDefault("imageTag", null),
+                    SubscriptionTierCode.FREE
             );
             this.thrownException = null;
         } catch (Exception e) {

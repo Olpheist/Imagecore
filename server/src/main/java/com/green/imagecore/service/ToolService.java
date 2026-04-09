@@ -17,7 +17,6 @@ import java.util.*;
 
 /**
  * Service layer for managing the medical imaging tool catalog.
- *
  * Provides operations for creating, retrieving, and deleting tools.
  * Each tool represents a containerized medical imaging algorithm stored
  * in Amazon ECR, identified by its image tag for downstream dispatch.

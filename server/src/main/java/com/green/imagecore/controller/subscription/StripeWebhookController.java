@@ -1,6 +1,7 @@
-package com.green.imagecore.controller;
+package com.green.imagecore.controller.subscription;
 
 import com.green.imagecore.config.StripeConfig;
+import com.green.imagecore.service.subscription.StripeWebhookService;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import com.stripe.net.Webhook;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class StripeWebhookController {
 
     private final StripeConfig stripeConfig;
+    private final StripeWebhookService stripeWebhookService;
 
     @PostMapping("/webhook")
     public ResponseEntity<String> handleWebhook(
@@ -33,19 +35,7 @@ public class StripeWebhookController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid signature");
         }
 
-        switch (event.getType()) {
-            case "checkout.session.completed":
-                System.out.println("checkout completed");
-                break;
-            case "customer.subscription.deleted":
-                System.out.println("subscription deleted");
-                break;
-            case "invoice.paid":
-                System.out.println("invoice paid");
-                break;
-            default:
-                System.out.println("Unhandled event: " + event.getType());
-        }
+        stripeWebhookService.handleEvent(event, payload);
 
         return ResponseEntity.ok("received");
     }

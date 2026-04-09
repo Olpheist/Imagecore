@@ -1,4 +1,4 @@
-package com.green.imagecore.service;
+package com.green.imagecore.service.subscription;
 
 import com.green.imagecore.config.StripeConfig;
 import com.stripe.exception.StripeException;
@@ -13,7 +13,7 @@ public class StripeService {
 
     private final StripeConfig stripeConfig;
 
-    public Session createCheckoutSession(String userId) throws StripeException {
+    public Session createCheckoutSession(Long userId) throws StripeException {
         SessionCreateParams params = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
                 .setSuccessUrl(stripeConfig.getSuccessUrl())
@@ -24,7 +24,7 @@ public class StripeService {
                                 .setQuantity(1L)
                                 .build()
                 )
-                .putMetadata("userId", userId)
+                .putMetadata("userId", String.valueOf(userId))
                 .build();
 
         return Session.create(params);

@@ -49,6 +49,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .ignoringRequestMatchers("/api/stripe/webhook")
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 )
 

@@ -30,6 +30,7 @@ public class BillingEvent {
     private UserSubscription userSubscription;
 
     @Column(columnDefinition = "jsonb")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     private String payload;
 
     @Column(name = "processed_at")

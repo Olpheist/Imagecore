@@ -231,34 +231,6 @@ public class HealthImagingService {
         return result;
     }
 
-    private Map<String, Object> flattenDicom(JsonNode dicomNode) {
-        Map<String, Object> map = new HashMap<>();
-
-        Iterator<Map.Entry<String, JsonNode>> fields = dicomNode.fields();
-        while (fields.hasNext()) {
-            Map.Entry<String, JsonNode> entry = fields.next();
-
-            String key = entry.getKey();
-            JsonNode value = entry.getValue();
-
-            if (value.isArray()) {
-                List<Object> list = new ArrayList<>();
-                for (JsonNode v : value) {
-                    list.add(v.isNumber() ? v.numberValue() : v.asText().trim());
-                }
-                map.put(key, list);
-            } else if (value.isNumber()) {
-                map.put(key, value.numberValue());
-            } else if (value.isNull()) {
-                // skip nulls (important)
-            } else {
-                map.put(key, value.asText().trim());
-            }
-        }
-
-        return map;
-    }
-
     /**
      * Converts HealthImaging's named-keyword DICOM format to standard DICOM JSON.
      *

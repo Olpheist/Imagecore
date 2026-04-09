@@ -173,6 +173,8 @@ class ToolControllerTest extends BaseControllerTest {
                 "segmentation",
                 "Segments brain MRI regions",
                 "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                null,
+                null,
                 SubscriptionTierCode.FREE
         )).thenReturn(brainSegmentation);
 
@@ -181,7 +183,9 @@ class ToolControllerTest extends BaseControllerTest {
                 ownerUser,
                 "segmentation",
                 "Segments brain MRI regions",
-                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
+                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                null,
+                null
         ));
 
         mockMvc.perform(post("/api/tools")
@@ -204,6 +208,8 @@ class ToolControllerTest extends BaseControllerTest {
                 "segmentation",
                 "Segments brain MRI regions",
                 "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                null,
+                null,
                 SubscriptionTierCode.FREE
         )).thenReturn(brainSegmentation);
 
@@ -212,7 +218,9 @@ class ToolControllerTest extends BaseControllerTest {
                 ownerUser,
                 "segmentation",
                 "Segments brain MRI regions",
-                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
+                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                null,
+                null
         ));
 
         mockMvc.perform(post("/api/tools")
@@ -233,11 +241,11 @@ class ToolControllerTest extends BaseControllerTest {
         minimalTool.setCreatedBy(ownerUser);
 
         when(userService.findByUsername("dr.smith")).thenReturn(ownerUser);
-        when(toolService.create("minimal-tool", ownerUser, "detection", null, null, SubscriptionTierCode.FREE))
+        when(toolService.create("minimal-tool", ownerUser, "detection", null, null, null, null, SubscriptionTierCode.FREE))
                 .thenReturn(minimalTool);
 
         String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("minimal-tool", ownerUser, "detection", null, null)
+                new ToolController.CreateToolRequest("minimal-tool", ownerUser, "detection", null, null, null, null)
         );
 
         mockMvc.perform(post("/api/tools")
@@ -254,11 +262,11 @@ class ToolControllerTest extends BaseControllerTest {
     @WithMockUser(username = "dr.smith", roles = "ADMIN")
     void createTool_duplicateName_returns400() throws Exception {
         when(userService.findByUsername("dr.smith")).thenReturn(ownerUser);
-        when(toolService.create(any(), any(), any(), any(), any(), any()))
+        when(toolService.create(any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("Name already in use"));
 
         String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null)
+                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null, null, null)
         );
 
         mockMvc.perform(post("/api/tools")
@@ -279,6 +287,8 @@ class ToolControllerTest extends BaseControllerTest {
                 "segmentation",
                 "Segments brain MRI regions",
                 "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                null,
+                null,
                 SubscriptionTierCode.FREE
         )).thenReturn(brainSegmentation);
 
@@ -287,7 +297,9 @@ class ToolControllerTest extends BaseControllerTest {
                 ownerUser,
                 "segmentation",
                 "Segments brain MRI regions",
-                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0"
+                "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                null,
+                null
         ));
 
         mockMvc.perform(post("/api/tools")
@@ -300,7 +312,7 @@ class ToolControllerTest extends BaseControllerTest {
     @WithMockUser(roles = "PATIENT")
     void createTool_asPatient_returns403() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null)
+                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null, null, null)
         );
 
         mockMvc.perform(post("/api/tools")
@@ -316,7 +328,7 @@ class ToolControllerTest extends BaseControllerTest {
     @Test
     void createTool_unauthenticated_returns401() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null)
+                new ToolController.CreateToolRequest("brain-segmentation", ownerUser, "segmentation", null, null, null, null)
         );
 
         mockMvc.perform(post("/api/tools")

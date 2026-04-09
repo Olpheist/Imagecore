@@ -123,6 +123,8 @@ class ToolServiceTest {
                     "segmentation",
                     "Segments brain MRI regions",
                     "123456789.dkr.ecr.us-east-1.amazonaws.com/brain-seg:v1.2.0",
+                    null,
+                    null,
                     SubscriptionTierCode.FREE
             );
 
@@ -149,14 +151,7 @@ class ToolServiceTest {
                     .thenReturn(Optional.of(freeTier));
             when(toolRepository.save(any(Tool.class))).thenReturn(minimalTool);
 
-            Tool result = toolService.create(
-                    "minimal-tool",
-                    ownerUser,
-                    "detection",
-                    null,
-                    null,
-                    SubscriptionTierCode.FREE
-            );
+            Tool result = toolService.create("minimal-tool", ownerUser, "detection", null, null, null, null, SubscriptionTierCode.FREE);
 
             assertThat(result.getName()).isEqualTo("minimal-tool");
             assertThat(result.getDescription()).isNull();
@@ -164,6 +159,70 @@ class ToolServiceTest {
             assertThat(result.getCreatedBy()).isEqualTo(ownerUser);
             assertThat(result.getRequiredTier()).isEqualTo(freeTier);
             verify(toolRepository).save(any(Tool.class));
+        }
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when name is already in use")
+        void throwsWhenNameAlreadyExists() {
+            when(toolRepository.existsByName("brain-segmentation")).thenReturn(true);
+
+            assertThatThrownBy(() -> toolService.create(
+                    "brain-segmentation", ownerUser, "segmentation", null, null, null, null, SubscriptionTierCode.FREE
+            ))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("brain-segmentation");
+
+            verify(toolRepository, never()).save(any(Tool.class));
+        }
+    }
+
+
+    // delete()
+    @Nested
+    @DisplayName("delete()")
+    class Delete {
+
+        @Test
+        @DisplayName("owner can delete their own tool")
+        void ownerCanDeleteTheirOwnTool() {
+            when(toolRepository.findById(1L)).thenReturn(Optional.of(brainSegmentation));
+
+            toolService.delete(1L, ownerAuth);
+
+            verify(toolRepository).delete(brainSegmentation);
+        }
+
+        @Test
+        @DisplayName("admin can delete any tool regardless of ownership")
+        void adminCanDeleteAnyTool() {
+            when(toolRepository.findById(1L)).thenReturn(Optional.of(brainSegmentation));
+
+            toolService.delete(1L, adminAuth);
+
+            verify(toolRepository).delete(brainSegmentation);
+        }
+
+        @Test
+        @DisplayName("non-owner non-admin throws AccessDeniedException")
+        void nonOwnerNonAdminCannotDelete() {
+            when(toolRepository.findById(1L)).thenReturn(Optional.of(brainSegmentation));
+
+            assertThatThrownBy(() -> toolService.delete(1L, otherAuth))
+                    .isInstanceOf(AccessDeniedException.class);
+
+            verify(toolRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when tool does not exist")
+        void throwsResourceNotFoundExceptionWhenNotExists() {
+            when(toolRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> toolService.delete(999L, adminAuth))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("999");
+
+            verify(toolRepository, never()).delete(any());
         }
     }
 }

@@ -6,6 +6,7 @@ import com.green.imagecore.repositories.DicomImageRepository;
 import com.green.imagecore.service.HealthImagingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -26,9 +27,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DicomImportJobListener {
 
-    /** Maximum number of status polls before giving up (40 × 15 s = 10 minutes). */
-    private static final int  MAX_POLL_ATTEMPTS = 40;
-    private static final long POLL_INTERVAL_MS  = 15_000L;
+    /** Maximum number of status polls before giving up. Default: 40 × 15 s = 10 minutes. */
+    @Value("${app.dicom.import.max-poll-attempts:40}")
+    private int maxPollAttempts;
+
+    /** Milliseconds to wait between each status poll. */
+    @Value("${app.dicom.import.poll-interval-ms:15000}")
+    private long pollIntervalMs;
 
     private final DicomImageRepository dicomImageRepository;
     private final HealthImagingService  healthImagingService;
@@ -43,9 +48,9 @@ public class DicomImportJobListener {
         Long imageId = event.imageId();
         log.info("Import listener started for image {}", imageId);
 
-        for (int attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
+        for (int attempt = 1; attempt <= maxPollAttempts; attempt++) {
             try {
-                Thread.sleep(POLL_INTERVAL_MS);
+                Thread.sleep(pollIntervalMs);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("Import listener interrupted for image {}", imageId);
@@ -62,12 +67,12 @@ public class DicomImportJobListener {
                 image = healthImagingService.syncImportStatus(image);
             } catch (Exception e) {
                 log.warn("Import poll attempt {}/{} failed for image {}: {}",
-                        attempt, MAX_POLL_ATTEMPTS, imageId, e.getMessage());
+                        attempt, maxPollAttempts, imageId, e.getMessage());
                 continue;
             }
 
             ImportStatus status = image.getImportStatus();
-            log.debug("Import poll {}/{} for image {}: status={}", attempt, MAX_POLL_ATTEMPTS, imageId, status);
+            log.debug("Import poll {}/{} for image {}: status={}", attempt, maxPollAttempts, imageId, status);
 
             if (status == ImportStatus.COMPLETED) {
                 log.info("Import completed for image {} after {} poll(s) — metadata populated", imageId, attempt);
@@ -80,6 +85,6 @@ public class DicomImportJobListener {
         }
 
         log.warn("Import for image {} did not complete within {} minutes — giving up",
-                imageId, MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS / 60_000);
+                imageId, maxPollAttempts * pollIntervalMs / 60_000);
     }
 }

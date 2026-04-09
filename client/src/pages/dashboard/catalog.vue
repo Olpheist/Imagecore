@@ -114,6 +114,15 @@
               Run Tool Workflow
             </Button>
             <Button
+              v-if="lastJobByImageId.get(row.id)"
+              variant="secondary"
+              rounded
+              title="Download the analysis report (available once the tool finishes)"
+              @click="onDownloadReport(row)"
+            >
+              Download Report
+            </Button>
+            <Button
               variant="danger"
               rounded
               :disabled="deletingId === row.id"
@@ -199,6 +208,7 @@ async function fetchTools(): Promise<void> {
 // Job submission state
 const jobError          = ref<ApiError | null>(null);
 const submittingImageId = ref<number | null>(null);
+const lastJobByImageId  = ref<Map<number, AnalysisJobDto>>(new Map());
 
 const showDeleteModal = ref(false);
 const pendingDelete   = ref<DicomImageDto | null>(null);
@@ -213,15 +223,22 @@ async function onRunToolSelect(image: DicomImageDto, tool: ToolDto, close: () =>
   jobError.value          = null;
   submittingImageId.value = image.id;
   try {
-    await useApiFetch<AnalysisJobDto>(`/images/${image.id}/jobs`, {
+    const job = await useApiFetch<AnalysisJobDto>(`/images/${image.id}/jobs`, {
       method: 'POST',
       body: { toolId: tool.toolId },
     });
+    lastJobByImageId.value = new Map(lastJobByImageId.value).set(image.id, job);
   } catch (e: unknown) {
     jobError.value = e as ApiError;
   } finally {
     submittingImageId.value = null;
   }
+}
+
+function onDownloadReport(image: DicomImageDto) {
+  const job = lastJobByImageId.value.get(image.id);
+  if (!job) return;
+  window.location.href = `/api/images/${image.id}/jobs/${job.id}/report`;
 }
 
 function onRunToolWorkflowClick(image: DicomImageDto) {

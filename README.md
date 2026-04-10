@@ -100,7 +100,10 @@ After starting the application, use the checklist below to verify each implement
 #### Dashboard and Role-Gated Access
 - [ ] **Dashboard**: After login, navigate to Dashboard from the top-right menu. Cards visible depend on your roles. `ADMIN` has all roles (and can add them to itself via Admin Center).
 - [ ] **DICOM Upload** (`CLINICIAN` only): Navigate to the DICOM Upload card. Upload one or more `.dcm` files. Confirm a success response is returned and the import status (e.g. `SUBMITTED`) is shown.
-- [ ] **My DICOM Images** (`CLINICIAN`, `RESEARCHER`): Navigate to the My DICOM Images card. Confirm your uploaded series are listed with filename, size, upload date, and import status. Confirm you can delete your own entries but not others.
+- [ ] **My DICOM Images** (`CLINICIAN`, `RESEARCHER`): Navigate to the My DICOM Images card. Confirm your uploaded series are listed with display name, modality, body part, study date, instance count, and import status. Confirm you can delete your own entries but not others.
+    - **Run Tool**: For a `COMPLETED` image set, click **Run Tool**. A modal opens showing tool categories; select a category to see tools within it, then select a tool to submit an analysis job. Confirm the button shows `Submitting…` while the request is processing.
+    - **Download Report**: After submitting a job, confirm a **Download Report** button appears on that row. Clicking it redirects to a presigned S3 URL for the report PDF.
+    - **Run Tool Workflow**: Confirm the **Run Tool Workflow** button is visible on `COMPLETED` rows (stubbed).
 - [ ] **DICOM Viewer** (all authenticated users): Navigate via the dashboard card and confirm the viewer loads.
 - [ ] **Available Tools** (all authenticated users): Navigate to the Tools card. Confirm the tool list loads
     - create and delete a tool entry to verify write access.

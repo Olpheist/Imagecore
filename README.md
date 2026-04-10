@@ -118,7 +118,7 @@ After starting the application, use the checklist below to verify each implement
 
 ---
 
-### Backend / Database Verification
+### Backend / Database Verification 
 
 The application runs entirely in Docker. You have three clean ways to inspect what is happening under the hood.
 

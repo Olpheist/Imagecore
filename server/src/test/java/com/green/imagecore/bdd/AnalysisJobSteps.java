@@ -1,11 +1,13 @@
 package com.green.imagecore.bdd;
 
 import com.green.imagecore.entities.*;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.AnalysisJobRepository;
 import com.green.imagecore.repositories.DicomImageRepository;
 import com.green.imagecore.repositories.ToolRepository;
 import com.green.imagecore.repositories.UserRepository;
+import com.green.imagecore.repositories.subscription.SubscriptionTierRepository;
 import com.green.imagecore.service.AnalysisJobService;
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
@@ -45,12 +47,13 @@ import static org.mockito.Mockito.when;
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
 public class AnalysisJobSteps {
 
-    @Autowired private AnalysisJobService   analysisJobService;
-    @Autowired private AnalysisJobRepository analysisJobRepository;
-    @Autowired private DicomImageRepository  dicomImageRepository;
-    @Autowired private ToolRepository        toolRepository;
-    @Autowired private UserRepository        userRepository;
-    @Autowired private EcsClient             ecsClient;
+    @Autowired private AnalysisJobService        analysisJobService;
+    @Autowired private AnalysisJobRepository     analysisJobRepository;
+    @Autowired private DicomImageRepository      dicomImageRepository;
+    @Autowired private ToolRepository            toolRepository;
+    @Autowired private UserRepository            userRepository;
+    @Autowired private SubscriptionTierRepository subscriptionTierRepository;
+    @Autowired private EcsClient                 ecsClient;
     @Autowired private S3Client              s3Client;
     @Autowired private S3Presigner           s3Presigner;
 
@@ -127,6 +130,8 @@ public class AnalysisJobSteps {
             t.setDescription("N4 bias field correction");
             t.setTaskDefinitionArn("arn:aws:ecs:us-east-1:000000000000:task-definition/n4-bias-correction");
             t.setContainerName("app");
+            t.setRequiredTier(subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)
+                    .orElseThrow(() -> new IllegalStateException("FREE tier not seeded")));
             return toolRepository.save(t);
         });
     }

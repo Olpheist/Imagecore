@@ -108,7 +108,7 @@ test("catalog page: Run Tool button is disabled when image is not COMPLETED", as
     await page.goto("/dashboard/catalog");
 
     // second row has status IN_PROGRESS, so its Run Tool button should be disabled
-    const runToolBtn = page.getByRole("button", { name: /run tool/i }).nth(1);
+    const runToolBtn = page.getByRole("button", { name: "Run Tool", exact: true }).nth(1);
     await expect(runToolBtn).toBeDisabled();
 });
 

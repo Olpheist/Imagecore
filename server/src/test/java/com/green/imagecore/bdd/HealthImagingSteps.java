@@ -34,6 +34,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -236,6 +237,7 @@ public class HealthImagingSteps {
                 multipart("/api/images/upload")
                         .file(ImageUploadSteps.validDicomFile("test.dcm"))
                         .header("Authorization", "Bearer " + jwtToken)
+                        .with(csrf())
         ).andReturn();
 
         String idStr = com.jayway.jsonpath.JsonPath.read(

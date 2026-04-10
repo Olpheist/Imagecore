@@ -50,58 +50,14 @@
               View Image
             </Button>
 
-            <!-- Run Tool dropdown -->
-            <DropdownMenu v-if="row.imageSetId" align="left" widthClass="w-64">
-              <template #trigger>
-                <Button
-                  variant="secondary"
-                  rounded
-                  :disabled="submittingImageId === row.id"
-                  title="Run an analysis tool"
-                >
-                  {{ submittingImageId === row.id ? 'Submitting…' : 'Run Tool' }}
-                </Button>
-              </template>
-              <template #menu="{ close }">
-                <p v-if="toolsLoading" class="px-3 py-2 text-sm text-gray-400">Loading…</p>
-                <p v-else-if="toolsByCategory.size === 0" class="px-3 py-2 text-sm text-gray-400">No tools available</p>
-                <template v-else v-for="[category, categoryTools] in toolsByCategory" :key="category">
-                  <!-- Category row -->
-                  <button
-                    class="w-full text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide hover:bg-gray-100 rounded flex items-center justify-between cursor-pointer"
-                    @click="expandedCategory = expandedCategory === category ? null : category"
-                  >
-                    {{ category }}
-                    <svg
-                      class="w-3 h-3 transition-transform duration-150"
-                      :class="{ 'rotate-180': expandedCategory === category }"
-                      fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
-                    >
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <!-- Tool rows -->
-                  <template v-if="expandedCategory === category">
-                    <button
-                      v-for="tool in categoryTools"
-                      :key="tool.toolId"
-                      class="w-full text-left pl-6 pr-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded cursor-pointer"
-                      @click="onRunToolSelect(row, tool, close)"
-                    >
-                      {{ tool.name }}
-                    </button>
-                  </template>
-                </template>
-              </template>
-            </DropdownMenu>
             <Button
-              v-else
               variant="secondary"
               rounded
-              disabled
-              title="Image not yet imported into HealthImaging"
+              :disabled="!row.imageSetId || submittingImageId === row.id"
+              :title="!row.imageSetId ? 'Image not yet imported into HealthImaging' : 'Run an analysis tool'"
+              @click="onOpenRunToolModal(row)"
             >
-              Run Tool
+              {{ submittingImageId === row.id ? 'Submitting…' : 'Run Tool' }}
             </Button>
 
             <Button
@@ -137,6 +93,57 @@
       </Table>
     </div>
 
+    <!-- Run Tool Modal -->
+    <Modal
+      v-model="showRunToolModal"
+      :title="selectedCategory ?? 'Run Tool'"
+      size="md"
+      @update:model-value="onRunToolModalClose"
+    >
+      <!-- Category view -->
+      <div v-if="selectedCategory === null">
+        <p v-if="toolsLoading" class="text-sm text-gray-400">Loading…</p>
+        <p v-else-if="toolsByCategory.size === 0" class="text-sm text-gray-400">No tools available</p>
+        <div v-else class="flex flex-col gap-2">
+          <button
+            v-for="[category] in toolsByCategory"
+            :key="category"
+            class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between cursor-pointer"
+            @click="selectedCategory = category"
+          >
+            <span class="text-sm font-medium text-gray-800">{{ category }}</span>
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tool list view -->
+      <div v-else>
+        <button
+          class="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4 cursor-pointer"
+          @click="selectedCategory = null"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </button>
+        <div class="flex flex-col gap-2">
+          <button
+            v-for="tool in toolsByCategory.get(selectedCategory)"
+            :key="tool.toolId"
+            class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
+            @click="onRunToolSelect(runToolImage!, tool)"
+          >
+            <p class="text-sm font-medium text-gray-800">{{ tool.name }}</p>
+            <p v-if="tool.description" class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ tool.description }}</p>
+          </button>
+        </div>
+      </div>
+    </Modal>
+
     <!-- Delete Confirmation Modal -->
     <Modal
       v-model="showDeleteModal"
@@ -171,7 +178,6 @@ import type { ApiError } from '~/models/error';
 import type { Column } from '~/components/Table.vue';
 import { formatBytes, formatDate } from '~/utils/formatters';
 import { capitalizeFirstLetter } from '~/utils/stringFunctions';
-import DropdownMenu from '~/components/DropdownMenu.vue';
 
 const catalogStore = useDicomCatalogStore();
 
@@ -182,10 +188,14 @@ const columns: Column[] = [
   { key: 'actions',    label: 'Actions'     },
 ];
 
-// Tools for Run Tool dropdown
+// Tools for Run Tool modal
 const tools        = ref<ToolDto[]>([]);
 const toolsLoading = ref(false);
-const expandedCategory = ref<string | null>(null);
+
+// Run Tool modal state
+const showRunToolModal  = ref(false);
+const runToolImage      = ref<DicomImageDto | null>(null);
+const selectedCategory  = ref<string | null>(null);
 
 const toolsByCategory = computed(() => {
   const map = new Map<string, ToolDto[]>();
@@ -219,8 +229,20 @@ function onViewImageClick(image: DicomImageDto) {
   navigateTo({ path: '/dashboard/dicom', query: { imageSetId: image.imageSetId! } });
 }
 
-async function onRunToolSelect(image: DicomImageDto, tool: ToolDto, close: () => void) {
-  close();
+function onOpenRunToolModal(image: DicomImageDto) {
+  runToolImage.value     = image;
+  selectedCategory.value = null;
+  showRunToolModal.value = true;
+}
+
+function onRunToolModalClose() {
+  selectedCategory.value = null;
+  runToolImage.value     = null;
+}
+
+async function onRunToolSelect(image: DicomImageDto, tool: ToolDto) {
+  showRunToolModal.value = false;
+  selectedCategory.value = null;
   jobError.value          = null;
   submittingImageId.value = image.id;
   try {

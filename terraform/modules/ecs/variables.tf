@@ -102,6 +102,18 @@ variable "send_grid_password" {
   sensitive   = true
 }
 
+variable "stripe_webhook_secret" {
+  description = "Stripe webhook secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_secret_key" {
+  description = "Stripe secret key"
+  type        = string
+  sensitive   = true
+}
+
 variable "s3_bucket_name" {
   description = "Name of the S3 bucket for DICOM image uploads"
   type        = string

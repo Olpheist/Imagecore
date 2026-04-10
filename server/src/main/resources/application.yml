@@ -29,10 +29,10 @@ logging:
     console: "%clr([%d{HH:mm:ss.SSS}]){faint} %clr(%-5level){bold} %clr([%X{user:-\\}]){yellow} %clr(%logger){cyan} - %msg%n"
 app:
   stripe:
-    secret-key: ${STRIPE_SECRET_KEY}
-    webhook-secret: ${STRIPE_WEBHOOK_SECRET}
-    pro-monthly-price-id: ${STRIPE_PRO_MONTHLY_PRICE_ID}
-    public-key: ${STRIPE_PUBLIC_KEY}
+    secret-key: ${STRIPE_SECRET_KEY:dev}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:dev}
+    pro-monthly-price-id: price_1THqEfCskjAPPh7tRrDzl96t
+    public-key: pk_test_51THq9bCskjAPPh7tuDdeI4Ar5vbcolAWOVBQCbneZnU2coW24HFoZmnMfyPr7BaoDUrQEKA1dJkcnrDRwdu0fhpP00kz6TRpme
     success-url: http://localhost:3000/billing/success
     cancel-url: http://localhost:3000/billing/cancel
   send-grid:

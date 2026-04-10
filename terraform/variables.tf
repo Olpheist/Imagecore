@@ -80,6 +80,18 @@ variable "send_grid_password" {
   sensitive   = true
 }
 
+variable "stripe_webhook_secret" {
+  description = "Stripe webhook secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_secret_key" {
+  description = "Stripe secret key"
+  type        = string
+  sensitive   = true
+}
+
 variable "db_instance_class" {
   description = "RDS instance class"
   type        = string

@@ -36,6 +36,17 @@
         </div>
       </template>
 
+      <template #cell-tier="{ row }">
+        <span
+            class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold tracking-wide"
+            :class="row.subscription?.tierCode === 'PRO'
+            ? 'bg-emerald-50 text-emerald-700'
+            : 'bg-slate-100 text-slate-700'"
+        >
+          {{ row.subscription?.tierCode ?? "FREE" }}
+        </span>
+      </template>
+
       <template #cell-actions="{ row }">
         <div class="flex items-center gap-2">
           <Button
@@ -86,23 +97,37 @@
         </div>
       </div>
       <template #footer>
-        <div class="flex gap-2">
+        <div class="flex gap-2 justify-between w-full">
+
           <Button
-              variant="danger"
-              rounded
-              hover
-              @click="showEditModal = false"
-          >
-            Cancel
-          </Button>
-          <Button
+              v-if="editModalForm.userId"
               variant="primary"
               rounded
               hover
-              @click="saveRoles"
+              @click="downgradeUser"
           >
-            Save
+            Downgrade User
           </Button>
+
+          <div class="flex gap-2">
+            <Button
+                variant="danger"
+                rounded
+                hover
+                @click="showEditModal = false"
+            >
+              Cancel
+            </Button>
+            <Button
+                variant="primary"
+                rounded
+                hover
+                @click="saveRoles"
+            >
+              Save
+            </Button>
+          </div>
+
         </div>
       </template>
     </Modal>
@@ -186,6 +211,7 @@ const columns = [
   { key: "username", label: "Username" },
   { key: "email",    label: "Email" },
   { key: "roles",    label: "Roles" },
+  { key: "tier", label: "Tier" },
   { key: "actions",  label: "Actions" },
 ];
 
@@ -258,5 +284,21 @@ async function confirmDelete(): Promise<void> {
   } finally {
     closeDeleteModal();
   }
+}
+
+async function downgradeUser(): Promise<void> {
+  if (!editModalForm.value.userId) return;
+
+  try {
+    const id = editModalForm.value.userId;
+
+    await useApiFetch<void>(`/users/${id}/subscription`, {
+      method: "DELETE",
+    });
+  } catch (e: unknown) {
+    error.value = e as ApiError;
+  }
+
+  showEditModal.value = false;
 }
 </script>

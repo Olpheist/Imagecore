@@ -9,13 +9,18 @@
       </p>
     </div>
 
-    <UserProfile :user="user" />
+    <UserProfile :user="user" @billing-updated="updateUser" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { useUserStore } from "~/stores/user";
 
 const userStore = useUserStore();
-const user = userStore.user;
+const { user } = storeToRefs(userStore);
+
+const updateUser = async () => {
+  await userStore.fetchMe();
+};
 </script>

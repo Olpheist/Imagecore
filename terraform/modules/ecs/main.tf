@@ -134,6 +134,14 @@ resource "aws_ecs_task_definition" "main" {
         value = var.send_grid_password
       },
       {
+        name = "STRIPE_SECRET_KEY"
+        value = var.stripe_secret_key
+      },
+      {
+        name = "STRIPE_WEBHOOK_SECRET"
+        value = var.stripe_webhook_secret
+      },
+      {
         name  = "AWS_HEALTH_IMAGING_DATASTORE_ID"
         value = var.health_imaging_datastore_id
       },

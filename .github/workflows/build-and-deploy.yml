@@ -121,6 +121,8 @@ jobs:
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
           TF_VAR_send_grid_password: ${{ secrets.EMAIL_PASSWORD }}
+          TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
 
       - name: Force New Deployment
         run: |

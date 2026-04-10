@@ -2,6 +2,7 @@ package com.green.imagecore.controller;
 
 import com.green.imagecore.dto.ToolDto;
 import com.green.imagecore.entities.Tool;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.mapper.ToolMapper;
 import com.green.imagecore.service.ToolService;
 import com.green.imagecore.entities.User;
@@ -48,7 +49,7 @@ public class ToolController {
     @PostMapping
     public ResponseEntity<ToolDto> createTool(@RequestBody CreateToolRequest request, Authentication authentication) {
         User creatingUser = userService.findByUsername(authentication.getName());
-        Tool tool = toolService.create(request.name(), creatingUser, request.category().toLowerCase(), request.description(), request.imageTag());
+        Tool tool = toolService.create(request.name(), creatingUser, request.category().toLowerCase(), request.description(), request.imageTag(), SubscriptionTierCode.FREE);
         return ResponseEntity.ok(ToolMapper.toDto(tool));
     }
     /**

@@ -2,8 +2,11 @@ package com.green.imagecore.service;
 
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.entities.subscription.SubscriptionTier;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.ToolRepository;
+import com.green.imagecore.repositories.subscription.SubscriptionTierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -23,6 +26,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ToolService {
     private final ToolRepository toolRepository;
+    private final SubscriptionTierRepository subscriptionTierRepository;
 
     /**
      * Creates and persists a new medical imaging tool.
@@ -32,10 +36,11 @@ public class ToolService {
      * @param description human-readable summary of what the tool does, may be null
      * @param imageTag    fully-qualified docker image URI used to pull and run the
      *                    tool's Docker container, may be null if not yet deployed
+     * @param code        Required subscription tier code to run the tool
      * @return the persisted {@link Tool} with its database-assigned ID
      * @throws IllegalArgumentException if a tool with the given name already exists
      */
-    public Tool create(String name, User createdBy, String category, String description, String imageTag) {
+    public Tool create(String name, User createdBy, String category, String description, String imageTag, SubscriptionTierCode code) {
         if (toolRepository.existsByName(name)) {
             throw new IllegalArgumentException("A tool with name '" + name + "' already exists.");
         }
@@ -46,6 +51,9 @@ public class ToolService {
         tool.setCategory(category);
         tool.setDescription(description);
         tool.setImageTag(imageTag);
+
+        SubscriptionTier tier = subscriptionTierRepository.findByCode(code).orElseThrow(() -> new ResourceNotFoundException("Subscription tier not found: " + code));
+        tool.setRequiredTier(tier);
 
         return toolRepository.save(tool);
     }

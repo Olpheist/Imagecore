@@ -4,6 +4,8 @@ import com.green.imagecore.dto.UserDto;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.mapper.UserMapper;
 import com.green.imagecore.service.UserService;
+import com.green.imagecore.service.subscription.StripeService;
+import com.stripe.exception.StripeException;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import java.util.List;
 @RequestMapping("/api/users")
 public class UserController {
     private final UserService userService;
+    private final StripeService stripeService;
 
     @GetMapping("/me")
     public ResponseEntity<UserDto> me(Authentication authentication) {
@@ -62,4 +65,12 @@ public class UserController {
     public record UpdateRolesRequest(
             List<Long> roleIds
     ) {}
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}/subscription")
+    public ResponseEntity<Void> deleteUserSubscription(@PathVariable Long id) throws StripeException {
+        stripeService.deleteSubscription(id);
+
+        return ResponseEntity.noContent().build();
+    }
 }

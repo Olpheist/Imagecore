@@ -107,4 +107,8 @@ module "ecs" {
   # SendGrid
   send_grid_password = var.send_grid_password
 
+  # Stripe
+  stripe_webhook_secret = var.stripe_webhook_secret
+  stripe_secret_key = var.stripe_secret_key
+
 }

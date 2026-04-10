@@ -1,7 +1,11 @@
 package com.green.imagecore.controller;
 
 import com.green.imagecore.entities.User;
+import com.green.imagecore.entities.subscription.SubscriptionTier;
+import com.green.imagecore.entities.subscription.SubscriptionTierCode;
+import com.green.imagecore.entities.subscription.UserSubscription;
 import com.green.imagecore.service.UserService;
+import com.green.imagecore.service.subscription.StripeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -12,7 +16,7 @@ import org.springframework.http.MediaType;
 import java.util.Collections;
 import java.util.List;
 
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -22,6 +26,9 @@ class UserControllerTest extends BaseControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private StripeService stripeService;
 
 
     @Test
@@ -34,6 +41,16 @@ class UserControllerTest extends BaseControllerTest {
         mockUser.setEmail("jane@imagecore.com");
         mockUser.setEnabled(true);
         mockUser.setUserRoles(Collections.emptySet());
+
+        UserSubscription sub = new UserSubscription();
+
+        SubscriptionTier tier = new SubscriptionTier();
+        tier.setCode(SubscriptionTierCode.FREE);
+
+        sub.setTier(tier);
+        sub.setAutoRenew(false);
+
+        mockUser.setUserSubscription(sub);
 
         when(userService.findByUsernameWithRoles(username)).thenReturn(mockUser);
 
@@ -78,6 +95,16 @@ class UserControllerTest extends BaseControllerTest {
         updatedUser.setEmail("jane@imagecore.com");
         updatedUser.setEnabled(true);
         updatedUser.setUserRoles(Collections.emptySet());
+
+        UserSubscription sub = new UserSubscription();
+
+        SubscriptionTier tier = new SubscriptionTier();
+        tier.setCode(SubscriptionTierCode.FREE);
+
+        sub.setTier(tier);
+        sub.setAutoRenew(false);
+
+        updatedUser.setUserSubscription(sub);
 
         when(userService.updateUserRoles(userId, roleIds)).thenReturn(updatedUser);
 
@@ -142,5 +169,29 @@ class UserControllerTest extends BaseControllerTest {
     void deleteUser_asUser_returns403() throws Exception {
         mockMvc.perform(delete("/api/users/1"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deleteUserSubscription_asAdmin_returns204() throws Exception {
+        Long userId = 1L;
+
+        mockMvc.perform(delete("/api/users/{id}/subscription", userId))
+                .andExpect(status().isNoContent());
+
+        verify(stripeService, times(1)).deleteSubscription(userId);
+    }
+
+    @Test
+    @WithMockUser(roles = "PATIENT")
+    void deleteUserSubscription_asUser_returns403() throws Exception {
+        mockMvc.perform(delete("/api/users/1/subscription"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteUserSubscription_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(delete("/api/users/1/subscription"))
+                .andExpect(status().isUnauthorized());
     }
 }

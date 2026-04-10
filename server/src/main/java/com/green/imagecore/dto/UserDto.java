@@ -16,4 +16,5 @@ public class UserDto {
     private boolean enabled;
     private Instant createdAt;
     private Set<UserRoleDto> userRoles = new HashSet<>();
+    private UserSubscriptionDto subscription;
 }

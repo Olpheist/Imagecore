@@ -3,6 +3,13 @@ export interface UserRoleDto {
     roleName: string;
 }
 
+export interface UserSubscriptionDto {
+    tierCode: string;
+    autoRenew: boolean;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+}
+
 export interface UserDto {
     id: number;
     email: string;
@@ -10,4 +17,5 @@ export interface UserDto {
     enabled: boolean;
     createdAt: string; // ISO string
     userRoles: UserRoleDto[];
+    subscription: UserSubscriptionDto
 }

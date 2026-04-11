@@ -102,7 +102,11 @@ After starting the application, use the checklist below to verify each implement
 - [ ] **DICOM Upload** (`CLINICIAN` only): Navigate to the DICOM Upload card. Upload one or more `.dcm` files. Confirm a success response is returned and the import status (e.g. `SUBMITTED`) is shown.
 - [ ] **My DICOM Images** (`CLINICIAN`, `RESEARCHER`): Navigate to the My DICOM Images card. Confirm your uploaded series are listed with display name, modality, body part, study date, instance count, and import status. Confirm you can delete your own entries but not others.
     - **Run Tool**: For a `COMPLETED` image set, click **Run Tool**. A modal opens showing tool categories; select a category to see tools within it, then select a tool to submit an analysis job. Confirm the button shows `Submitting…` while the request is processing.
-    - **Download Report**: After submitting a job, confirm a **Download Report** button appears on that row. Clicking it redirects to a presigned S3 URL for the report PDF.
+    - **Analysis Job Completion**: After submitting a job, wait for the ECS task to finish (the backend polls every 30 seconds). Confirm the job status transitions from `SUBMITTED` → `RUNNING` → `COMPLETED` (visible in the server logs or database).
+    - **Corrected Image Catalog Registration**: Once the job completes, refresh the catalog page and confirm a new entry appears for the corrected image set (e.g. `N4 Corrected - <original filename>`). Confirm its status progresses to `COMPLETED` as the HealthImaging reimport finishes.
+    - **View Corrected Image**: Confirm the **View Image** button becomes enabled on the corrected image row once its status is `COMPLETED`, and that clicking it opens the image in the DICOM viewer.
+    - **Run Tool on Corrected Image**: Confirm the **Run Tool** button is enabled on the corrected image row once `COMPLETED`, allowing further analysis tools to be chained.
+    - **Download Report**: After submitting a job, confirm a **Download Report** button appears on that row. Clicking it redirects to a presigned S3 URL for the report PDF (available once the tool has finished).
     - **Run Tool Workflow**: Confirm the **Run Tool Workflow** button is visible on `COMPLETED` rows (stubbed).
 - [ ] **DICOM Viewer** (all authenticated users): Navigate via the dashboard card and confirm the viewer loads.
 - [ ] **Available Tools** (all authenticated users): Navigate to the Tools card. Confirm the tool list loads

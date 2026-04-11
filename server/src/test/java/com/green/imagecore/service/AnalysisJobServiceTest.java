@@ -5,6 +5,7 @@ import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.JobStatus;
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.events.DicomImportSubmittedEvent;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.AnalysisJobRepository;
 import com.green.imagecore.repositories.DicomImageRepository;
@@ -19,10 +20,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.*;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -32,6 +37,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -45,13 +51,15 @@ import static org.mockito.Mockito.*;
 @DisplayName("AnalysisJobService Unit Tests")
 class AnalysisJobServiceTest {
 
-    @Mock private AnalysisJobRepository analysisJobRepository;
-    @Mock private DicomImageRepository  dicomImageRepository;
-    @Mock private ToolRepository        toolRepository;
-    @Mock private UserRepository        userRepository;
-    @Mock private EcsClient             ecsClient;
-    @Mock private S3Client              s3Client;
-    @Mock private S3Presigner           s3Presigner;
+    @Mock private AnalysisJobRepository    analysisJobRepository;
+    @Mock private DicomImageRepository     dicomImageRepository;
+    @Mock private ToolRepository           toolRepository;
+    @Mock private UserRepository           userRepository;
+    @Mock private EcsClient                ecsClient;
+    @Mock private S3Client                 s3Client;
+    @Mock private S3Presigner              s3Presigner;
+    @Mock private HealthImagingService     healthImagingService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private AnalysisJobService analysisJobService;
@@ -363,6 +371,163 @@ class AnalysisJobServiceTest {
                     .hasMessageContaining("20");
 
             verifyNoInteractions(s3Presigner);
+        }
+    }
+
+
+    // pollActiveJobs()
+
+    @Nested
+    @DisplayName("pollActiveJobs()")
+    class PollActiveJobs {
+
+        private AnalysisJob job;
+
+        @BeforeEach
+        void setUpJob() {
+            image.setUser(user);
+            image.setFilename("brain.dcm");
+            image.setModality("MR");
+
+            job = AnalysisJob.builder()
+                    .id(42L)
+                    .image(image)
+                    .tool(tool)
+                    .user(user)
+                    .status(JobStatus.SUBMITTED)
+                    .ecsTaskArn("arn:aws:ecs:us-east-1:123:task/cluster/task-xyz")
+                    .updatedAt(Instant.now())
+                    .build();
+        }
+
+        @Test
+        @DisplayName("transitions job to RUNNING when ECS task is RUNNING")
+        void transitionsJobToRunning() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("RUNNING", null);
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<AnalysisJob> captor = ArgumentCaptor.forClass(AnalysisJob.class);
+            verify(analysisJobRepository).save(captor.capture());
+            assertThat(captor.getValue().getStatus()).isEqualTo(JobStatus.RUNNING);
+            verifyNoInteractions(dicomImageRepository, eventPublisher);
+        }
+
+        @Test
+        @DisplayName("saves corrected DicomImage, publishes DicomImportSubmittedEvent, and marks job COMPLETED on success")
+        void savesNewDicomImageAndPublishesEventOnSuccess() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-job-999\"}");
+            when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+                DicomImage d = inv.getArgument(0);
+                d.setId(77L);
+                return d;
+            });
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(healthImagingService.syncImportStatus(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            // correct DicomImage saved with right job ID and ownership
+            ArgumentCaptor<DicomImage> dicomCaptor = ArgumentCaptor.forClass(DicomImage.class);
+            verify(dicomImageRepository).save(dicomCaptor.capture());
+            assertThat(dicomCaptor.getValue().getHealthImagingJobId()).isEqualTo("hi-job-999");
+            assertThat(dicomCaptor.getValue().getUser()).isEqualTo(user);
+
+            // DicomImportSubmittedEvent published with the saved image ID so the import listener polls to completion
+            ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher).publishEvent(eventCaptor.capture());
+            assertThat(eventCaptor.getValue()).isInstanceOf(DicomImportSubmittedEvent.class);
+            assertThat(((DicomImportSubmittedEvent) eventCaptor.getValue()).imageId()).isEqualTo(77L);
+
+            // job marked COMPLETED
+            ArgumentCaptor<AnalysisJob> jobCaptor = ArgumentCaptor.forClass(AnalysisJob.class);
+            verify(analysisJobRepository, atLeastOnce()).save(jobCaptor.capture());
+            assertThat(jobCaptor.getAllValues()).anyMatch(j -> j.getStatus() == JobStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("marks job FAILED when ECS task exits with non-zero exit code")
+        void savesJobAsFailedOnNonZeroExitCode() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 1);
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<AnalysisJob> captor = ArgumentCaptor.forClass(AnalysisJob.class);
+            verify(analysisJobRepository).save(captor.capture());
+            assertThat(captor.getValue().getStatus()).isEqualTo(JobStatus.FAILED);
+            verifyNoInteractions(dicomImageRepository, eventPublisher);
+        }
+
+        @Test
+        @DisplayName("marks job FAILED when output.json is missing from S3")
+        void savesJobAsFailedWhenOutputJsonMissing() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            when(s3Client.getObjectAsBytes(any(GetObjectRequest.class)))
+                    .thenThrow(NoSuchKeyException.builder().message("Not found").build());
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<AnalysisJob> captor = ArgumentCaptor.forClass(AnalysisJob.class);
+            verify(analysisJobRepository).save(captor.capture());
+            assertThat(captor.getValue().getStatus()).isEqualTo(JobStatus.FAILED);
+            verifyNoInteractions(dicomImageRepository, eventPublisher);
+        }
+
+        @Test
+        @DisplayName("marks job FAILED when output.json is missing healthImagingImportJobId")
+        void savesJobAsFailedWhenHealthImagingJobIdMissing() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"someOtherField\":\"value\"}");
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<AnalysisJob> captor = ArgumentCaptor.forClass(AnalysisJob.class);
+            verify(analysisJobRepository).save(captor.capture());
+            assertThat(captor.getValue().getStatus()).isEqualTo(JobStatus.FAILED);
+            verifyNoInteractions(dicomImageRepository, eventPublisher);
+        }
+
+        @Test
+        @DisplayName("does nothing when ECS returns no task for the ARN")
+        void doesNothingWhenEcsTaskNotFound() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            when(ecsClient.describeTasks(any(DescribeTasksRequest.class)))
+                    .thenReturn(DescribeTasksResponse.builder().tasks(List.of()).build());
+
+            analysisJobService.pollActiveJobs();
+
+            verify(analysisJobRepository, never()).save(any());
+            verifyNoInteractions(dicomImageRepository, eventPublisher);
+        }
+
+        private void stubDescribeTasks(String lastStatus, Integer exitCode) {
+            Container container = exitCode != null
+                    ? Container.builder().name("app").exitCode(exitCode).build()
+                    : Container.builder().name("app").build();
+            Task task = Task.builder()
+                    .taskArn(job.getEcsTaskArn())
+                    .lastStatus(lastStatus)
+                    .containers(container)
+                    .build();
+            when(ecsClient.describeTasks(any(DescribeTasksRequest.class)))
+                    .thenReturn(DescribeTasksResponse.builder().tasks(task).build());
+        }
+
+        private void stubOutputJson(String json) {
+            when(s3Client.getObjectAsBytes(any(GetObjectRequest.class)))
+                    .thenReturn(ResponseBytes.fromByteArray(
+                            GetObjectResponse.builder().build(),
+                            json.getBytes(StandardCharsets.UTF_8)));
         }
     }
 

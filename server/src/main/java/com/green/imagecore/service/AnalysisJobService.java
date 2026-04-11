@@ -7,6 +7,7 @@ import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.ImportStatus;
 import com.green.imagecore.entities.JobStatus;
 import com.green.imagecore.entities.Tool;
+import com.green.imagecore.events.DicomImportSubmittedEvent;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.AnalysisJobRepository;
 import com.green.imagecore.repositories.DicomImageRepository;
@@ -15,6 +16,7 @@ import com.green.imagecore.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +50,7 @@ public class AnalysisJobService {
     private final S3Client              s3Client;
     private final S3Presigner           s3Presigner;
     private final HealthImagingService  healthImagingService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -341,9 +344,11 @@ public class AnalysisJobService {
                 .build();
         corrected = dicomImageRepository.save(corrected);
 
-        // trigger an immediate sync, if HealthImaging import is already done this
-        // resolves the imageSetId and populates metadata in one shot; if still in
-        // progress the catalog's normal per-load sync will finish it on next refresh
+        // publish the event so DicomImportJobListener polls HealthImaging until
+        // the import completes and populateMetadata runs, same as a regular upload
+        eventPublisher.publishEvent(new DicomImportSubmittedEvent(corrected.getId()));
+
+        // also attempt an immediate sync as a fast path for quick imports
         healthImagingService.syncImportStatus(corrected);
 
         job.setStatus(JobStatus.COMPLETED);

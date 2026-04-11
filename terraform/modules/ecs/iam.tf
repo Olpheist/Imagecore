@@ -125,6 +125,15 @@ resource "aws_iam_role_policy" "ecs_task" {
             "iam:PassedToService" = "medical-imaging.amazonaws.com"  #restricts pass to HealthImaging only, preventing privilege escalation
           }
         }
+      },
+      {
+        Sid    = "RunAnalysisTools"
+        Effect = "Allow"
+        Action = [
+          "ecs:RunTask",
+          "iam:PassRole"  #required to pass execution and task roles when launching tool tasks
+        ]
+        Resource = "*"
       }
     ]
   })

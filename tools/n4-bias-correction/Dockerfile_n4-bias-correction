@@ -22,4 +22,4 @@ RUN pip install --no-cache-dir .
 VOLUME ["/work/output"]
 
 ENTRYPOINT ["n4-bias-correction"]
-CMD ["--help"]
+CMD []

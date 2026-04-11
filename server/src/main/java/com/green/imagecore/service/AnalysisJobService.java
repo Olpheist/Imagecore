@@ -1,9 +1,13 @@
 package com.green.imagecore.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.green.imagecore.entities.AnalysisJob;
 import com.green.imagecore.entities.DicomImage;
+import com.green.imagecore.entities.ImportStatus;
 import com.green.imagecore.entities.JobStatus;
 import com.green.imagecore.entities.Tool;
+import com.green.imagecore.events.DicomImportSubmittedEvent;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.AnalysisJobRepository;
 import com.green.imagecore.repositories.DicomImageRepository;
@@ -12,20 +16,23 @@ import com.green.imagecore.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.ecs.EcsClient;
 import software.amazon.awssdk.services.ecs.model.*;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -42,6 +49,10 @@ public class AnalysisJobService {
     private final EcsClient             ecsClient;
     private final S3Client              s3Client;
     private final S3Presigner           s3Presigner;
+    private final HealthImagingService  healthImagingService;
+    private final ApplicationEventPublisher eventPublisher;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // which ECS cluster to run the tool task on
     @Value("${app.aws.ecs.cluster-arn}")
@@ -224,5 +235,126 @@ public class AnalysisJobService {
 
         // return the ARN of the started task so we can store it and look it up in the ECS console later
         return response.tasks().get(0).taskArn();
+    }
+
+    /**
+     * Polls ECS every 30 seconds for SUBMITTED and RUNNING analysis jobs.
+     * On task completion, reads the output.json written by the tool to S3,
+     * creates a new DicomImage catalog entry for the corrected image set,
+     * and marks the analysis job as COMPLETED or FAILED.
+     */
+    @Scheduled(fixedDelay = 30_000)
+    @Transactional
+    public void pollActiveJobs() {
+        List<AnalysisJob> activeJobs = analysisJobRepository.findByStatusIn(
+                List.of(JobStatus.SUBMITTED, JobStatus.RUNNING));
+
+        for (AnalysisJob job : activeJobs) {
+            try {
+                syncJobStatus(job);
+            } catch (Exception e) {
+                log.error("Error polling ECS status for analysis job {}: {}", job.getId(), e.getMessage(), e);
+            }
+        }
+    }
+
+    private void syncJobStatus(AnalysisJob job) throws IOException {
+        DescribeTasksResponse response = ecsClient.describeTasks(
+                DescribeTasksRequest.builder()
+                        .cluster(clusterArn)
+                        .tasks(job.getEcsTaskArn())
+                        .build());
+
+        if (response.tasks().isEmpty()) {
+            log.warn("ECS task {} not found for analysis job {}", job.getEcsTaskArn(), job.getId());
+            return;
+        }
+
+        Task task = response.tasks().get(0);
+        String lastStatus = task.lastStatus();
+
+        if ("RUNNING".equals(lastStatus) && job.getStatus() == JobStatus.SUBMITTED) {
+            job.setStatus(JobStatus.RUNNING);
+            job.setUpdatedAt(Instant.now());
+            analysisJobRepository.save(job);
+            return;
+        }
+
+        if (!"STOPPED".equals(lastStatus)) {
+            return;
+        }
+
+        // task has stopped, check exit code of the tool container
+        int exitCode = task.containers().stream()
+                .filter(c -> c.exitCode() != null)
+                .mapToInt(c -> c.exitCode())
+                .findFirst()
+                .orElse(-1);
+
+        if (exitCode != 0) {
+            log.warn("Analysis job {} ECS task stopped with exit code {}", job.getId(), exitCode);
+            job.setStatus(JobStatus.FAILED);
+            job.setUpdatedAt(Instant.now());
+            analysisJobRepository.save(job);
+            return;
+        }
+
+        // tool succeeded, read the output.json the pipeline wrote to S3
+        String outputKey = "results/" + job.getId() + "/output.json";
+        String outputJson;
+        try {
+            outputJson = s3Client.getObjectAsBytes(
+                    GetObjectRequest.builder().bucket(s3BucketName).key(outputKey).build()
+            ).asUtf8String();
+        } catch (NoSuchKeyException e) {
+            log.warn("Analysis job {} completed but output.json not found at {}", job.getId(), outputKey);
+            job.setStatus(JobStatus.FAILED);
+            job.setUpdatedAt(Instant.now());
+            analysisJobRepository.save(job);
+            return;
+        }
+
+        JsonNode outputNode = objectMapper.readTree(outputJson);
+        String healthImagingImportJobId = outputNode.path("healthImagingImportJobId").asText(null);
+        if (healthImagingImportJobId == null) {
+            log.warn("Analysis job {} output.json missing healthImagingImportJobId", job.getId());
+            job.setStatus(JobStatus.FAILED);
+            job.setUpdatedAt(Instant.now());
+            analysisJobRepository.save(job);
+            return;
+        }
+
+        // create a new DicomImage catalog entry for the corrected image set
+        DicomImage original = job.getImage();
+        DicomImage corrected = DicomImage.builder()
+                .user(original.getUser())
+                .s3Key("results/" + job.getId() + "/dicom/")
+                .filename("N4 Corrected - " + original.getFilename())
+                .fileSize(0L)
+                .healthImagingJobId(healthImagingImportJobId)
+                .importStatus(ImportStatus.SUBMITTED)
+                .modality(original.getModality())
+                .bodyPart(original.getBodyPart())
+                .patientId(original.getPatientId())
+                .studyDate(original.getStudyDate())
+                .physician(original.getPhysician())
+                .studyInstanceUid(original.getStudyInstanceUid())
+                .studyDescription(original.getStudyDescription())
+                .seriesDescription("N4 Bias Field Corrected")
+                .build();
+        corrected = dicomImageRepository.save(corrected);
+
+        // publish the event so DicomImportJobListener polls HealthImaging until
+        // the import completes and populateMetadata runs, same as a regular upload
+        eventPublisher.publishEvent(new DicomImportSubmittedEvent(corrected.getId()));
+
+        // also attempt an immediate sync as a fast path for quick imports
+        healthImagingService.syncImportStatus(corrected);
+
+        job.setStatus(JobStatus.COMPLETED);
+        job.setUpdatedAt(Instant.now());
+        analysisJobRepository.save(job);
+        log.info("Analysis job {} completed, created corrected DicomImage {} for HealthImaging job {}",
+                job.getId(), corrected.getId(), healthImagingImportJobId);
     }
 }

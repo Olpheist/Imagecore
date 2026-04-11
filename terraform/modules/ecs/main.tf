@@ -148,6 +148,22 @@ resource "aws_ecs_task_definition" "main" {
       {
         name  = "AWS_HEALTH_IMAGING_IMPORT_ROLE_ARN"
         value = var.health_imaging_import_role_arn
+      },
+      {
+        name  = "AWS_REGION"
+        value = data.aws_region.current.id
+      },
+      {
+        name  = "AWS_ECS_CLUSTER_ARN"
+        value = aws_ecs_cluster.main.arn
+      },
+      {
+        name  = "AWS_ECS_SUBNET_IDS"
+        value = join(",", var.public_subnet_ids)
+      },
+      {
+        name  = "AWS_ECS_SECURITY_GROUP_IDS"
+        value = var.app_security_group_id
       }
     ]
     

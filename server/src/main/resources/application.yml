@@ -51,3 +51,8 @@ app:
     health-imaging:
       datastore-id: ${AWS_HEALTH_IMAGING_DATASTORE_ID:local-dev-datastore}
       import-role-arn: ${AWS_HEALTH_IMAGING_IMPORT_ROLE_ARN:local-dev-role}
+    region: ${AWS_REGION:us-east-1}
+    ecs:
+      cluster-arn: ${AWS_ECS_CLUSTER_ARN:local-dev-cluster}
+      subnet-ids: ${AWS_ECS_SUBNET_IDS:}
+      security-group-ids: ${AWS_ECS_SECURITY_GROUP_IDS:}

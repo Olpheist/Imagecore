@@ -1,8 +1,13 @@
 package com.green.imagecore.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.green.imagecore.dto.DicomSeriesGroupDto;
+import com.green.imagecore.entities.AnalysisJob;
 import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.ImportStatus;
+import com.green.imagecore.entities.JobStatus;
+import com.green.imagecore.entities.Tool;
+import com.green.imagecore.service.AnalysisJobService;
 import com.green.imagecore.service.DicomCatalogService;
 import com.green.imagecore.service.DicomUploadService;
 import com.green.imagecore.service.HealthImagingService;
@@ -18,12 +23,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,10 +48,15 @@ class ImageControllerTest {
     @Mock
     private DicomCatalogService dicomCatalogService;
 
+    @Mock
+    private AnalysisJobService analysisJobService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(
-                new ImageController(dicomUploadService, healthImagingService, dicomCatalogService)
+                new ImageController(dicomUploadService, healthImagingService, dicomCatalogService, analysisJobService)
         ).build();
     }
 
@@ -224,6 +236,65 @@ class ImageControllerTest {
     }
 
 
+    // POST /api/images/{imageId}/jobs
+
+    @Test
+    void submitJob_Returns201Created_WithJobDto() throws Exception {
+        AnalysisJob job = stubJob(10L, stubImage(1L, "scan.dcm", 200L, ImportStatus.COMPLETED));
+        when(analysisJobService.submit(eq(1L), eq(5L), eq(42L))).thenReturn(job);
+
+        String body = objectMapper.writeValueAsString(new ImageController.SubmitJobRequest(5L));
+
+        mockMvc.perform(post("/api/images/1/jobs")
+                        .contentType("application/json")
+                        .content(body)
+                        .principal(authTokenForUser("42")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void submitJob_PassesImageIdToolIdAndUserIdToService() throws Exception {
+        AnalysisJob job = stubJob(10L, stubImage(3L, "scan.dcm", 200L, ImportStatus.COMPLETED));
+        when(analysisJobService.submit(anyLong(), anyLong(), anyLong())).thenReturn(job);
+
+        String body = objectMapper.writeValueAsString(new ImageController.SubmitJobRequest(7L));
+
+        mockMvc.perform(post("/api/images/3/jobs")
+                        .contentType("application/json")
+                        .content(body)
+                        .principal(authTokenForUser("99")))
+                .andExpect(status().isCreated());
+
+        verify(analysisJobService).submit(3L, 7L, 99L);
+    }
+
+
+    // GET /api/images/{imageId}/jobs/{jobId}/report
+
+    @Test
+    void getJobReport_Returns302Redirect_ToPresignedUrl() throws Exception {
+        URI presignedUri = URI.create("https://s3.amazonaws.com/bucket/results/10/report.pdf?X-Amz-Signature=abc");
+        when(analysisJobService.generateReportPresignedUrl(eq(1L), eq(10L), eq(42L))).thenReturn(presignedUri);
+
+        mockMvc.perform(get("/api/images/1/jobs/10/report").principal(authTokenForUser("42")))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", presignedUri.toString()));
+    }
+
+    @Test
+    void getJobReport_PassesCorrectIdsToService() throws Exception {
+        URI presignedUri = URI.create("https://s3.amazonaws.com/bucket/results/20/report.pdf?X-Amz-Signature=xyz");
+        when(analysisJobService.generateReportPresignedUrl(anyLong(), anyLong(), anyLong())).thenReturn(presignedUri);
+
+        mockMvc.perform(get("/api/images/5/jobs/20/report").principal(authTokenForUser("77")))
+                .andExpect(status().isFound());
+
+        verify(analysisJobService).generateReportPresignedUrl(5L, 20L, 77L);
+    }
+
+
     // Helpers
 
     /**
@@ -242,6 +313,20 @@ class ImageControllerTest {
 
     private MockMultipartFile anyDicomFile(String paramName) {
         return new MockMultipartFile(paramName, "scan.dcm", "application/dicom", new byte[200]);
+    }
+
+    private AnalysisJob stubJob(Long id, DicomImage image) {
+        Tool stubTool = new Tool();
+        stubTool.setToolId(5L);
+        stubTool.setName("brain-segmentation");
+
+        return AnalysisJob.builder()
+                .id(id)
+                .image(image)
+                .tool(stubTool)
+                .status(JobStatus.PENDING)
+                .updatedAt(Instant.parse("2026-01-01T00:00:00Z"))
+                .build();
     }
 
     private DicomImage stubImage(Long id, String filename, Long fileSize, ImportStatus status) {

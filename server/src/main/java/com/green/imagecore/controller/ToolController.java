@@ -49,7 +49,7 @@ public class ToolController {
     @PostMapping
     public ResponseEntity<ToolDto> createTool(@RequestBody CreateToolRequest request, Authentication authentication) {
         User creatingUser = userService.findByUsername(authentication.getName());
-        Tool tool = toolService.create(request.name(), creatingUser, request.category().toLowerCase(), request.description(), request.imageTag(), SubscriptionTierCode.FREE);
+        Tool tool = toolService.create(request.name(), creatingUser, request.category().toLowerCase(), request.description(), request.imageTag(), request.taskDefinitionArn(), request.containerName(), SubscriptionTierCode.FREE);
         return ResponseEntity.ok(ToolMapper.toDto(tool));
     }
     /**
@@ -78,6 +78,8 @@ public class ToolController {
             User createdBy,
             String category,
             String description,
-            String imageTag
+            String imageTag,
+            String taskDefinitionArn,
+            String containerName
     ) {}
 }

@@ -36,6 +36,12 @@ public class Tool {
     @Column(name = "image_tag", length = 80)
     private String imageTag;
 
+    @Column(name = "task_definition_arn", columnDefinition = "text")
+    private String taskDefinitionArn;
+
+    @Column(name = "container_name", length = 255, nullable = false)
+    private String containerName;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "required_tier_id", nullable = false)
     private SubscriptionTier requiredTier;

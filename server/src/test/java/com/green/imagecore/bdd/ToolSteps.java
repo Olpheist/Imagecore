@@ -28,11 +28,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Step definitions for medical imaging tool management.
- *
  * These steps test the ToolService directly, mirroring the pattern established
  * in JwtTokenClaimsSteps — business logic is verified at the service layer
  * without going through the HTTP stack.
- *
  * Note: @SuppressWarnings used because IntelliJ cannot detect Cucumber-Spring
  * runtime injection at compile time.
  */
@@ -98,7 +96,6 @@ public class ToolSteps {
     /**
      * Seeds the database with a catalog of tools from a Gherkin DataTable.
      * Resolves the creating user from the current security context.
-     *
      * Example:
      *   | name               | category     | description        | image_tag |
      *   | brain-segmentation | segmentation | Segments brain MRI | ...ecr... |
@@ -114,6 +111,8 @@ public class ToolSteps {
                     row.get("category"),
                     row.get("description"),
                     row.get("image_tag"),
+                    null,
+                    null,
                     SubscriptionTierCode.FREE
             );
         }
@@ -126,7 +125,7 @@ public class ToolSteps {
     @Given("a tool named {string} already exists")
     public void a_tool_named_already_exists(String name) {
         User user = currentAuthenticatedUser();
-        this.selectedTool = toolService.create(name, user, "segmentation", null, null, SubscriptionTierCode.FREE);
+        this.selectedTool = toolService.create(name, user, "segmentation", null, null, null, null, SubscriptionTierCode.FREE);
     }
 
     /**
@@ -137,7 +136,7 @@ public class ToolSteps {
     public void a_tool_named_already_exists_created_by(String name, String username) {
         User owner = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
-        this.selectedTool = toolService.create(name, owner, "segmentation", null, null, SubscriptionTierCode.FREE);
+        this.selectedTool = toolService.create(name, owner, "segmentation", null, null, null, null, SubscriptionTierCode.FREE);
     }
 
     @Given("no tools exist in the database")
@@ -179,7 +178,7 @@ public class ToolSteps {
     public void the_user_creates_a_tool_with_name_and_category(String name, String category) {
         User user = currentAuthenticatedUser();
         try {
-            this.selectedTool = toolService.create(name, user, category, null, null, SubscriptionTierCode.FREE);
+            this.selectedTool = toolService.create(name, user, category, null, null, null, null, SubscriptionTierCode.FREE);
             this.thrownException = null;
         } catch (Exception e) {
             this.thrownException = e;
@@ -198,6 +197,8 @@ public class ToolSteps {
                     fields.get("category"),
                     fields.getOrDefault("description", null),
                     fields.getOrDefault("imageTag", null),
+                    null,
+                    null,
                     SubscriptionTierCode.FREE
             );
             this.thrownException = null;

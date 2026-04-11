@@ -54,6 +54,7 @@ public class UserSubscription {
     private Instant endedAt;
 
     @Column(name = "auto_renew", nullable = false)
+    @Builder.Default
     private boolean autoRenew = true;
 
     @CreationTimestamp

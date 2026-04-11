@@ -98,17 +98,18 @@ test("catalog page: View Image button navigates to DICOM viewer", async ({ page,
     await expect(page).toHaveURL(/\/dashboard\/dicom$/);
 });
 
-// Analysis stub
+// Run Tool
 
-test("catalog page: Send to Analysis button is disabled", async ({ page, setToken }) => {
+test("catalog page: Run Tool button is disabled when image is not COMPLETED", async ({ page, setToken }) => {
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
     await mockImagesSeriesGet(page);
 
     await page.goto("/dashboard/catalog");
 
-    const analysisBtn = page.getByRole("button", { name: /send to analysis/i }).first();
-    await expect(analysisBtn).toBeDisabled();
+    // second row has status IN_PROGRESS, so its Run Tool button should be disabled
+    const runToolBtn = page.getByRole("button", { name: "Run Tool", exact: true }).nth(1);
+    await expect(runToolBtn).toBeDisabled();
 });
 
 // Role access

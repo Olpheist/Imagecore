@@ -17,7 +17,6 @@ import java.util.*;
 
 /**
  * Service layer for managing the medical imaging tool catalog.
- *
  * Provides operations for creating, retrieving, and deleting tools.
  * Each tool represents a containerized medical imaging algorithm stored
  * in Amazon ECR, identified by its image tag for downstream dispatch.
@@ -34,13 +33,16 @@ public class ToolService {
      * @param name        unique display name for the tool (e.g. "brain-segmentation")
      * @param category    functional grouping of the tool (e.g. "segmentation", "detection")
      * @param description human-readable summary of what the tool does, may be null
-     * @param imageTag    fully-qualified docker image URI used to pull and run the
-     *                    tool's Docker container, may be null if not yet deployed
-     * @param code        Required subscription tier code to run the tool
+<<<<<<< HEAD
+     * @param imageTag           fully-qualified docker image URI used to pull and run the
+     *                           tool's Docker container, may be null if not yet deployed
+     * @param taskDefinitionArn  ECS task definition ARN used to dispatch the tool via RunTask, may be null
+     * @param containerName      name of the container within the task definition for env var overrides, may be null
+     * @param code               required subscription tier code to run the tool
      * @return the persisted {@link Tool} with its database-assigned ID
      * @throws IllegalArgumentException if a tool with the given name already exists
      */
-    public Tool create(String name, User createdBy, String category, String description, String imageTag, SubscriptionTierCode code) {
+    public Tool create(String name, User createdBy, String category, String description, String imageTag, String taskDefinitionArn, String containerName, SubscriptionTierCode code) {
         if (toolRepository.existsByName(name)) {
             throw new IllegalArgumentException("A tool with name '" + name + "' already exists.");
         }
@@ -51,6 +53,8 @@ public class ToolService {
         tool.setCategory(category);
         tool.setDescription(description);
         tool.setImageTag(imageTag);
+        tool.setTaskDefinitionArn(taskDefinitionArn);
+        tool.setContainerName(containerName != null ? containerName : "app");
 
         SubscriptionTier tier = subscriptionTierRepository.findByCode(code).orElseThrow(() -> new ResourceNotFoundException("Subscription tier not found: " + code));
         tool.setRequiredTier(tier);

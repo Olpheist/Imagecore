@@ -27,6 +27,8 @@ public class ToolMapper {
         dto.setCategory(tool.getCategory());
         dto.setDescription(tool.getDescription());
         dto.setImageTag(tool.getImageTag());
+        dto.setTaskDefinitionArn(tool.getTaskDefinitionArn());
+        dto.setContainerName(tool.getContainerName());
 
         return dto;
     }

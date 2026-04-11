@@ -1,0 +1,391 @@
+package com.green.imagecore.service;
+
+import com.green.imagecore.entities.AnalysisJob;
+import com.green.imagecore.entities.DicomImage;
+import com.green.imagecore.entities.JobStatus;
+import com.green.imagecore.entities.Tool;
+import com.green.imagecore.entities.User;
+import com.green.imagecore.exception.ResourceNotFoundException;
+import com.green.imagecore.repositories.AnalysisJobRepository;
+import com.green.imagecore.repositories.DicomImageRepository;
+import com.green.imagecore.repositories.ToolRepository;
+import com.green.imagecore.repositories.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+import software.amazon.awssdk.services.ecs.EcsClient;
+import software.amazon.awssdk.services.ecs.model.*;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("AnalysisJobService Unit Tests")
+class AnalysisJobServiceTest {
+
+    @Mock private AnalysisJobRepository analysisJobRepository;
+    @Mock private DicomImageRepository  dicomImageRepository;
+    @Mock private ToolRepository        toolRepository;
+    @Mock private UserRepository        userRepository;
+    @Mock private EcsClient             ecsClient;
+    @Mock private S3Client              s3Client;
+    @Mock private S3Presigner           s3Presigner;
+
+    @InjectMocks
+    private AnalysisJobService analysisJobService;
+
+    private DicomImage image;
+    private Tool       tool;
+    private User       user;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(analysisJobService, "clusterArn",          "arn:aws:ecs:us-east-1:123:cluster/test");
+        ReflectionTestUtils.setField(analysisJobService, "subnetIdsRaw",        "subnet-aaa");
+        ReflectionTestUtils.setField(analysisJobService, "securityGroupIdsRaw", "sg-bbb");
+        ReflectionTestUtils.setField(analysisJobService, "datastoreId",         "ds-001");
+        ReflectionTestUtils.setField(analysisJobService, "s3BucketName",        "test-bucket");
+        ReflectionTestUtils.setField(analysisJobService, "importRoleArn",       "arn:aws:iam::123:role/import-role");
+
+        user = new User();
+        user.setId(1L);
+        user.setUsername("dr.smith");
+
+        image = new DicomImage();
+        image.setId(10L);
+        image.setImageSetId("img-set-abc");
+
+        tool = new Tool();
+        tool.setToolId(5L);
+        tool.setName("brain-segmentation");
+        tool.setTaskDefinitionArn("arn:aws:ecs:us-east-1:123:task-definition/brain-seg");
+        tool.setContainerName("app");
+    }
+
+
+    // submit()
+
+    @Nested
+    @DisplayName("submit()")
+    class Submit {
+
+        @Test
+        @DisplayName("returns a submitted job with ECS task ARN when all inputs are valid")
+        void returnsSubmittedJobOnSuccess() {
+            stubEcsSuccess("arn:aws:ecs:us-east-1:123:task/cluster/task-001");
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(toolRepository.findById(5L)).thenReturn(Optional.of(tool));
+            when(userRepository.getReferenceById(1L)).thenReturn(user);
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> {
+                AnalysisJob j = inv.getArgument(0);
+                j.setId(99L);
+                return j;
+            });
+
+            AnalysisJob result = analysisJobService.submit(10L, 5L, 1L);
+
+            assertThat(result.getStatus()).isEqualTo(JobStatus.SUBMITTED);
+            assertThat(result.getEcsTaskArn()).isEqualTo("arn:aws:ecs:us-east-1:123:task/cluster/task-001");
+        }
+
+        @Test
+        @DisplayName("saves job with PENDING status before calling ECS")
+        void savesPendingBeforeEcsCall() {
+            stubEcsSuccess("arn:aws:ecs:us-east-1:123:task/cluster/task-001");
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(toolRepository.findById(5L)).thenReturn(Optional.of(tool));
+            when(userRepository.getReferenceById(1L)).thenReturn(user);
+
+            // Capture the status at each save() invocation before the object is mutated further
+            List<JobStatus> capturedStatuses = new java.util.ArrayList<>();
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> {
+                AnalysisJob j = inv.getArgument(0);
+                capturedStatuses.add(j.getStatus());
+                j.setId(99L);
+                return j;
+            });
+
+            analysisJobService.submit(10L, 5L, 1L);
+
+            assertThat(capturedStatuses.get(0)).isEqualTo(JobStatus.PENDING);
+        }
+
+        @Test
+        @DisplayName("passes IMAGE_SET_ID, DATASTORE_ID, and OUTPUT_S3_BUCKET env vars to ECS task")
+        void passesCorrectEnvVarsToEcsTask() {
+            stubEcsSuccess("arn:aws:ecs:us-east-1:123:task/cluster/task-001");
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(toolRepository.findById(5L)).thenReturn(Optional.of(tool));
+            when(userRepository.getReferenceById(1L)).thenReturn(user);
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> {
+                AnalysisJob j = inv.getArgument(0);
+                j.setId(99L);
+                return j;
+            });
+
+            analysisJobService.submit(10L, 5L, 1L);
+
+            ArgumentCaptor<RunTaskRequest> captor = ArgumentCaptor.forClass(RunTaskRequest.class);
+            verify(ecsClient).runTask(captor.capture());
+            RunTaskRequest req = captor.getValue();
+
+            List<KeyValuePair> envVars = req.overrides().containerOverrides().get(0).environment();
+            assertThat(envVars).extracting(KeyValuePair::name)
+                    .contains("IMAGE_SET_ID", "DATASTORE_ID", "OUTPUT_S3_BUCKET");
+            assertThat(envVars).filteredOn(e -> e.name().equals("IMAGE_SET_ID"))
+                    .extracting(KeyValuePair::value).containsOnly("img-set-abc");
+            assertThat(envVars).filteredOn(e -> e.name().equals("DATASTORE_ID"))
+                    .extracting(KeyValuePair::value).containsOnly("ds-001");
+            assertThat(envVars).filteredOn(e -> e.name().equals("OUTPUT_S3_BUCKET"))
+                    .extracting(KeyValuePair::value).containsOnly("test-bucket");
+        }
+
+        @Test
+        @DisplayName("uses FARGATE launch type")
+        void usesFargateLaunchType() {
+            stubEcsSuccess("arn:aws:ecs:us-east-1:123:task/cluster/task-001");
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(toolRepository.findById(5L)).thenReturn(Optional.of(tool));
+            when(userRepository.getReferenceById(1L)).thenReturn(user);
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> {
+                AnalysisJob j = inv.getArgument(0);
+                j.setId(99L);
+                return j;
+            });
+
+            analysisJobService.submit(10L, 5L, 1L);
+
+            ArgumentCaptor<RunTaskRequest> captor = ArgumentCaptor.forClass(RunTaskRequest.class);
+            verify(ecsClient).runTask(captor.capture());
+            assertThat(captor.getValue().launchType()).isEqualTo(LaunchType.FARGATE);
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when image does not exist or is not owned by the user")
+        void throwsWhenImageNotFound() {
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> analysisJobService.submit(10L, 5L, 1L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("10");
+
+            verifyNoInteractions(ecsClient);
+        }
+
+        @Test
+        @DisplayName("throws IllegalStateException when image has no imageSetId")
+        void throwsWhenImageNotImportedYet() {
+            image.setImageSetId(null);
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+
+            assertThatThrownBy(() -> analysisJobService.submit(10L, 5L, 1L))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("10");
+
+            verifyNoInteractions(ecsClient);
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when tool does not exist")
+        void throwsWhenToolNotFound() {
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(toolRepository.findById(5L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> analysisJobService.submit(10L, 5L, 1L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("5");
+
+            verifyNoInteractions(ecsClient);
+        }
+
+        @Test
+        @DisplayName("throws IllegalStateException when tool has no task definition ARN")
+        void throwsWhenToolHasNoTaskDefinitionArn() {
+            tool.setTaskDefinitionArn(null);
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(toolRepository.findById(5L)).thenReturn(Optional.of(tool));
+
+            assertThatThrownBy(() -> analysisJobService.submit(10L, 5L, 1L))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("5");
+
+            verifyNoInteractions(ecsClient);
+        }
+
+        @Test
+        @DisplayName("saves job as FAILED and rethrows when ECS rejects the task")
+        void savesFailedJobAndRethrowsWhenEcsRejects() {
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(toolRepository.findById(5L)).thenReturn(Optional.of(tool));
+            when(userRepository.getReferenceById(1L)).thenReturn(user);
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> {
+                AnalysisJob j = inv.getArgument(0);
+                j.setId(99L);
+                return j;
+            });
+            RunTaskResponse failureResponse = RunTaskResponse.builder()
+                    .failures(Failure.builder().reason("RESOURCE:CPU").build())
+                    .tasks(List.of())
+                    .build();
+            when(ecsClient.runTask(any(RunTaskRequest.class))).thenReturn(failureResponse);
+
+            assertThatThrownBy(() -> analysisJobService.submit(10L, 5L, 1L))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("ECS");
+
+            ArgumentCaptor<AnalysisJob> captor = ArgumentCaptor.forClass(AnalysisJob.class);
+            verify(analysisJobRepository, atLeast(2)).save(captor.capture());
+            assertThat(captor.getAllValues()).anyMatch(j -> j.getStatus() == JobStatus.FAILED);
+        }
+    }
+
+
+    // generateReportPresignedUrl()
+
+    @Nested
+    @DisplayName("generateReportPresignedUrl()")
+    class GenerateReportPresignedUrl {
+
+        @Test
+        @DisplayName("returns a URI when image, job, and S3 object all exist")
+        void returnsPresignedUriOnSuccess() throws MalformedURLException {
+            AnalysisJob job = buildJob(20L, image);
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(analysisJobRepository.findById(20L)).thenReturn(Optional.of(job));
+            when(s3Client.headObject(any(HeadObjectRequest.class))).thenReturn(HeadObjectResponse.builder().build());
+
+            PresignedGetObjectRequest presigned = mock(PresignedGetObjectRequest.class);
+            doReturn(new URL("https://test-bucket.s3.amazonaws.com/results/20/report.pdf?sig=abc"))
+                    .when(presigned).url();
+            when(s3Presigner.presignGetObject(any(Consumer.class))).thenReturn(presigned);
+
+            URI result = analysisJobService.generateReportPresignedUrl(10L, 20L, 1L);
+
+            assertThat(result.toString()).contains("results/20/report.pdf");
+        }
+
+        @Test
+        @DisplayName("checks the correct S3 key: results/{jobId}/report.pdf")
+        void checksCorrectS3Key() throws MalformedURLException {
+            AnalysisJob job = buildJob(20L, image);
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(analysisJobRepository.findById(20L)).thenReturn(Optional.of(job));
+            when(s3Client.headObject(any(HeadObjectRequest.class))).thenReturn(HeadObjectResponse.builder().build());
+
+            PresignedGetObjectRequest presigned = mock(PresignedGetObjectRequest.class);
+            doReturn(new URL("https://test-bucket.s3.amazonaws.com/results/20/report.pdf?sig=abc"))
+                    .when(presigned).url();
+            when(s3Presigner.presignGetObject(any(Consumer.class))).thenReturn(presigned);
+
+            analysisJobService.generateReportPresignedUrl(10L, 20L, 1L);
+
+            ArgumentCaptor<HeadObjectRequest> captor = ArgumentCaptor.forClass(HeadObjectRequest.class);
+            verify(s3Client).headObject(captor.capture());
+            assertThat(captor.getValue().key()).isEqualTo("results/20/report.pdf");
+            assertThat(captor.getValue().bucket()).isEqualTo("test-bucket");
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when the image is not owned by the user")
+        void throwsWhenImageNotOwnedByUser() {
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> analysisJobService.generateReportPresignedUrl(10L, 20L, 1L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("10");
+
+            verifyNoInteractions(s3Client, s3Presigner);
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when the job does not exist")
+        void throwsWhenJobNotFound() {
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(analysisJobRepository.findById(20L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> analysisJobService.generateReportPresignedUrl(10L, 20L, 1L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("20");
+
+            verifyNoInteractions(s3Client, s3Presigner);
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when the job belongs to a different image")
+        void throwsWhenJobBelongsToDifferentImage() {
+            DicomImage otherImage = new DicomImage();
+            otherImage.setId(99L);
+            AnalysisJob job = buildJob(20L, otherImage);
+
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(analysisJobRepository.findById(20L)).thenReturn(Optional.of(job));
+
+            assertThatThrownBy(() -> analysisJobService.generateReportPresignedUrl(10L, 20L, 1L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("20");
+
+            verifyNoInteractions(s3Client, s3Presigner);
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when the report PDF is not in S3 yet")
+        void throwsWhenReportNotYetAvailable() {
+            AnalysisJob job = buildJob(20L, image);
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(analysisJobRepository.findById(20L)).thenReturn(Optional.of(job));
+            when(s3Client.headObject(any(HeadObjectRequest.class)))
+                    .thenThrow(NoSuchKeyException.builder().message("Not found").build());
+
+            assertThatThrownBy(() -> analysisJobService.generateReportPresignedUrl(10L, 20L, 1L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("20");
+
+            verifyNoInteractions(s3Presigner);
+        }
+    }
+
+
+    // Helpers
+
+    private void stubEcsSuccess(String taskArn) {
+        Task task = Task.builder().taskArn(taskArn).build();
+        RunTaskResponse response = RunTaskResponse.builder()
+                .tasks(task)
+                .failures(List.of())
+                .build();
+        when(ecsClient.runTask(any(RunTaskRequest.class))).thenReturn(response);
+    }
+
+    private AnalysisJob buildJob(Long id, DicomImage jobImage) {
+        return AnalysisJob.builder()
+                .id(id)
+                .image(jobImage)
+                .tool(tool)
+                .user(user)
+                .status(JobStatus.SUBMITTED)
+                .updatedAt(Instant.now())
+                .build();
+    }
+}

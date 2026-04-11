@@ -15,4 +15,6 @@ public class ToolDto {
     private String category;
     private String description;
     private String imageTag;
+    private String taskDefinitionArn;
+    private String containerName;
 }

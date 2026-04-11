@@ -38,6 +38,7 @@ public class DicomImage {
 
     /** Number of DICOM instances in this series upload. */
     @Column(name = "file_count", nullable = false)
+    @Builder.Default
     private Integer fileCount = 1;
 
     // ID of the HealthImaging import job, populated immediately after StartDICOMImportJob

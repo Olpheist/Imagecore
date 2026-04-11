@@ -926,6 +926,19 @@ def main():
         )
         print(f"  Import job ID  : {job_id}")
 
+        # Write the HealthImaging import job ID to S3 so the Spring app can
+        # discover it after the ECS task stops and create a catalog entry.
+        if args.s3_bucket and args.s3_prefix:
+            import json as _json
+            output_key = args.s3_prefix.rstrip("/") + "/output.json"
+            s3.put_object(
+                Bucket=args.s3_bucket,
+                Key=output_key,
+                Body=_json.dumps({"healthImagingImportJobId": job_id}),
+                ContentType="application/json",
+            )
+            print(f"  Output metadata: s3://{args.s3_bucket}/{output_key}")
+
     print("\nDone.")
     print(f"  PDF report      : {pdf_path}")
     if args.image_set_id:

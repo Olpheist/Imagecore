@@ -66,7 +66,7 @@ public class AnalysisJobService {
     @Value("${app.aws.ecs.security-group-ids}")
     private String securityGroupIdsRaw;
 
-    // HealthImaging datastore the tool will read the image set from
+    // HealthImaging datastore ID passed to the tool for the corrected DICOM reimport
     @Value("${app.aws.health-imaging.datastore-id}")
     private String datastoreId;
 
@@ -197,8 +197,8 @@ public class AnalysisJobService {
         // fall back to "app" if the tool doesn't have a container name set
         String containerName = tool.getContainerName() != null ? tool.getContainerName() : "app";
 
-        // build the RunTask request, passing the image set info as environment variable overrides
-        // so the tool container knows what to process and where to write output
+        // build the RunTask request, passing source and output paths as environment variable overrides
+        // so the tool container knows where to read the original DICOM and where to write output
         RunTaskRequest request = RunTaskRequest.builder()
                 .cluster(clusterArn)
                 .taskDefinition(tool.getTaskDefinitionArn())
@@ -214,11 +214,14 @@ public class AnalysisJobService {
                         .containerOverrides(ContainerOverride.builder()
                                 .name(containerName)
                                 .environment(
-                                        KeyValuePair.builder().name("IMAGE_SET_ID").value(image.getImageSetId()).build(),
-                                        KeyValuePair.builder().name("DATASTORE_ID").value(datastoreId).build(),
+                                        // original DICOM upload location in S3 (source for the tool)
+                                        KeyValuePair.builder().name("ORIGINAL_S3_BUCKET").value(s3BucketName).build(),
+                                        KeyValuePair.builder().name("ORIGINAL_S3_PREFIX").value(image.getS3Key()).build(),
+                                        // output location (each job gets its own prefix so outputs don't overwrite each other)
                                         KeyValuePair.builder().name("OUTPUT_S3_BUCKET").value(s3BucketName).build(),
-                                        // each job gets its own S3 prefix so outputs don't overwrite each other
                                         KeyValuePair.builder().name("OUTPUT_S3_PREFIX").value("results/" + job.getId() + "/").build(),
+                                        // HealthImaging datastore for reimporting the corrected series
+                                        KeyValuePair.builder().name("DATASTORE_ID").value(datastoreId).build(),
                                         KeyValuePair.builder().name("IMPORT_ROLE_ARN").value(importRoleArn).build()
                                 )
                                 .build())

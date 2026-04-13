@@ -3,16 +3,18 @@ pipeline.py - N4 Bias Field Correction Tool
 
 Corrects B1 field inhomogeneity in MRI volumes using the ITK N4 algorithm.
 Produces a PDF report with side-by-side comparison of the original, corrected,
-and bias field middle slices. When the source is AWS HealthImaging, the corrected
-volume is always written as a DICOM series and reimported under the same study.
+and bias field middle slices. The corrected volume is written as a DICOM series
+(deep-copied from the originals with only pixel data replaced) and reimported
+into HealthImaging under the same Study Instance UID.
 
-Usage (local file):
+Usage (ECS / S3 source, via environment variables):
+    ORIGINAL_S3_BUCKET=<bucket> ORIGINAL_S3_PREFIX=<prefix>
+    OUTPUT_S3_BUCKET=<bucket>   OUTPUT_S3_PREFIX=<prefix>
+    IMPORT_ROLE_ARN=<arn>
+    n4-bias-correction
+
+Usage (local file, for development):
     n4-bias-correction --input <image_path> [--output-dir <dir>] [--shrink-factor <n>]
-
-Usage (AWS HealthImaging):
-    n4-bias-correction --datastore-id <id> --image-set-id <id>
-                       --s3-bucket <bucket> --import-role-arn <arn>
-                       [--output-dir <dir>] [--shrink-factor <n>]
 
 Supported local input formats (anything itk can read):
     .nii, .nii.gz
@@ -21,7 +23,7 @@ Supported local input formats (anything itk can read):
 """
 
 import argparse
-import gzip
+import copy
 import json
 import os
 import sys
@@ -96,69 +98,12 @@ def pad_single_slice(img: itk.Image, shrink_factor: int) -> tuple:
 
 
 # ---------------------------------------------------------------------------
-# HealthImaging loader
+# S3 DICOM loader
 # ---------------------------------------------------------------------------
-
-def _parse_healthimaging_metadata(raw_bytes: bytes) -> dict:
-    """
-    Decompress and parse the gzipped DICOM JSON blob returned by
-    get_image_set_metadata().  Returns the top-level dict.
-    """
-    return json.loads(gzip.decompress(raw_bytes))
-
-
-def _collect_frames(metadata: dict) -> list[dict]:
-    """
-    Walk the Study → Series → Instances hierarchy and return a flat list of
-    frame descriptors, each containing:
-        frame_id       : str  , HealthImaging frame ID
-        instance_number: int  , DICOM Instance Number (used for slice ordering)
-        image_position : list , Image Position Patient [x, y, z]
-        image_orientation: list, Image Orientation Patient (6 floats)
-        pixel_spacing  : list , [row_spacing, col_spacing] in mm
-        slice_thickness: float, in mm (may be None)
-    """
-    frames = []
-    for series in metadata.get("Study", {}).get("Series", {}).values():
-        for instance in series.get("Instances", {}).values():
-            dicom = instance.get("DICOM", {})
-
-            def get_val(tag, default=None):
-                entry = dicom.get(tag, {})
-                vals = entry.get("Value")
-                if not vals:
-                    return default
-                return vals if len(vals) > 1 else vals[0]
-
-            instance_number = int(get_val("00200013") or 0)
-            image_position = [float(v) for v in (get_val("00200032") or [0, 0, 0])]
-            image_orientation = [float(v) for v in (get_val("00200037") or [1, 0, 0, 0, 1, 0])]
-            pixel_spacing_raw = get_val("00280030") or [1.0, 1.0]
-            pixel_spacing = [float(v) for v in pixel_spacing_raw]
-            slice_thickness_raw = get_val("00180050")
-            slice_thickness = float(slice_thickness_raw) if slice_thickness_raw is not None else None
-
-            for frame_info in instance.get("ImageFrames", []):
-                frames.append({
-                    "frame_id": frame_info["ID"],
-                    "instance_number": instance_number,
-                    "image_position": image_position,
-                    "image_orientation": image_orientation,
-                    "pixel_spacing": pixel_spacing,
-                    "slice_thickness": slice_thickness,
-                    # Full DICOM JSON for this instance, used when writing the
-                    # corrected series back to DICOM for HealthImaging reimport
-                    "raw_dicom": dicom,
-                })
-
-    # Sort by z-position (Image Position Patient[2]) then instance number
-    frames.sort(key=lambda f: (f["image_position"][2], f["instance_number"]))
-    return frames
-
 
 def _build_direction_matrix(image_orientation: list[float]) -> np.ndarray:
     """
-    Construct a 3×3 ITK direction matrix from the 6-element
+    Construct a 3x3 ITK direction matrix from the 6-element
     Image Orientation Patient vector (row cosines + col cosines).
     The slice normal is the cross product of the two.
     """
@@ -170,99 +115,100 @@ def _build_direction_matrix(image_orientation: list[float]) -> np.ndarray:
     return mat
 
 
-def load_from_healthimaging(
-    datastore_id: str,
-    image_set_id: str,
-    region: str | None = None,
-) -> itk.Image:
+def load_from_s3_dicom(bucket: str, prefix: str) -> tuple:
     """
-    Fetch every HTJ2K frame for an ImageSet from AWS HealthImaging, decode
-    each frame with ITKIOOpenJPH, stack the 2D slices into a 3D float32 ITK
-    image with correct spatial metadata, and return it ready for N4.
+    Download all .dcm files from s3://bucket/prefix, read them with pydicom,
+    sort by InstanceNumber (fallback: ImagePositionPatient Z), assemble into
+    a 3D float32 ITK image with correct spatial metadata, and return it ready
+    for N4 along with the sorted pydicom datasets for tag-preserving output.
+
+    RescaleSlope and RescaleIntercept are applied when building the float
+    volume so N4 operates on real-valued intensities (HU for CT, signal
+    units for MRI).
+
+    Returns (itk_image, sorted_datasets).
 
     IAM permissions required:
-        medical-imaging:GetImageSetMetadata
-        medical-imaging:GetImageFrame
+        s3:GetObject, s3:ListBucket
     """
-    # itk_ioopenjph registers the HTJ2K (High-Throughput JPEG 2000) IO factory
-    # with ITK so itk.imread can decode .jph files. Imported here rather than
-    # at module level so the local-file path doesn't require this dependency
-    import itk_ioopenjph  # noqa: F401, registers HTJ2K IO factory with ITK; only needed for HealthImaging path
+    import pydicom
 
-    client_kwargs = {"service_name": "medical-imaging"}
-    if region:
-        client_kwargs["region_name"] = region
-    client = boto3.client(**client_kwargs)
+    s3 = boto3.client("s3")
+    prefix_norm = prefix.rstrip("/") + "/"
 
-    # 1. Retrieve and parse image-set metadata
-    meta_response = client.get_image_set_metadata(
-        datastoreId=datastore_id,
-        imageSetId=image_set_id,
-    )
-    raw_meta = meta_response["imageSetMetadataBlob"].read()
-    metadata = _parse_healthimaging_metadata(raw_meta)
+    # List all .dcm objects under the prefix
+    paginator = s3.get_paginator("list_objects_v2")
+    dcm_keys = []
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix_norm):
+        for obj in page.get("Contents", []):
+            if obj["Key"].lower().endswith(".dcm"):
+                dcm_keys.append(obj["Key"])
 
-    # 2. Build an ordered list of frame descriptors
-    frame_descriptors = _collect_frames(metadata)
-    if not frame_descriptors:
-        raise ValueError(
-            f"No frames found in ImageSet {image_set_id} "
-            f"(datastore {datastore_id})"
-        )
+    if not dcm_keys:
+        raise ValueError(f"No .dcm files found at s3://{bucket}/{prefix_norm}")
 
-    # 3. Decode each HTJ2K frame into a 2D numpy array
-    # HealthImaging stores frames in HTJ2K format. Each frame is fetched as raw
-    # bytes, written to a temp .jph file, and decoded by ITKIOOpenJPH into a 2D
-    # float32 ITK image. Using a temp directory ensures cleanup even on failure
-    slice_arrays: list[np.ndarray] = []
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        for desc in frame_descriptors:
-            frame_response = client.get_image_frame(
-                datastoreId=datastore_id,
-                imageSetId=image_set_id,
-                imageFrameInformation={"imageFrameId": desc["frame_id"]},
-            )
-            htj2k_bytes = frame_response["imageFrameBlob"].read()
+    print(f"  Found {len(dcm_keys)} DICOM files at s3://{bucket}/{prefix_norm}", flush=True)
 
-            tmp_path = Path(tmp_dir) / f"{desc['frame_id']}.jph"
-            tmp_path.write_bytes(htj2k_bytes)
+    # Download and read all files, keeping datasets in memory
+    datasets = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for key in dcm_keys:
+            local_path = Path(tmp) / Path(key).name
+            s3.download_file(bucket, key, str(local_path))
+            ds = pydicom.dcmread(str(local_path))
+            datasets.append(ds)
 
-            frame_img = itk.imread(str(tmp_path), itk.F)
-            slice_arrays.append(itk.GetArrayFromImage(frame_img))
+    # Sort by InstanceNumber, fallback to ImagePositionPatient Z
+    def _sort_key(ds):
+        try:
+            return (0, int(ds.InstanceNumber))
+        except (AttributeError, ValueError, TypeError):
+            pass
+        try:
+            return (0, float(ds.ImagePositionPatient[2]))
+        except (AttributeError, IndexError, ValueError, TypeError):
+            pass
+        return (1, 0)
 
-    # 4. Stack the ordered 2D slices into a single (z, y, x) numpy volume,
-    # then wrap it as a 3D ITK image
-    volume_arr = np.stack(slice_arrays, axis=0).astype(np.float32)
-    image_3d = itk.GetImageFromArray(volume_arr)
+    datasets.sort(key=_sort_key)
 
-    # 5. Apply correct spatial metadata from the first frame's DICOM tags
-    # Slice spacing is computed as the Euclidean distance between consecutive
-    # Image Position Patient vectors (more reliable than Slice Thickness for
-    # non-contiguous acquisitions). Falls back to Slice Thickness for single-
-    # frame image sets
-    first = frame_descriptors[0]
-    orientation = first["image_orientation"]
-    pixel_spacing = first["pixel_spacing"]
+    # Build float32 pixel volume, applying rescale slope/intercept if present
+    pixel_arrays = []
+    for ds in datasets:
+        arr = ds.pixel_array.astype(np.float32)
+        slope = float(getattr(ds, "RescaleSlope", 1.0))
+        intercept = float(getattr(ds, "RescaleIntercept", 0.0))
+        pixel_arrays.append(arr * slope + intercept)
 
-    if len(frame_descriptors) > 1:
-        z0 = np.array(frame_descriptors[0]["image_position"])
-        z1 = np.array(frame_descriptors[1]["image_position"])
-        slice_spacing = float(np.linalg.norm(z1 - z0))
+    volume = np.stack(pixel_arrays, axis=0)  # (z, y, x)
+    image_3d = itk.GetImageFromArray(volume)
+
+    # Set spatial metadata from the first slice
+    first = datasets[0]
+    pixel_spacing = [float(v) for v in getattr(first, "PixelSpacing", [1.0, 1.0])]
+    image_position = [float(v) for v in getattr(first, "ImagePositionPatient", [0.0, 0.0, 0.0])]
+    image_orientation = [float(v) for v in getattr(first, "ImageOrientationPatient", [1, 0, 0, 0, 1, 0])]
+
+    if len(datasets) > 1:
+        pos0 = np.array([float(v) for v in getattr(datasets[0], "ImagePositionPatient", [0, 0, 0])])
+        pos1 = np.array([float(v) for v in getattr(datasets[1], "ImagePositionPatient", [0, 0, 0])])
+        slice_spacing = float(np.linalg.norm(pos1 - pos0))
+        if slice_spacing == 0.0:
+            thickness = getattr(first, "SliceThickness", None)
+            slice_spacing = float(thickness) if thickness is not None else 1.0
     else:
-        slice_spacing = first["slice_thickness"] or 1.0
+        thickness = getattr(first, "SliceThickness", None)
+        slice_spacing = float(thickness) if thickness is not None else 1.0
 
-    # ITK spacing order is (x, y, z), pixel_spacing from DICOM is [row(y), col(x)]
+    # ITK spacing: (x, y, z), DICOM PixelSpacing is [row=y, col=x]
     image_3d.SetSpacing([pixel_spacing[1], pixel_spacing[0], slice_spacing])
-    image_3d.SetOrigin(first["image_position"])
+    image_3d.SetOrigin(image_position)
 
-    direction = _build_direction_matrix(orientation)
-    itk_direction = itk.Matrix[itk.D, 3, 3]()
-    for r in range(3):
-        for c in range(3):
-            itk_direction(r, c, direction[r, c])
+    direction = _build_direction_matrix(image_orientation)
+    itk_direction = itk.matrix_from_array(direction.astype(np.float64))
     image_3d.SetDirection(itk_direction)
 
-    return image_3d, frame_descriptors
+    return image_3d, datasets
 
 
 def shrink_image(image: itk.Image, factor: int) -> itk.Image:
@@ -351,123 +297,76 @@ def _upsample_arr(arr: np.ndarray, target_shape: tuple) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# DICOM reimport pipeline (HealthImaging round-trip)
+# DICOM output pipeline
 # ---------------------------------------------------------------------------
 
-def _get_tag(raw_dicom: dict, tag: str, default=None):
-    """
-    Extract a scalar value from a DICOM JSON tag dict (HealthImaging format).
-
-    DICOM JSON stores each tag as {"vr": "...", "Value": [...]}.
-    PersonName VR entries are {"Alphabetic": "..."} dicts, unwrap those too.
-    Returns the first Value element, or default if absent.
-    """
-    entry = raw_dicom.get(tag, {})
-    vals = entry.get("Value")
-    if not vals:
-        return default
-    v = vals[0]
-    if isinstance(v, dict) and "Alphabetic" in v:
-        return v["Alphabetic"]
-    return v
-
-
 def write_corrected_dicom_series(
+    datasets: list,
     corrected_arr: np.ndarray,
-    frame_descriptors: list[dict],
     out_dir: Path,
 ) -> Path:
     """
-    Write the corrected float32 volume as a DICOM series ready for HealthImaging reimport.
+    Write the N4-corrected volume as a DICOM series by deep-copying the original
+    pydicom datasets and replacing only the pixel data.
 
-    Each z-slice becomes one .dcm file. The output series shares the original
-    Study Instance UID (so HealthImaging associates it with the original upload)
-    but gets a new Series Instance UID and new SOP Instance
-    UIDs, and is tagged as DERIVED\\SECONDARY.
+    All original DICOM tags (patient, study, series, spatial metadata, MR IOD
+    required tags, etc.) are preserved intact. Only these fields change:
+        SeriesInstanceUID  - new UID shared across all corrected slices
+        SOPInstanceUID     - new UID per slice
+        SeriesDescription  - original description + " [N4 Corrected]"
+        SeriesNumber       - original + 900 (sorts after source series)
+        ImageType          - ["DERIVED", "SECONDARY"]
+        PixelData          - N4-corrected values, rescaled back to original dtype
 
-    Float32 pixel values are linearly scaled to uint16 using global min/max.
-    RescaleSlope and RescaleIntercept are written so readers reconstruct the
-    original float intensities.
+    StudyInstanceUID is kept identical so HealthImaging associates the corrected
+    series with the same study as the original upload.
 
     Returns the output directory containing the .dcm files.
     """
     import pydicom
-    from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
-    from pydicom.uid import generate_uid, ExplicitVRLittleEndian
+    from pydicom.uid import generate_uid
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Scale float32 → uint16 once across the whole volume for consistency
-    lo, hi = float(corrected_arr.min()), float(corrected_arr.max())
-    if hi > lo:
-        slope = (hi - lo) / 65535.0
-        intercept = lo
-        pixel_volume = np.round((corrected_arr - intercept) / slope).astype(np.uint16)
-    else:
-        slope, intercept = 1.0, 0.0
-        pixel_volume = np.zeros_like(corrected_arr, dtype=np.uint16)
-
     series_uid = generate_uid()
 
-    for i, (slice_2d, desc) in enumerate(zip(pixel_volume, frame_descriptors)):
-        raw = desc["raw_dicom"]
-        sop_uid = generate_uid()
+    for i, (ds_orig, slice_float) in enumerate(zip(datasets, corrected_arr)):
+        ds = copy.deepcopy(ds_orig)
 
-        file_meta = FileMetaDataset()
-        file_meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.4"  # MR Image Storage
-        file_meta.MediaStorageSOPInstanceUID = sop_uid
-        file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
-
-        ds = FileDataset(None, {}, file_meta=file_meta, preamble=b"\x00" * 128)
-        ds.is_implicit_VR = False
-        ds.is_little_endian = True
-
-        # Patient tags, copied from original
-        ds.PatientName = _get_tag(raw, "00100010", "")
-        ds.PatientID = _get_tag(raw, "00100020", "")
-        ds.PatientBirthDate = _get_tag(raw, "00100030", "")
-        ds.PatientSex = _get_tag(raw, "00100040", "")
-
-        # Study tags, copied from original (same Study UID keeps series associated in HealthImaging)
-        ds.StudyInstanceUID = _get_tag(raw, "0020000D", "")
-        ds.StudyDate = _get_tag(raw, "00080020", "")
-        ds.StudyTime = _get_tag(raw, "00080030", "")
-        ds.AccessionNumber = _get_tag(raw, "00080050", "")
-        ds.StudyID = _get_tag(raw, "00200010", "")
-        ds.StudyDescription = _get_tag(raw, "00081030", "")
-
-        # Series tags, new series derived from the original
-        ds.Modality = _get_tag(raw, "00080060", "MR")
+        # Assign new series and instance identities
         ds.SeriesInstanceUID = series_uid
-        ds.SeriesNumber = "900"  # high number to sort after the source series
-        ds.SeriesDescription = "N4 Bias Field Corrected"
-
-        # Instance tags
-        ds.SOPClassUID = "1.2.840.10008.5.1.4.1.1.4"
+        sop_uid = generate_uid()
         ds.SOPInstanceUID = sop_uid
-        ds.InstanceNumber = str(i + 1)
+        if hasattr(ds, "file_meta") and ds.file_meta is not None:
+            ds.file_meta.MediaStorageSOPInstanceUID = sop_uid
+
+        # Mark as derived and update series description
+        orig_desc = str(getattr(ds_orig, "SeriesDescription", "") or "")
+        ds.SeriesDescription = (orig_desc + " [N4 Corrected]").strip()
+        try:
+            ds.SeriesNumber = int(getattr(ds_orig, "SeriesNumber", 0) or 0) + 900
+        except (ValueError, TypeError):
+            ds.SeriesNumber = 900
         ds.ImageType = ["DERIVED", "SECONDARY"]
 
-        # Spatial metadata from original frame
-        ds.Rows = slice_2d.shape[0]
-        ds.Columns = slice_2d.shape[1]
-        ds.PixelSpacing = [str(v) for v in desc["pixel_spacing"]]
-        ds.ImagePositionPatient = [str(v) for v in desc["image_position"]]
-        ds.ImageOrientationPatient = [str(v) for v in desc["image_orientation"]]
-        if desc["slice_thickness"] is not None:
-            ds.SliceThickness = str(desc["slice_thickness"])
+        # Convert the corrected float32 slice back to the original stored integer dtype.
+        # N4 operates on real-valued intensities (slope*pixel + intercept), so reversing
+        # that transform gives the corrected stored value. We keep the same RescaleSlope
+        # and RescaleIntercept, so readers see unchanged rescaling metadata.
+        slope = float(getattr(ds_orig, "RescaleSlope", 1.0))
+        intercept = float(getattr(ds_orig, "RescaleIntercept", 0.0))
+        stored_float = (slice_float - intercept) / slope
 
-        # Pixel data
-        ds.SamplesPerPixel = 1
-        ds.PhotometricInterpretation = "MONOCHROME2"
-        ds.BitsAllocated = 16
-        ds.BitsStored = 16
-        ds.HighBit = 15
-        ds.PixelRepresentation = 0  # unsigned
-        ds.RescaleSlope = f"{slope:.6g}"
-        ds.RescaleIntercept = f"{intercept:.6g}"
-        ds.PixelData = slice_2d.tobytes()
+        bits = int(getattr(ds_orig, "BitsAllocated", 16))
+        pixel_rep = int(getattr(ds_orig, "PixelRepresentation", 0))  # 0=unsigned, 1=signed
+        if pixel_rep == 0:
+            dtype = np.uint16 if bits == 16 else np.uint8
+            lo, hi = 0, 2 ** bits - 1
+        else:
+            dtype = np.int16 if bits == 16 else np.int8
+            lo, hi = -(2 ** (bits - 1)), 2 ** (bits - 1) - 1
+        ds.PixelData = np.clip(np.round(stored_float), lo, hi).astype(dtype).tobytes()
 
         pydicom.dcmwrite(str(out_dir / f"slice_{i:04d}.dcm"), ds)
 
@@ -716,23 +615,20 @@ def main():
         description="Apply N4 bias field correction to an MRI volume and produce a PDF report."
     )
 
-    source = parser.add_mutually_exclusive_group(required=False)
-    source.add_argument("--input", metavar="PATH", help="Path to a local image file")
-    source.add_argument(
-        "--image-set-id",
-        metavar="ID",
-        help="AWS HealthImaging ImageSet ID (requires --datastore-id)",
-    )
-
     parser.add_argument(
-        "--datastore-id",
-        metavar="ID",
-        help="AWS HealthImaging datastore ID (required with --image-set-id)",
+        "--input",
+        metavar="PATH",
+        help="Path to a local image file (for development/testing)",
     )
     parser.add_argument(
-        "--region",
-        metavar="REGION",
-        help="AWS region for HealthImaging (default: uses boto3 session default)",
+        "--s3-input-bucket",
+        metavar="BUCKET",
+        help="S3 bucket containing the original DICOM upload (overrides ORIGINAL_S3_BUCKET env var)",
+    )
+    parser.add_argument(
+        "--s3-input-prefix",
+        metavar="PREFIX",
+        help="S3 key prefix of the original DICOM upload (overrides ORIGINAL_S3_PREFIX env var)",
     )
     parser.add_argument(
         "--output-dir", default="output", help="Directory for outputs (default: ./output)"
@@ -748,27 +644,31 @@ def main():
     parser.add_argument(
         "--s3-bucket",
         metavar="BUCKET",
-        help="S3 bucket used to stage the corrected DICOM files before reimport "
-             "(required with --image-set-id).",
+        help="S3 bucket for output files and corrected DICOM staging (overrides OUTPUT_S3_BUCKET env var)",
     )
     parser.add_argument(
         "--s3-prefix",
         metavar="PREFIX",
-        help="S3 key prefix for staged DICOM files (default: n4-corrected/<image-set-id>).",
+        help="S3 key prefix for output files (overrides OUTPUT_S3_PREFIX env var)",
+    )
+    parser.add_argument(
+        "--datastore-id",
+        metavar="ID",
+        help="HealthImaging datastore ID for reimporting the corrected series "
+             "(overrides DATASTORE_ID env var)",
     )
     parser.add_argument(
         "--import-role-arn",
         metavar="ARN",
-        help="IAM role ARN that HealthImaging assumes to read the staged DICOM from S3 "
-             "(required with --image-set-id).",
+        help="IAM role ARN that HealthImaging assumes to read staged DICOM from S3 "
+             "(overrides IMPORT_ROLE_ARN env var)",
     )
     args = parser.parse_args()
 
-    # When running as an ECS Fargate task, arguments are passed as environment
-    # variables rather than CLI flags. Fall back to env vars for any arg not
-    # supplied on the command line so both invocation styles work.
-    if not args.image_set_id and not args.input:
-        args.image_set_id = os.environ.get("IMAGE_SET_ID")
+    # When running as an ECS Fargate task, configuration is passed as environment
+    # variables. Fall back to env vars for any arg not supplied on the command line.
+    s3_input_bucket = args.s3_input_bucket or os.environ.get("ORIGINAL_S3_BUCKET")
+    s3_input_prefix = args.s3_input_prefix or os.environ.get("ORIGINAL_S3_PREFIX")
     if not args.datastore_id:
         args.datastore_id = os.environ.get("DATASTORE_ID")
     if not args.s3_bucket:
@@ -778,42 +678,49 @@ def main():
     if not args.import_role_arn:
         args.import_role_arn = os.environ.get("IMPORT_ROLE_ARN")
 
-    if not args.image_set_id and not args.input:
-        parser.error("one of the arguments --input/--image-set-id is required")
+    # Exactly one input source must be provided
+    if not args.input and not (s3_input_bucket and s3_input_prefix):
+        parser.error(
+            "an input source is required: use --input for a local file, or set "
+            "ORIGINAL_S3_BUCKET + ORIGINAL_S3_PREFIX (or --s3-input-bucket + --s3-input-prefix) "
+            "for an S3 DICOM source"
+        )
+    if args.input and (s3_input_bucket or s3_input_prefix):
+        parser.error("--input cannot be combined with S3 input arguments")
 
-    if args.image_set_id and not args.datastore_id:
-        parser.error("--datastore-id is required when using --image-set-id")
-    if args.image_set_id:
+    # Output arguments are required when using S3 DICOM input (ECS path)
+    if s3_input_bucket and s3_input_prefix:
+        if not args.datastore_id:
+            parser.error("DATASTORE_ID (or --datastore-id) is required with S3 DICOM input")
         if not args.s3_bucket:
-            parser.error("--s3-bucket is required when using --image-set-id")
+            parser.error("OUTPUT_S3_BUCKET (or --s3-bucket) is required with S3 DICOM input")
         if not args.import_role_arn:
-            parser.error("--import-role-arn is required when using --image-set-id")
+            parser.error("IMPORT_ROLE_ARN (or --import-role-arn) is required with S3 DICOM input")
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # --- Load input image ---
-    # Local path: ITK reads directly (DICOM directory, NIfTI, NRRD, etc.)
-    # HealthImaging: fetch HTJ2K frames via boto3, decode with ITKIOOpenJPH,
-    # and assemble into a 3D volume with correct DICOM spatial metadata.
-    if args.input:
+    # S3 DICOM path (ECS production): download original .dcm files from the upload
+    # location, read with pydicom, return ITK image + datasets for tag-preserving output.
+    # Local path (development): ITK reads the file directly; no reimport after correction.
+    if s3_input_bucket and s3_input_prefix:
+        stem = Path(s3_input_prefix.rstrip("/")).name
+        print(f"  Loading        : s3://{s3_input_bucket}/{s3_input_prefix}", flush=True)
+        original, datasets = load_from_s3_dicom(s3_input_bucket, s3_input_prefix)
+        print(f"  Loaded {len(datasets)} slices", flush=True)
+        source_label = f"s3://{s3_input_bucket}/{s3_input_prefix}"
+        source_format = "dicom (s3)"
+    else:
         input_path = Path(args.input)
         if not input_path.exists():
-            sys.exit(f"Error: file not found,{input_path}")
+            sys.exit(f"Error: file not found, {input_path}")
         stem = input_path.name.split(".")[0]
         print(f"  Loading        : {input_path}")
         original = load_as_float(input_path)
-        frame_descriptors = None  # not available for local files; reimport not supported
+        datasets = None  # local files have no pydicom datasets; reimport not supported
         source_label = str(input_path)
         source_format = "".join(input_path.suffixes).lower()
-    else:
-        stem = args.image_set_id
-        print(f"  Loading        : HealthImaging {args.datastore_id}/{args.image_set_id}")
-        original, frame_descriptors = load_from_healthimaging(
-            args.datastore_id, args.image_set_id, args.region
-        )
-        source_label = f"healthimaging://{args.datastore_id}/{args.image_set_id}"
-        source_format = "htj2k (healthimaging)"
 
     # Collect spatial metadata from the original image for the PDF report
     # These are read before any padding/shrinking so they reflect the true
@@ -845,15 +752,18 @@ def main():
     # collapse below 4 voxels
     n4_input, was_padded = pad_single_slice(original, args.shrink_factor)
 
+    print(f"[diag] pad_single_slice complete, was_padded={was_padded}", flush=True)
     if args.shrink_factor > 1:
-        print(f"  Shrinking      : factor {args.shrink_factor}")
+        print(f"  Shrinking      : factor {args.shrink_factor}", flush=True)
         n4_image = shrink_image(n4_input, args.shrink_factor)
+        print(f"[diag] shrink_image complete", flush=True)
     else:
         n4_image = n4_input
 
     # --- Run N4 bias field correction ---
-    print("  Running N4     : fitting levels=4, iterations=[50,50,50,50]")
+    print("  Running N4     : fitting levels=4, iterations=[50,50,50,50]", flush=True)
     corrected_arr, bias_arr = run_n4(n4_image)
+    print("[diag] run_n4 complete", flush=True)
 
     # --- Upsample and crop back to original dimensions ---
     # If the image was shrunk for estimation, bilinear upsample the corrected
@@ -892,27 +802,27 @@ def main():
     # <s3_prefix>/report.pdf so the backend can derive it from the job ID alone,
     # without storing anything extra in the database.
     if args.s3_bucket and args.s3_prefix:
-        s3 = boto3.client("s3", **({"region_name": args.region} if args.region else {}))
+        s3 = boto3.client("s3")
         pdf_s3_key = args.s3_prefix.rstrip("/") + "/report.pdf"
         s3.upload_file(str(pdf_path), args.s3_bucket, pdf_s3_key)
         print(f"  PDF uploaded   : s3://{args.s3_bucket}/{pdf_s3_key}")
 
-    # --- Reimport corrected series into HealthImaging ---
-    # Converts the corrected float32 volume to a DICOM series that shares the
-    # original Study Instance UID, stages it on S3, and triggers a HealthImaging
-    # import job. The corrected series will appear alongside the original in
-    # HealthImaging once the job completes.
-    if args.image_set_id:
+    # --- Write corrected DICOM, upload, and reimport into HealthImaging ---
+    # Only runs when the source was an S3 DICOM upload (datasets are available).
+    # Writes tag-preserving corrected .dcm files, stages them on S3, triggers a
+    # HealthImaging import job, and writes output.json so the Spring app can
+    # discover the import job ID after the ECS task stops and create a catalog entry.
+    if datasets is not None:
         s3_prefix = args.s3_prefix or f"n4-corrected/{stem}"
 
         print("  Writing DICOM  : corrected series")
         dicom_dir = write_corrected_dicom_series(
-            corrected_arr, frame_descriptors, out_dir / "corrected-dicom"
+            datasets, corrected_arr, out_dir / "corrected-dicom"
         )
 
         print(f"  Uploading      : s3://{args.s3_bucket}/{s3_prefix}/dicom/")
         input_s3_uri = upload_dicom_to_s3(
-            dicom_dir, args.s3_bucket, f"{s3_prefix}/dicom", args.region
+            dicom_dir, args.s3_bucket, f"{s3_prefix}/dicom"
         )
         output_s3_uri = f"s3://{args.s3_bucket}/{s3_prefix.rstrip('/')}/import-logs/"
 
@@ -922,26 +832,24 @@ def main():
             input_s3_uri,
             output_s3_uri,
             args.import_role_arn,
-            args.region,
         )
         print(f"  Import job ID  : {job_id}")
 
-        # Write the HealthImaging import job ID to S3 so the Spring app can
-        # discover it after the ECS task stops and create a catalog entry.
-        if args.s3_bucket and args.s3_prefix:
-            import json as _json
-            output_key = args.s3_prefix.rstrip("/") + "/output.json"
-            s3.put_object(
-                Bucket=args.s3_bucket,
-                Key=output_key,
-                Body=_json.dumps({"healthImagingImportJobId": job_id}),
-                ContentType="application/json",
-            )
-            print(f"  Output metadata: s3://{args.s3_bucket}/{output_key}")
+        # Write the import job ID to S3 so the Spring app can register the
+        # corrected image set in the catalog after the ECS task stops
+        s3_out = boto3.client("s3")
+        output_key = s3_prefix.rstrip("/") + "/output.json"
+        s3_out.put_object(
+            Bucket=args.s3_bucket,
+            Key=output_key,
+            Body=json.dumps({"healthImagingImportJobId": job_id}),
+            ContentType="application/json",
+        )
+        print(f"  Output metadata: s3://{args.s3_bucket}/{output_key}")
 
     print("\nDone.")
     print(f"  PDF report      : {pdf_path}")
-    if args.image_set_id:
+    if datasets is not None:
         print(f"  Import job ID   : {job_id}")
 
 

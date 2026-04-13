@@ -84,6 +84,7 @@ class AnalysisJobServiceTest {
         image = new DicomImage();
         image.setId(10L);
         image.setImageSetId("img-set-abc");
+        image.setS3Key("dicom/1/scan-abc/");
 
         tool = new Tool();
         tool.setToolId(5L);
@@ -141,7 +142,7 @@ class AnalysisJobServiceTest {
         }
 
         @Test
-        @DisplayName("passes IMAGE_SET_ID, DATASTORE_ID, and OUTPUT_S3_BUCKET env vars to ECS task")
+        @DisplayName("passes ORIGINAL_S3_BUCKET, ORIGINAL_S3_PREFIX, output, and HealthImaging env vars to ECS task")
         void passesCorrectEnvVarsToEcsTask() {
             stubEcsSuccess("arn:aws:ecs:us-east-1:123:task/cluster/task-001");
             when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
@@ -161,13 +162,22 @@ class AnalysisJobServiceTest {
 
             List<KeyValuePair> envVars = req.overrides().containerOverrides().get(0).environment();
             assertThat(envVars).extracting(KeyValuePair::name)
-                    .contains("IMAGE_SET_ID", "DATASTORE_ID", "OUTPUT_S3_BUCKET");
-            assertThat(envVars).filteredOn(e -> e.name().equals("IMAGE_SET_ID"))
-                    .extracting(KeyValuePair::value).containsOnly("img-set-abc");
-            assertThat(envVars).filteredOn(e -> e.name().equals("DATASTORE_ID"))
-                    .extracting(KeyValuePair::value).containsOnly("ds-001");
+                    .contains("ORIGINAL_S3_BUCKET", "ORIGINAL_S3_PREFIX",
+                              "OUTPUT_S3_BUCKET", "OUTPUT_S3_PREFIX",
+                              "DATASTORE_ID", "IMPORT_ROLE_ARN")
+                    .doesNotContain("IMAGE_SET_ID");
+            assertThat(envVars).filteredOn(e -> e.name().equals("ORIGINAL_S3_BUCKET"))
+                    .extracting(KeyValuePair::value).containsOnly("test-bucket");
+            assertThat(envVars).filteredOn(e -> e.name().equals("ORIGINAL_S3_PREFIX"))
+                    .extracting(KeyValuePair::value).containsOnly("dicom/1/scan-abc/");
             assertThat(envVars).filteredOn(e -> e.name().equals("OUTPUT_S3_BUCKET"))
                     .extracting(KeyValuePair::value).containsOnly("test-bucket");
+            assertThat(envVars).filteredOn(e -> e.name().equals("OUTPUT_S3_PREFIX"))
+                    .extracting(KeyValuePair::value).containsOnly("results/99/");
+            assertThat(envVars).filteredOn(e -> e.name().equals("DATASTORE_ID"))
+                    .extracting(KeyValuePair::value).containsOnly("ds-001");
+            assertThat(envVars).filteredOn(e -> e.name().equals("IMPORT_ROLE_ARN"))
+                    .extracting(KeyValuePair::value).containsOnly("arn:aws:iam::123:role/import-role");
         }
 
         @Test

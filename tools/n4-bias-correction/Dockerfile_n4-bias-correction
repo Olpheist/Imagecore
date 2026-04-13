@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11
 
 WORKDIR /work
 
@@ -12,14 +12,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml pyproject.toml
 COPY README.md README.md
 
-# Copy source
+# Copy source and entrypoint
 COPY src/ src/
+COPY entrypoint.sh entrypoint.sh
 
 # Install the package and its dependencies
 RUN pip install --no-cache-dir .
+RUN chmod +x entrypoint.sh
 
 # Output directory — mount a host volume here to retrieve results
 VOLUME ["/work/output"]
 
-ENTRYPOINT ["n4-bias-correction"]
+ENTRYPOINT ["/work/entrypoint.sh"]
 CMD []

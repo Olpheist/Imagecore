@@ -131,6 +131,7 @@ resource "aws_iam_role_policy" "ecs_task" {
         Effect = "Allow"
         Action = [
           "ecs:RunTask",
+          "ecs:DescribeTasks",  #required to poll analysis tool task status for job completion detection
           "iam:PassRole"  #required to pass execution and task roles when launching tool tasks
         ]
         Resource = "*"

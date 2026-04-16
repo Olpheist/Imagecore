@@ -32,5 +32,5 @@ public interface AnalysisJobRepository extends JpaRepository<AnalysisJob, Long> 
             """, nativeQuery = true)
     List<Object[]> findAggregateStatsByToolId(@Param("toolId") Long toolId);
 
-    List<AnalysisJob> findTop10ByToolIdOrderByCreatedAtDesc(Long toolId);
+    List<AnalysisJob> findTop10ByToolToolIdOrderByCreatedAtDesc(Long toolId);
 }

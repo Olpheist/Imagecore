@@ -115,6 +115,7 @@ const formatLabel = (segment: string): string => {
     "dicom-upload": "DICOM Upload",
     profile: "Profile",
     tools: "Tools",
+    analytics: "Tool Analytics",
     admin: "Admin Center",
   };
 

@@ -30,12 +30,12 @@ export const useDicomCatalogStore = defineStore('dicomCatalog', () => {
    */
   async function deleteImageSet(imageIds: number[]): Promise<void> {
     for (const id of imageIds) {
-      await useApiFetch(`/images/${id}`, { method: 'DELETE' }).catch(() => {
-        // Subsequent deletes for the same imageSetId get a 404 from HealthImaging —
-        // the backend swallows it, but guard here as well.
-      });
+      // Let errors propagate so the caller can surface them. The backend already
+      // swallows ResourceNotFoundException (404) from HealthImaging when multiple
+      // DB rows share the same imageSetId, so we don't need to guard here.
+      await useApiFetch(`/images/${id}`, { method: 'DELETE' });
     }
-    // Remove any group that has all its imageIds deleted
+    // Only remove the group from local state once all deletes succeed
     const deletedSet = new Set(imageIds);
     series.value = series.value.filter(
       g => !g.imageIds.every(id => deletedSet.has(id))

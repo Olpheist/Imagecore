@@ -1,10 +1,12 @@
 package com.green.imagecore.controller;
 
 import com.green.imagecore.dto.ToolDto;
+import com.green.imagecore.dto.ToolStatsDto;
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.mapper.ToolMapper;
 import com.green.imagecore.service.ToolService;
+import com.green.imagecore.service.ToolStatsService;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.service.UserService;
 import lombok.AllArgsConstructor;
@@ -23,8 +25,8 @@ import java.util.List;
 @RequestMapping("/api/tools")
 public class ToolController {
     private final ToolService toolService;
-
     private final UserService userService;
+    private final ToolStatsService toolStatsService;
 
 
     /**
@@ -71,6 +73,12 @@ public class ToolController {
                 .stream()
                 .map(ToolMapper::toDto)
                 .toList();
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLINICIAN', 'RESEARCHER')")
+    @GetMapping("/{id}/stats")
+    public ResponseEntity<ToolStatsDto> getToolStats(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(toolStatsService.getStats(id, authentication));
     }
 
     public record CreateToolRequest(

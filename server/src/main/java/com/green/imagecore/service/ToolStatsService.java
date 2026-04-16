@@ -53,7 +53,7 @@ public class ToolStatsService {
         double successRatePct = totalRuns == 0 ? 0.0 : (double) completedRuns / totalRuns * 100.0;
 
         List<RecentJobDto> recentJobs = analysisJobRepository
-                .findTop10ByToolIdOrderByCreatedAtDesc(toolId)
+                .findTop10ByToolToolIdOrderByCreatedAtDesc(toolId)
                 .stream()
                 .map(this::toRecentJobDto)
                 .toList();

@@ -117,7 +117,7 @@ class ToolStatsServiceTest {
             when(toolRepository.findById(10L)).thenReturn(Optional.of(tool));
             when(analysisJobRepository.findAggregateStatsByToolId(10L))
                     .thenReturn(List.<Object[]>of(aggregateRow(5L, 4L, 1L, 0L, 100.0, twoMinsAgo)));
-            when(analysisJobRepository.findTop10ByToolIdOrderByCreatedAtDesc(10L))
+            when(analysisJobRepository.findTop10ByToolToolIdOrderByCreatedAtDesc(10L))
                     .thenReturn(List.of(completedJob(1L, twoMinsAgo, now)));
 
             ToolStatsDto stats = toolStatsService.getStats(10L, ownerAuth);
@@ -140,7 +140,7 @@ class ToolStatsServiceTest {
             when(toolRepository.findById(10L)).thenReturn(Optional.of(tool));
             when(analysisJobRepository.findAggregateStatsByToolId(10L))
                     .thenReturn(List.<Object[]>of(aggregateRow(0L, 0L, 0L, 0L, null, null)));
-            when(analysisJobRepository.findTop10ByToolIdOrderByCreatedAtDesc(10L))
+            when(analysisJobRepository.findTop10ByToolToolIdOrderByCreatedAtDesc(10L))
                     .thenReturn(List.of());
 
             ToolStatsDto stats = toolStatsService.getStats(10L, adminAuth);
@@ -174,7 +174,7 @@ class ToolStatsServiceTest {
             when(toolRepository.findById(10L)).thenReturn(Optional.of(tool));
             when(analysisJobRepository.findAggregateStatsByToolId(10L))
                     .thenReturn(List.<Object[]>of(aggregateRow(0L, 0L, 0L, 0L, null, null)));
-            when(analysisJobRepository.findTop10ByToolIdOrderByCreatedAtDesc(10L))
+            when(analysisJobRepository.findTop10ByToolToolIdOrderByCreatedAtDesc(10L))
                     .thenReturn(List.of());
 
             ToolStatsDto stats = toolStatsService.getStats(10L, ownerAuth);
@@ -194,7 +194,7 @@ class ToolStatsServiceTest {
             when(toolRepository.findById(10L)).thenReturn(Optional.of(tool));
             when(analysisJobRepository.findAggregateStatsByToolId(10L))
                     .thenReturn(List.<Object[]>of(aggregateRow(1L, 0L, 1L, 0L, null, now)));
-            when(analysisJobRepository.findTop10ByToolIdOrderByCreatedAtDesc(10L))
+            when(analysisJobRepository.findTop10ByToolToolIdOrderByCreatedAtDesc(10L))
                     .thenReturn(List.of(failedJob(5L, now)));
 
             ToolStatsDto stats = toolStatsService.getStats(10L, ownerAuth);

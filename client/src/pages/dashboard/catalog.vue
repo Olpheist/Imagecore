@@ -318,6 +318,9 @@ async function confirmDelete() {
     await catalogStore.deleteImageSet(pendingDelete.value.imageIds);
     showDeleteModal.value = false;
     pendingDelete.value   = null;
+  } catch (e: unknown) {
+    catalogStore.error = e as ApiError;
+    showDeleteModal.value = false;
   } finally {
     deletingKey.value = null;
   }

@@ -5,6 +5,7 @@ import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.ImportStatus;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.exception.ResourceNotFoundException;
+import com.green.imagecore.repositories.AnalysisJobRepository;
 import com.green.imagecore.repositories.DicomImageRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,8 +13,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
 import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
+import software.amazon.awssdk.services.medicalimaging.model.ConflictException;
 import software.amazon.awssdk.services.medicalimaging.model.DeleteImageSetRequest;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
@@ -36,6 +40,9 @@ class DicomCatalogServiceTest {
 
     @Mock
     private DicomImageRepository dicomImageRepository;
+
+    @Mock
+    private AnalysisJobRepository analysisJobRepository;
 
     @Mock
     private MedicalImagingClient medicalImagingClient;
@@ -394,6 +401,60 @@ class DicomCatalogServiceTest {
 
         verify(s3Client, never()).deleteObjects(any(DeleteObjectsRequest.class));
         verify(dicomImageRepository).delete(image);
+    }
+
+
+    // delete, analysis job cascade
+
+    @Test
+    void delete_DeletesAnalysisJobsForImageBeforeDelete() {
+        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid/");
+        when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
+
+        dicomCatalogService.delete(5L, 42L);
+
+        verify(analysisJobRepository).deleteByImageId(5L);
+    }
+
+    @Test
+    void delete_DeletesAnalysisJobsBeforeHealthImagingAndDb() {
+        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid/");
+        image.setImageSetId("imgset-001");
+        when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
+
+        var order = inOrder(analysisJobRepository, medicalImagingClient, dicomImageRepository);
+        dicomCatalogService.delete(5L, 42L);
+        order.verify(analysisJobRepository).deleteByImageId(5L);
+        order.verify(medicalImagingClient).deleteImageSet(any(DeleteImageSetRequest.class));
+        order.verify(dicomImageRepository).delete(image);
+    }
+
+    @Test
+    void delete_ThrowsResponseStatusException_WhenHealthImagingThrowsConflictException() {
+        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid/");
+        image.setImageSetId("imgset-001");
+        when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
+        when(medicalImagingClient.deleteImageSet(any(DeleteImageSetRequest.class)))
+                .thenThrow(ConflictException.builder().message("image set not in deletable state").build());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> dicomCatalogService.delete(5L, 42L));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+    }
+
+    @Test
+    void delete_DoesNotDeleteS3OrDb_WhenConflictExceptionThrown() {
+        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid/");
+        image.setImageSetId("imgset-001");
+        when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
+        when(medicalImagingClient.deleteImageSet(any(DeleteImageSetRequest.class)))
+                .thenThrow(ConflictException.builder().message("image set not in deletable state").build());
+
+        assertThrows(ResponseStatusException.class, () -> dicomCatalogService.delete(5L, 42L));
+
+        verifyNoInteractions(s3Client);
+        verify(dicomImageRepository, never()).delete(any());
     }
 
 

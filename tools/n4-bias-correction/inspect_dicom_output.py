@@ -1,14 +1,14 @@
 """
-inspect_dicom_output.py, manual inspection script for the N4 bias correction pipeline
+inspect_dicom_output.py - manual inspection script for the N4 bias correction pipeline
 
-Loads a local DICOM file or series directory, reads the real DICOM tags with
-pydicom to build frame_descriptors (the same structure that load_from_healthimaging
-produces), runs N4, and calls write_corrected_dicom_series so you can inspect the
-output .dcm files in a local DICOM viewer.
+Loads a local DICOM file or series directory, reads each slice with pydicom,
+builds an ITK image with correct spatial metadata (same as the production
+load_from_s3_dicom path), runs N4, and calls write_corrected_dicom_series so
+you can inspect the output .dcm files in a local DICOM viewer.
 
 Use this to verify that StudyInstanceUID is preserved, pixel data round-trips
-correctly, and the output is a valid DICOM series before testing the full
-HealthImaging reimport path.
+correctly, and the output is a valid DICOM series before running the full
+ECS/HealthImaging reimport path.
 
 Usage (inside Docker or with the package installed):
     python3 inspect_dicom_output.py --input <file.dcm or dicom-dir/> [--output-dir output] [--shrink-factor 2]
@@ -23,7 +23,6 @@ import pydicom
 import numpy as np
 
 from n4_bias_correction.pipeline import (
-    load_as_float,
     pad_single_slice,
     shrink_image,
     run_n4,
@@ -46,47 +45,84 @@ def find_dicom_files(input_path: Path) -> list[Path]:
     return [input_path]
 
 
-def build_frame_descriptors(dcm_files: list[Path]) -> list[dict]:
+def load_dicom_datasets(input_path: Path) -> tuple:
     """
-    Build frame_descriptors from real DICOM files using pydicom.
+    Read all DICOM files from a local file or directory with pydicom, sort by
+    InstanceNumber (fallback: ImagePositionPatient Z), assemble into a 3D float32
+    ITK image with correct spatial metadata, and return it ready for N4 along with
+    the sorted pydicom datasets for tag-preserving output.
 
-    This produces the same structure that load_from_healthimaging() builds from
-    HealthImaging's DICOM JSON metadata. raw_dicom is populated via pydicom's
-    to_json_dict(), which outputs the same {tag: {"vr": ..., "Value": [...]}}
-    format that _get_tag() expects.
+    Mirrors the production load_from_s3_dicom() path, but reads from disk instead
+    of S3.
+
+    Returns (itk_image, sorted_datasets).
     """
-    descriptors = []
-    for dcm_path in dcm_files:
-        ds = pydicom.dcmread(str(dcm_path), stop_before_pixels=True)
+    dcm_files = find_dicom_files(input_path)
+    if not dcm_files:
+        sys.exit(f"Error: no DICOM files found in {input_path}")
 
-        image_position = [float(v) for v in getattr(ds, "ImagePositionPatient", [0.0, 0.0, 0.0])]
-        image_orientation = [float(v) for v in getattr(ds, "ImageOrientationPatient", [1, 0, 0, 0, 1, 0])]
-        pixel_spacing_raw = getattr(ds, "PixelSpacing", [1.0, 1.0])
-        pixel_spacing = [float(v) for v in pixel_spacing_raw]
-        slice_thickness_raw = getattr(ds, "SliceThickness", None)
-        slice_thickness = float(slice_thickness_raw) if slice_thickness_raw is not None else None
-        instance_number = int(getattr(ds, "InstanceNumber", 0))
+    print(f"  Loading        : {len(dcm_files)} DICOM file(s) from {input_path}")
+    datasets = [pydicom.dcmread(str(f)) for f in dcm_files]
 
-        descriptors.append({
-            "frame_id": str(getattr(ds, "SOPInstanceUID", "")),
-            "instance_number": instance_number,
-            "image_position": image_position,
-            "image_orientation": image_orientation,
-            "pixel_spacing": pixel_spacing,
-            "slice_thickness": slice_thickness,
-            # to_json_dict() produces the same {tag: {"vr": ..., "Value": [...]}} format
-            # that HealthImaging metadata uses, so _get_tag() works unchanged.
-            "raw_dicom": ds.to_json_dict(),
-        })
+    # Sort by InstanceNumber, fallback to ImagePositionPatient Z
+    def _sort_key(ds):
+        try:
+            return (0, int(ds.InstanceNumber))
+        except (AttributeError, ValueError, TypeError):
+            pass
+        try:
+            return (0, float(ds.ImagePositionPatient[2]))
+        except (AttributeError, IndexError, ValueError, TypeError):
+            pass
+        return (1, 0)
 
-    # Sort by z-position then instance number, same ordering as _collect_frames()
-    descriptors.sort(key=lambda f: (f["image_position"][2], f["instance_number"]))
-    return descriptors
+    datasets.sort(key=_sort_key)
+
+    # Build float32 pixel volume, applying rescale slope/intercept if present
+    pixel_arrays = []
+    for ds in datasets:
+        arr = ds.pixel_array.astype(np.float32)
+        slope = float(getattr(ds, "RescaleSlope", 1.0))
+        intercept = float(getattr(ds, "RescaleIntercept", 0.0))
+        pixel_arrays.append(arr * slope + intercept)
+
+    volume = np.stack(pixel_arrays, axis=0)  # (z, y, x)
+    image_3d = itk.GetImageFromArray(volume)
+
+    # Set spatial metadata from the first slice
+    first = datasets[0]
+    pixel_spacing = [float(v) for v in getattr(first, "PixelSpacing", [1.0, 1.0])]
+    image_position = [float(v) for v in getattr(first, "ImagePositionPatient", [0.0, 0.0, 0.0])]
+    image_orientation = [float(v) for v in getattr(first, "ImageOrientationPatient", [1, 0, 0, 0, 1, 0])]
+
+    if len(datasets) > 1:
+        pos0 = np.array([float(v) for v in getattr(datasets[0], "ImagePositionPatient", [0, 0, 0])])
+        pos1 = np.array([float(v) for v in getattr(datasets[1], "ImagePositionPatient", [0, 0, 0])])
+        slice_spacing = float(np.linalg.norm(pos1 - pos0))
+        if slice_spacing == 0.0:
+            thickness = getattr(first, "SliceThickness", None)
+            slice_spacing = float(thickness) if thickness is not None else 1.0
+    else:
+        thickness = getattr(first, "SliceThickness", None)
+        slice_spacing = float(thickness) if thickness is not None else 1.0
+
+    # ITK spacing: (x, y, z), DICOM PixelSpacing is [row=y, col=x]
+    image_3d.SetSpacing([pixel_spacing[1], pixel_spacing[0], slice_spacing])
+    image_3d.SetOrigin(image_position)
+
+    row = np.array(image_orientation[:3])
+    col = np.array(image_orientation[3:])
+    normal = np.cross(row, col)
+    direction_mat = np.column_stack([row, col, normal])
+    itk_direction = itk.matrix_from_array(direction_mat.astype(np.float64))
+    image_3d.SetDirection(itk_direction)
+
+    return image_3d, datasets
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Test write_corrected_dicom_series locally using a DICOM input."
+        description="Test the N4 pipeline locally using a DICOM input."
     )
     parser.add_argument(
         "--input", required=True, metavar="PATH",
@@ -98,23 +134,14 @@ def main():
 
     input_path = Path(args.input)
     if not input_path.exists():
-        sys.exit(f"Error: not found,{input_path}")
+        sys.exit(f"Error: not found, {input_path}")
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = input_path.name.split(".")[0] if input_path.is_file() else input_path.name
 
     # --- Load DICOM ---
-    dcm_files = find_dicom_files(input_path)
-    if not dcm_files:
-        sys.exit(f"Error: no DICOM files found in {input_path}")
-    print(f"  Loading        : {len(dcm_files)} DICOM file(s) from {input_path}")
-
-    print("  Building       : frame_descriptors from DICOM tags")
-    frame_descriptors = build_frame_descriptors(dcm_files)
-
-    print("  Loading image  : ITK float32")
-    original = load_as_float(input_path)
+    original, datasets = load_dicom_datasets(input_path)
 
     # --- N4 pipeline (identical to main()) ---
     n4_input, was_padded = pad_single_slice(original, args.shrink_factor)
@@ -136,7 +163,7 @@ def main():
     if was_padded:
         corrected_arr = corrected_arr[1:2]
         bias_arr = bias_arr[1:2]
-        frame_descriptors = frame_descriptors[:1]
+        datasets = datasets[:1]
 
     original_arr = itk.GetArrayFromImage(original)
 
@@ -174,29 +201,29 @@ def main():
     # --- Write DICOM output ---
     dicom_dir = out_dir / f"{stem}-corrected-dicom"
     print(f"  Writing DICOM  : {dicom_dir}/")
-    write_corrected_dicom_series(corrected_arr, frame_descriptors, dicom_dir)
+    write_corrected_dicom_series(datasets, corrected_arr, dicom_dir)
 
     dcm_out = sorted(dicom_dir.glob("*.dcm"))
     print(f"\nDone. Wrote {len(dcm_out)} DICOM file(s) to {dicom_dir}/")
 
     # Quick tag summary from the first output slice
-    first = pydicom.dcmread(str(dcm_out[0]))
+    first_out = pydicom.dcmread(str(dcm_out[0]))
     print("\nFirst output slice tags:")
-    print(f"  StudyInstanceUID  : {first.StudyInstanceUID}")
-    print(f"  SeriesInstanceUID : {first.SeriesInstanceUID}")
-    print(f"  SOPInstanceUID    : {first.SOPInstanceUID}")
-    print(f"  ImageType         : {first.ImageType}")
-    print(f"  SeriesDescription : {first.SeriesDescription}")
-    print(f"  Rows x Columns    : {first.Rows} x {first.Columns}")
-    print(f"  RescaleSlope      : {first.RescaleSlope}")
-    print(f"  RescaleIntercept  : {first.RescaleIntercept}")
+    print(f"  StudyInstanceUID  : {first_out.StudyInstanceUID}")
+    print(f"  SeriesInstanceUID : {first_out.SeriesInstanceUID}")
+    print(f"  SOPInstanceUID    : {first_out.SOPInstanceUID}")
+    print(f"  ImageType         : {first_out.ImageType}")
+    print(f"  SeriesDescription : {first_out.SeriesDescription}")
+    print(f"  Rows x Columns    : {first_out.Rows} x {first_out.Columns}")
+    print(f"  RescaleSlope      : {first_out.RescaleSlope}")
+    print(f"  RescaleIntercept  : {first_out.RescaleIntercept}")
 
     # Verify StudyInstanceUID was preserved from input
-    src_ds = pydicom.dcmread(str(dcm_files[0]), stop_before_pixels=True)
-    if str(first.StudyInstanceUID) == str(src_ds.StudyInstanceUID):
+    src_ds = datasets[0]
+    if str(first_out.StudyInstanceUID) == str(src_ds.StudyInstanceUID):
         print("\n  StudyInstanceUID matches source.")
     else:
-        print("\n  WARNING: StudyInstanceUID mismatch,check _get_tag / raw_dicom.")
+        print("\n  WARNING: StudyInstanceUID mismatch.")
 
 
 if __name__ == "__main__":

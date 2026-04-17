@@ -13,4 +13,6 @@ public interface AnalysisJobRepository extends JpaRepository<AnalysisJob, Long> 
     List<AnalysisJob> findByImageIdOrderByCreatedAtDesc(Long imageId);
 
     List<AnalysisJob> findByStatusIn(List<JobStatus> statuses);
+
+    void deleteByImageId(Long imageId);
 }

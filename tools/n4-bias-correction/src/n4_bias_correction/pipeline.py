@@ -274,26 +274,36 @@ def run_n4(image: itk.Image) -> tuple[np.ndarray, np.ndarray]:
 
 def _upsample_arr(arr: np.ndarray, target_shape: tuple) -> np.ndarray:
     """
-    Upsample a 3D numpy array to target_shape using per-slice bilinear resize.
+    Upsample a 3D numpy array to target_shape using bilinear resize in XY and
+    linear interpolation in Z.
 
     Used to bring the corrected and bias arrays (computed on the shrunken image)
     back to the full n4_input resolution before cropping and saving. Each z-slice
-    is resized independently in xy using Pillow's BILINEAR interpolation. If the
-    shrunken z count is less than the target z count (can happen when the shrink
-    factor doesn't divide evenly), slices are tiled to fill the gap.
+    is resized independently in XY using Pillow's BILINEAR interpolation. If the
+    shrunken z count differs from the target z count (which happens when the shrink
+    factor doesn't divide the depth evenly), the z axis is resampled via linear
+    interpolation so every output slice maps to a real position in the source
+    volume rather than being a repeated copy.
     """
     from PIL import Image as PILImage
     tz, ty, tx = target_shape
-    # Resize each z-slice in xy
+    # Resize each z-slice in XY
     xy_resized = np.stack([
         np.array(PILImage.fromarray(arr[z]).resize((tx, ty), PILImage.BILINEAR))
         for z in range(arr.shape[0])
     ], axis=0)
-    # Tile then crop z to match target depth
-    if xy_resized.shape[0] < tz:
-        repeats = int(np.ceil(tz / xy_resized.shape[0]))
-        xy_resized = np.tile(xy_resized, (repeats, 1, 1))
-    return xy_resized[:tz].astype(np.float32)
+    # Resample z axis with linear interpolation when the depth doesn't match
+    src_nz = xy_resized.shape[0]
+    if src_nz != tz:
+        src_indices = np.linspace(0, src_nz - 1, tz)
+        lo = np.floor(src_indices).astype(int)
+        hi = np.minimum(lo + 1, src_nz - 1)
+        alpha = (src_indices - lo).astype(np.float32)
+        xy_resized = (
+            xy_resized[lo] * (1.0 - alpha)[:, None, None]
+            + xy_resized[hi] * alpha[:, None, None]
+        )
+    return xy_resized.astype(np.float32)
 
 
 # ---------------------------------------------------------------------------
@@ -418,21 +428,20 @@ def start_healthimaging_import(
 
 def extract_middle_slice(arr: np.ndarray) -> np.ndarray:
     """
-    Extract a representative 2D slice from the array for the PDF report.
+    Extract a representative 2D axial slice from the array for the PDF report.
+
+    ITK's GetArrayFromImage returns arrays in (z, y, x) order, so axis 0 is
+    always the slice axis regardless of how many slices there are. Slicing on
+    axis 0 gives the expected axial view for any volume.
 
     Size-1 dimensions (e.g. z=1 on single-slice inputs after cropping) are
-    squeezed first so the axis selection isn't dominated by them, without this,
-    np.argmax would pick the y axis on a (1, 256, 224) array and return a
-    1-pixel-tall image that renders as a line.
-
-    For genuinely 3D volumes the middle slice is taken along the largest axis,
-    which is typically z for standard axial acquisitions.
+    squeezed first so that a (1, 256, 224) array collapses to (256, 224) and
+    is returned directly without trying to slice a degenerate z axis.
     """
     arr = arr.squeeze()
     if arr.ndim == 2:
         return arr
-    axis = int(np.argmax(arr.shape))
-    return np.take(arr, arr.shape[axis] // 2, axis=axis)
+    return arr[arr.shape[0] // 2]
 
 
 def normalize_to_uint8(arr: np.ndarray) -> np.ndarray:
@@ -718,7 +727,7 @@ def main():
         stem = input_path.name.split(".")[0]
         print(f"  Loading        : {input_path}")
         original = load_as_float(input_path)
-        datasets = None  # local files have no pydicom datasets; reimport not supported
+        datasets = None  # local files have no pydicom datasets, reimport not supported
         source_label = str(input_path)
         source_format = "".join(input_path.suffixes).lower()
 

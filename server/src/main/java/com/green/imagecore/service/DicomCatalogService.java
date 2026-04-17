@@ -2,13 +2,17 @@ package com.green.imagecore.service;
 
 import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.exception.ResourceNotFoundException;
+import com.green.imagecore.repositories.AnalysisJobRepository;
 import com.green.imagecore.repositories.DicomImageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
+import software.amazon.awssdk.services.medicalimaging.model.ConflictException;
 import software.amazon.awssdk.services.medicalimaging.model.DeleteImageSetRequest;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.Delete;
@@ -33,6 +37,7 @@ import java.util.stream.Collectors;
 public class DicomCatalogService {
 
     private final DicomImageRepository dicomImageRepository;
+    private final AnalysisJobRepository analysisJobRepository;
     private final MedicalImagingClient medicalImagingClient;
     private final S3Client s3Client;
 
@@ -50,7 +55,6 @@ public class DicomCatalogService {
 
     /**
      * Returns one {@link DicomSeriesGroupDto} per HealthImaging imageSet owned by the user.
-     *
      * Images that share the same {@code imageSetId} are collapsed into a single row.
      * Images still pending import (no imageSetId yet) each appear as their own row.
      * Rows are ordered by the upload date of their earliest DB record (newest first).
@@ -150,6 +154,10 @@ public class DicomCatalogService {
     public void delete(Long imageId, Long userId) {
         DicomImage image = findByIdAndUser(imageId, userId);
 
+        // Remove any analysis jobs that used this image as their input. Without this,
+        // the analysis_jobs.image_id FK would block the DB delete below.
+        analysisJobRepository.deleteByImageId(imageId);
+
         // Delete from HealthImaging if the image set exists.
         // When multiple DB rows share the same imageSetId (e.g. individually uploaded slices
         // of the same series that AWS HealthImaging merged), the first delete removes the
@@ -163,6 +171,10 @@ public class DicomCatalogService {
                 medicalImagingClient.deleteImageSet(deleteImageSetRequest);
             } catch (software.amazon.awssdk.services.medicalimaging.model.ResourceNotFoundException e) {
                 log.info("ImageSet {} already deleted, skipping HealthImaging removal for image {}", image.getImageSetId(), imageId);
+            } catch (ConflictException e) {
+                log.warn("ImageSet {} is not in a deletable state for image {}: {}", image.getImageSetId(), imageId, e.getMessage());
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "The image set is still being processed by HealthImaging. Please try again in a moment.");
             }
         }
 

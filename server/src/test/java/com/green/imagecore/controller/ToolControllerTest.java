@@ -1,11 +1,13 @@
 package com.green.imagecore.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.green.imagecore.dto.ToolStatsDto;
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.service.ToolService;
+import com.green.imagecore.service.ToolStatsService;
 import com.green.imagecore.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +34,9 @@ class ToolControllerTest extends BaseControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private ToolStatsService toolStatsService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -404,5 +409,73 @@ class ToolControllerTest extends BaseControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(toolService);
+    }
+
+    // GET /api/tools/{id}/stats
+
+    @Test
+    @WithMockUser(username = "dr.smith", roles = "CLINICIAN")
+    void getToolStats_asOwner_returns200() throws Exception {
+        ToolStatsDto stats = new ToolStatsDto();
+        stats.setTotalRuns(10);
+        stats.setCompletedRuns(9);
+        stats.setFailedRuns(1);
+        stats.setPendingOrRunningRuns(0);
+        stats.setSuccessRatePct(90.0);
+        stats.setAvgCompletionSeconds(120.0);
+        stats.setRecentJobs(List.of());
+
+        when(toolStatsService.getStats(eq(1L), any())).thenReturn(stats);
+
+        mockMvc.perform(get("/api/tools/1/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRuns").value(10))
+                .andExpect(jsonPath("$.completedRuns").value(9))
+                .andExpect(jsonPath("$.successRatePct").value(90.0))
+                .andExpect(jsonPath("$.recentJobs").isArray());
+    }
+
+    @Test
+    @WithMockUser(username = "adminUser", roles = "ADMIN")
+    void getToolStats_asAdmin_returns200() throws Exception {
+        ToolStatsDto stats = new ToolStatsDto();
+        stats.setTotalRuns(0);
+        stats.setRecentJobs(List.of());
+
+        when(toolStatsService.getStats(eq(2L), any())).thenReturn(stats);
+
+        mockMvc.perform(get("/api/tools/2/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRuns").value(0));
+    }
+
+    @Test
+    @WithMockUser(username = "dr.jones", roles = "CLINICIAN")
+    void getToolStats_asNonOwner_returns403() throws Exception {
+        when(toolStatsService.getStats(eq(1L), any()))
+                .thenThrow(new AccessDeniedException("Access denied"));
+
+        mockMvc.perform(get("/api/tools/1/stats"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    @Test
+    @WithMockUser(roles = "CLINICIAN")
+    void getToolStats_toolNotFound_returns404() throws Exception {
+        when(toolStatsService.getStats(eq(999L), any()))
+                .thenThrow(new ResourceNotFoundException("Tool not found with id: 999"));
+
+        mockMvc.perform(get("/api/tools/999/stats"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void getToolStats_unauthenticated_returns401() throws Exception {
+        mockMvc.perform(get("/api/tools/1/stats"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(toolStatsService);
     }
 }

@@ -97,6 +97,33 @@
           variant="outlined"
           hover
           rounded
+          hoverBorderClass="hover:border-indigo-300"
+          class="group block cursor-pointer"
+          @click="navigateTo('/dashboard/analytics')"
+      >
+        <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+            />
+          </svg>
+        </div>
+        <div class="mt-3">
+          <div class="text-sm font-semibold text-slate-900">Tool Analytics</div>
+          <div class="mt-0.5 text-xs text-slate-500">View usage statistics for your tools.</div>
+        </div>
+        <div class="absolute right-5 top-5 text-slate-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-indigo-500">
+          →
+        </div>
+      </Card>
+
+      <Card
+          variant="outlined"
+          hover
+          rounded
           hoverBorderClass="hover:border-violet-300"
           class="group block cursor-pointer"
           @click="navigateTo('/dashboard/tools')"

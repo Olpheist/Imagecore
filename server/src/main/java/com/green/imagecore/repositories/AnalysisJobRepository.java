@@ -22,4 +22,20 @@ public interface AnalysisJobRepository extends JpaRepository<AnalysisJob, Long> 
     @Modifying
     @Query("DELETE FROM AnalysisJob a WHERE a.image.id = :imageId")
     void deleteByImageId(@Param("imageId") Long imageId);
+
+    @Query(value = """
+            SELECT
+                COUNT(*),
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END),
+                COUNT(CASE WHEN status = 'FAILED' THEN 1 END),
+                COUNT(CASE WHEN status IN ('PENDING','SUBMITTED','RUNNING') THEN 1 END),
+                AVG(CASE WHEN status = 'COMPLETED'
+                        THEN EXTRACT(EPOCH FROM (updated_at - created_at)) END),
+                MAX(created_at)
+            FROM analysis_jobs
+            WHERE tool_id = :toolId
+            """, nativeQuery = true)
+    List<Object[]> findAggregateStatsByToolId(@Param("toolId") Long toolId);
+
+    List<AnalysisJob> findTop10ByToolToolIdOrderByCreatedAtDesc(Long toolId);
 }

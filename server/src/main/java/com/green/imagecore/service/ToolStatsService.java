@@ -48,7 +48,12 @@ public class ToolStatsService {
         long failedRuns           = ((Number) row[2]).longValue();
         long pendingOrRunningRuns = ((Number) row[3]).longValue();
         Double avgCompletionSeconds = row[4] != null ? ((Number) row[4]).doubleValue() : null;
-        Instant lastRunAt = row[5] != null ? ((Timestamp) row[5]).toInstant() : null;
+        Instant lastRunAt = null;
+        if (row[5] instanceof Instant inst) {
+            lastRunAt = inst;
+        } else if (row[5] instanceof Timestamp ts) {
+            lastRunAt = ts.toInstant();
+        }
 
         double successRatePct = totalRuns == 0 ? 0.0 : (double) completedRuns / totalRuns * 100.0;
 

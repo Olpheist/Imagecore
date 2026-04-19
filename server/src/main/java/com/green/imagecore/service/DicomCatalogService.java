@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.medicalimaging.MedicalImagingClient;
 import software.amazon.awssdk.services.medicalimaging.model.ConflictException;
 import software.amazon.awssdk.services.medicalimaging.model.DeleteImageSetRequest;
@@ -175,6 +176,10 @@ public class DicomCatalogService {
                 log.warn("ImageSet {} is not in a deletable state for image {}: {}", image.getImageSetId(), imageId, e.getMessage());
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "The image set is still being processed by HealthImaging. Please try again in a moment.");
+            } catch (SdkException e) {
+                log.error("Unexpected HealthImaging error deleting imageSet {} for image {}: {}", image.getImageSetId(), imageId, e.getMessage(), e);
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "HealthImaging is unavailable. Please try again later.");
             }
         }
 

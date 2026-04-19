@@ -7,6 +7,7 @@ import com.green.imagecore.entities.User;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.AnalysisJobRepository;
 import com.green.imagecore.repositories.DicomImageRepository;
+import software.amazon.awssdk.core.exception.SdkException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -441,6 +442,34 @@ class DicomCatalogServiceTest {
                 () -> dicomCatalogService.delete(5L, 42L));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+    }
+
+    @Test
+    void delete_ThrowsServiceUnavailable_WhenHealthImagingThrowsUnexpectedSdkException() {
+        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid/");
+        image.setImageSetId("imgset-001");
+        when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
+        when(medicalImagingClient.deleteImageSet(any(DeleteImageSetRequest.class)))
+                .thenThrow(SdkException.builder().message("connection timeout").build());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> dicomCatalogService.delete(5L, 42L));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getStatusCode());
+    }
+
+    @Test
+    void delete_DoesNotDeleteS3OrDb_WhenSdkExceptionThrown() {
+        DicomImage image = buildImage(5L, 42L, "scan.dcm", "dicom/42/uuid/");
+        image.setImageSetId("imgset-001");
+        when(dicomImageRepository.findByIdAndUserId(5L, 42L)).thenReturn(Optional.of(image));
+        when(medicalImagingClient.deleteImageSet(any(DeleteImageSetRequest.class)))
+                .thenThrow(SdkException.builder().message("connection timeout").build());
+
+        assertThrows(ResponseStatusException.class, () -> dicomCatalogService.delete(5L, 42L));
+
+        verifyNoInteractions(s3Client);
+        verify(dicomImageRepository, never()).delete(any());
     }
 
     @Test

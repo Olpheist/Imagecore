@@ -108,7 +108,8 @@ resource "aws_iam_role_policy" "ecs_task" {
           "medical-imaging:GetImageSetMetadata",   #retrieve DICOM metadata blob for an image set (spatial info, frame IDs)
           "medical-imaging:SearchImageSets",       #query image sets by patient/study attributes
           "medical-imaging:ListImageSetVersions",  #list versions of an image set (HealthImaging is immutable; updates create new versions)
-          "medical-imaging:GetImageFrame"          #retrieve individual image frames for WADO-RS serving
+          "medical-imaging:GetImageFrame",         #retrieve individual image frames for WADO-RS serving
+          "medical-imaging:DeleteImageSet"         #remove an image set from the datastore
         ]
         Resource = [
           var.health_imaging_datastore_arn,               #datastore-level operations (e.g. StartDICOMImportJob, ListDICOMImportJobs)

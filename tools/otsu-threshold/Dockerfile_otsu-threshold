@@ -1,0 +1,26 @@
+FROM python:3.11
+
+WORKDIR /work
+
+# libfreetype is required by reportlab, libgomp by ITK filters
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libfreetype6-dev \
+        libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project definition first so dependency layer is cached separately
+COPY pyproject.toml pyproject.toml
+
+# Copy source and entrypoint
+COPY src/ src/
+COPY entrypoint.sh entrypoint.sh
+
+# Install the package and its dependencies
+RUN pip install --no-cache-dir .
+RUN chmod +x entrypoint.sh
+
+# Output directory -- mount a host volume here to retrieve results
+VOLUME ["/work/output"]
+
+ENTRYPOINT ["/work/entrypoint.sh"]
+CMD []

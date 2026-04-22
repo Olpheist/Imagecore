@@ -332,15 +332,9 @@ public class AnalysisJobService {
 
         DicomImage original = job.getImage();
 
-        // use the original's series description as the display name base; fall back to filename
-        // if the original had no series description (e.g. non-conformant DICOM)
-        String origDesc = original.getSeriesDescription() != null && !original.getSeriesDescription().isBlank()
-                ? original.getSeriesDescription()
-                : original.getFilename();
-
         String primaryS3Key      = isMultiOutput ? "results/" + job.getId() + "/dicom-masked/" : "results/" + job.getId() + "/dicom/";
-        String primaryFilename   = isMultiOutput ? original.getFilename() + " [Otsu Mask]" : original.getFilename() + " [N4 Corrected]";
-        String primarySeriesDesc = isMultiOutput ? origDesc + " [Otsu Mask]" : origDesc + " [N4 Corrected]";
+        String primaryFilename   = isMultiOutput ? "Otsu Mask - " + original.getFilename() : "N4 Corrected - " + original.getFilename();
+        String primarySeriesDesc = isMultiOutput ? "Otsu Mask" : "N4 Bias Field Corrected";
 
         DicomImage corrected = DicomImage.builder()
                 .user(original.getUser())
@@ -367,7 +361,7 @@ public class AnalysisJobService {
             DicomImage binaryMask = DicomImage.builder()
                     .user(original.getUser())
                     .s3Key("results/" + job.getId() + "/dicom-binary/")
-                    .filename(original.getFilename() + " [Otsu Binary Mask]")
+                    .filename("Otsu Binary Mask - " + original.getFilename())
                     .fileSize(0L)
                     .healthImagingJobId(binaryMaskImportJobId)
                     .importStatus(ImportStatus.SUBMITTED)
@@ -378,7 +372,7 @@ public class AnalysisJobService {
                     .physician(original.getPhysician())
                     .studyInstanceUid(original.getStudyInstanceUid())
                     .studyDescription(original.getStudyDescription())
-                    .seriesDescription(origDesc + " [Otsu Binary Mask]")
+                    .seriesDescription("Otsu Binary Mask")
                     .build();
             binaryMask = dicomImageRepository.save(binaryMask);
             eventPublisher.publishEvent(new DicomImportSubmittedEvent(binaryMask.getId()));

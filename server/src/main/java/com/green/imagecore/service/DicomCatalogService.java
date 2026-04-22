@@ -90,10 +90,10 @@ public class DicomCatalogService {
         DicomImage first = group.get(0);
 
         String displayName =
-                first.getFilename()           != null  ? first.getFilename()
-              : first.getSeriesDescription()  != null  ? first.getSeriesDescription()
-              : first.getStudyDescription()   != null  ? first.getStudyDescription()
-              : first.getImageSetId();
+                first.getSeriesDescription() != null  ? first.getSeriesDescription()
+              : first.getStudyDescription()  != null  ? first.getStudyDescription()
+              : first.getImageSetId()        != null  ? first.getImageSetId()
+              : first.getFilename();
 
         // frame_count is populated by populateMetadata() to the actual SOP instance count.
         // For records not yet re-populated it defaults to 1; the sync endpoint will correct it.

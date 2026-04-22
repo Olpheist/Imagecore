@@ -331,13 +331,16 @@ public class AnalysisJobService {
         boolean isMultiOutput = binaryMaskImportJobId != null;
 
         DicomImage original = job.getImage();
-        String toolName = job.getTool().getName();
 
-        String primaryS3Key     = isMultiOutput ? "results/" + job.getId() + "/dicom-masked/" : "results/" + job.getId() + "/dicom/";
-        String primaryFilename  = isMultiOutput
-                ? original.getFilename() + " [Otsu Mask]"
-                : original.getFilename() + " [N4 Corrected]";
-        String primarySeriesDesc = isMultiOutput ? toolName + " Masked Intensity" : toolName + " Corrected";
+        // use the original's series description as the display name base; fall back to filename
+        // if the original had no series description (e.g. non-conformant DICOM)
+        String origDesc = original.getSeriesDescription() != null && !original.getSeriesDescription().isBlank()
+                ? original.getSeriesDescription()
+                : original.getFilename();
+
+        String primaryS3Key      = isMultiOutput ? "results/" + job.getId() + "/dicom-masked/" : "results/" + job.getId() + "/dicom/";
+        String primaryFilename   = isMultiOutput ? original.getFilename() + " [Otsu Mask]" : original.getFilename() + " [N4 Corrected]";
+        String primarySeriesDesc = isMultiOutput ? origDesc + " [Otsu Mask]" : origDesc + " [N4 Corrected]";
 
         DicomImage corrected = DicomImage.builder()
                 .user(original.getUser())
@@ -375,7 +378,7 @@ public class AnalysisJobService {
                     .physician(original.getPhysician())
                     .studyInstanceUid(original.getStudyInstanceUid())
                     .studyDescription(original.getStudyDescription())
-                    .seriesDescription(toolName + " Binary Mask")
+                    .seriesDescription(origDesc + " [Otsu Binary Mask]")
                     .build();
             binaryMask = dicomImageRepository.save(binaryMask);
             eventPublisher.publishEvent(new DicomImportSubmittedEvent(binaryMask.getId()));

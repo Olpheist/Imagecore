@@ -1,15 +1,15 @@
 <template>
   <div class="min-h-screen flex flex-col bg-slate-200 relative overflow-hidden">
-    <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.08),transparent_45%)]"></div>
-      <div class="absolute inset-y-0 left-0 w-48 bg-linear-to-r from-slate-300/60 to-transparent"></div>
-      <div class="absolute inset-y-0 right-0 w-48 bg-linear-to-l from-slate-300/60 to-transparent"></div>
-    </div>
-
     <Header />
 
-    <main class="flex-1 relative z-10">
-      <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <main class="flex-1 relative z-10 overflow-hidden">
+      <div class="absolute inset-0 pointer-events-none">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.18),transparent_55%)]"></div>
+        <div class="absolute inset-y-0 left-0 w-64 bg-linear-to-r from-slate-400/70 to-transparent"></div>
+        <div class="absolute inset-y-0 right-0 w-64 bg-linear-to-l from-slate-400/70 to-transparent"></div>
+      </div>
+
+      <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 relative">
         <div class="border border-slate-300/80 bg-white/75 shadow-[0_20px_60px_rgba(15,23,42,0.12)] backdrop-blur-md overflow-hidden">
           <div
               v-if="userStore.isLoggedIn && breadcrumbs.length"

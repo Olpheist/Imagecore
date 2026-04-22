@@ -13,7 +13,7 @@
       <div class="rounded-3xl border border-slate-300 bg-white shadow-md overflow-hidden">
         <div class="border-b border-slate-200 bg-linear-to-r from-slate-50 to-white px-8 py-6">
           <div class="flex items-center gap-4">
-            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-lg font-semibold text-white">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/80 text-lg font-semibold text-white">
               {{ initials }}
             </div>
             <div>
@@ -93,7 +93,7 @@ const rolesDisplay = computed(() => {
 const initials = computed(() => {
   const username = user.value?.username?.trim() ?? "";
   if (!username) return "U";
-  return username.slice(0, 2).toUpperCase();
+  return username.slice(0, 1).toUpperCase();
 });
 
 const formatDate = (iso: string): string => {

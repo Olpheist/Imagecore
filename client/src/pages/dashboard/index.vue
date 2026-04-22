@@ -69,7 +69,6 @@
               Clear filters
             </button>
           </div>
-
           <div
               v-if="filteredCards.length > 0"
               class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
@@ -81,19 +80,20 @@
                 hover
                 rounded
                 :hoverBorderClass="card.hoverBorderClass"
-                class="group relative block cursor-pointer overflow-hidden border border-slate-200 border-t-4 border-t-slate-800/60"
+                class="group relative flex min-h-55 cursor-pointer flex-col overflow-hidden border border-slate-200 border-t-4 border-t-slate-800/60"
                 :class="[
-                  'border border-slate-200',
                   index % 2 === 0
                     ? 'bg-white'
                     : 'bg-linear-to-br from-slate-100 via-slate-100 to-slate-200/80'
                 ]"
                 @click="navigateTo(card.to)"
             >
-              <div class="inline-flex h-11 w-11 items-center justify-center rounded-2xl text-current" :class="card.iconWrapClass">
+              <div
+                  class="inline-flex h-11 w-11 items-center justify-center rounded-2xl text-current"
+                  :class="card.iconWrapClass"
+              >
                 <span v-html="card.icon"></span>
               </div>
-
 
               <div class="mt-4">
                 <div class="text-base font-semibold text-slate-900">
@@ -104,8 +104,11 @@
                 </div>
               </div>
 
-              <div class="mt-5 flex items-center justify-between">
-                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+              <div class="mt-auto flex items-center justify-between pt-5">
+                <span
+                    class="rounded-full px-2.5 py-1 text-xs font-medium text-slate-600"
+                    :class="[index % 2 === 0 ? 'bg-slate-100' : 'bg-white']"
+                >
                   {{ card.category }}
                 </span>
 
@@ -118,7 +121,6 @@
               </div>
             </Card>
           </div>
-
           <div
               v-else
               class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center"

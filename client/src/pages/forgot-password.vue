@@ -57,6 +57,10 @@ useHead({
   title: "Forgot Password",
 });
 
+definePageMeta({
+  layoutBackground: false,
+});
+
 const email = ref("");
 const loading = ref(false);
 const submitted = ref(false);

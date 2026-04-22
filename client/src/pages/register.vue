@@ -82,6 +82,10 @@ useHead({
   title: "Register",
 });
 
+definePageMeta({
+  layoutBackground: false,
+});
+
 const userStore = useUserStore();
 
 const username = ref("");

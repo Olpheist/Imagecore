@@ -108,8 +108,10 @@
     </section>
     <section
         id="how-it-works"
-        class="max-w-7xl mx-auto w-full px-6 py-20"
+        class="relative max-w-7xl mx-auto w-full px-6 py-20 overflow-hidden"
     >
+      <div class="absolute inset-0 -z-10 bg-linear-to-br from-blue-50 via-slate-50 to-indigo-50"></div>
+      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-150 h-75 bg-blue-200/20 blur-3xl rounded-full"></div>
       <div class="text-center max-w-3xl mx-auto">
         <h2 class="text-3xl sm:text-4xl font-bold text-slate-900">
           How ImageCore Works
@@ -119,60 +121,117 @@
         </p>
       </div>
       <div class="mt-12 grid md:grid-cols-3 gap-6">
-        <Card rounded class="p-8 bg-white border border-slate-200 shadow-sm text-left">
-          <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-2xl">
+        <Card class="relative p-8 rounded-3xl border border-blue-200 bg-linear-to-br from-blue-50 to-blue-100 shadow-md overflow-hidden">
+          <div class="absolute top-4 right-4 grid grid-cols-3 gap-1 opacity-30">
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+          </div>
+          <div class="absolute bottom-0 right-0 w-32 h-16 bg-blue-300/20 rounded-tl-full"></div>
+          <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-200 text-2xl">
             📤
           </div>
-          <h3 class="text-xl font-semibold text-slate-900 mb-2">Step 1: Upload Images</h3>
+          <h3 class="text-xl font-semibold text-slate-900 mb-2">
+            Step 1: Upload Images
+          </h3>
           <p class="text-slate-600 leading-7">
             Securely upload DICOM or medical image files into the platform.
           </p>
         </Card>
-        <Card rounded class="p-8 bg-white border border-slate-200 shadow-sm text-left">
-          <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-2xl">
+        <Card class="relative p-8 rounded-3xl border border-emerald-200 bg-linear-to-br from-emerald-50 to-emerald-100 shadow-md overflow-hidden">
+          <div class="absolute top-4 right-4 grid grid-cols-3 gap-1 opacity-30">
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+          </div>
+          <div class="absolute bottom-0 right-0 w-32 h-16 bg-emerald-300/20 rounded-tl-full"></div>
+          <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-200 text-2xl">
             ⚙️
           </div>
-          <h3 class="text-xl font-semibold text-slate-900 mb-2">Step 2: Run Analysis</h3>
+          <h3 class="text-xl font-semibold text-slate-900 mb-2">
+            Step 2: Run Analysis
+          </h3>
           <p class="text-slate-600 leading-7">
             Choose a tool, review what it does, and start the analysis pipeline.
           </p>
         </Card>
-        <Card rounded class="p-8 bg-white border border-slate-200 shadow-sm text-left">
-          <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-2xl">
+        <Card class="relative p-8 rounded-3xl border border-violet-200 bg-linear-to-br from-violet-50 to-violet-100 shadow-md overflow-hidden">
+          <div class="absolute top-4 right-4 grid grid-cols-3 gap-1 opacity-30">
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+            <div class="w-1 h-1 bg-current rounded-full"></div>
+          </div>
+          <div class="absolute bottom-0 right-0 w-32 h-16 bg-violet-300/20 rounded-tl-full"></div>
+          <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-200 text-2xl">
             📊
           </div>
-          <h3 class="text-xl font-semibold text-slate-900 mb-2">Step 3: View Results</h3>
+          <h3 class="text-xl font-semibold text-slate-900 mb-2">
+            Step 3: View Results
+          </h3>
           <p class="text-slate-600 leading-7">
             Review processed outputs, compare images, and access reports from your dashboard.
           </p>
         </Card>
       </div>
     </section>
-    <section class="max-w-7xl mx-auto px-6 py-20">
-      <div class="rounded-3xl border border-slate-300 bg-white p-10 shadow-sm text-center">
-        <h2 class="text-3xl font-bold text-slate-900">Ready to get started?</h2>
-        <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-          Upload your first image, choose an analysis tool, and review results in one place.
-        </p>
-        <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-          <Button
-              v-if="userStore.isLoggedIn"
-              variant="success"
-              rounded
-              size="lg"
-              @click="toDashboard"
-          >
-            Open Dashboard
-          </Button>
-          <Button
-              v-else
-              variant="success"
-              rounded
-              size="lg"
-              @click="toLogin"
-          >
-            Login
-          </Button>
+    <section class="relative max-w-7xl mx-auto px-6 py-20 overflow-hidden">
+      <div class="absolute inset-0 -z-10 bg-linear-to-br from-slate-50 via-white to-slate-100"></div>
+
+      <div class="relative overflow-hidden rounded-4xl bg-linear-to-br from-slate-800 via-slate-700 to-slate-800 text-white border border-white/10 p-10 sm:p-14 shadow-[0_25px_50px_rgba(0,0,0,0.25)] text-center">
+        <div class="absolute inset-0 pointer-events-none">
+          <div class="absolute -top-16 -left-16 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"></div>
+          <div class="absolute -bottom-20 -right-16 h-48 w-48 rounded-full bg-violet-500/20 blur-3xl"></div>
+          <div class="absolute top-8 right-12 text-indigo-300/70 text-2xl">✦</div>
+          <div class="absolute bottom-10 left-10 text-violet-300/70 text-2xl">✦</div>
+          <div class="absolute bottom-8 right-20 grid grid-cols-4 gap-2 opacity-30">
+            <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-indigo-400"></div>
+          </div>
+        </div>
+
+        <div class="relative z-10 mx-auto max-w-3xl">
+          <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+            Ready to get started?
+          </h2>
+
+          <p class="mt-4 text-lg leading-8 text-white/70">
+            Upload your first image, choose an analysis tool, and review results in one place.
+          </p>
+
+          <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+            <Button
+                v-if="userStore.isLoggedIn"
+                variant="success"
+                rounded
+                size="lg"
+                class="min-w-50 shadow-lg"
+                @click="toDashboard"
+            >
+              Open Dashboard
+            </Button>
+            <Button
+                v-else
+                variant="success"
+                rounded
+                size="lg"
+                class="min-w-50 shadow-lg"
+                @click="toLogin"
+            >
+              Login
+            </Button>
+          </div>
         </div>
       </div>
     </section>

@@ -65,6 +65,13 @@
               </div>
             </div>
           </div>
+          <button
+              class="text-blue-600 hover:underline font-medium mt-2"
+              style="cursor: pointer;"
+              @click="onForgotPassword"
+          >
+            Reset Password
+          </button>
         </div>
       </div>
     </div>
@@ -75,6 +82,7 @@
 import { computed, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "~/stores/user";
+import {navigateTo} from "nuxt/app";
 
 const userStore = useUserStore();
 const { user } = storeToRefs(userStore);
@@ -105,6 +113,11 @@ const formatDate = (iso: string): string => {
     return iso;
   }
 };
+
+const onForgotPassword = async (): Promise<void> => {
+  await navigateTo("/forgot-password");
+};
+
 </script>
 
 <style scoped>

@@ -2,13 +2,9 @@
   <div class="min-h-screen flex flex-col">
     <section class="relative overflow-hidden border-b border-slate-300 bg-linear-to-b from-slate-100 via-slate-50 to-slate-200">
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.08),transparent_45%)]"></div>
-      <div class="relative max-w-7xl mx-auto px-6 py-20 lg:py-24">
+      <div class="relative max-w-7xl mx-auto px-6 py-20">
         <div class="grid lg:grid-cols-2 gap-12 items-center">
           <div class="text-center lg:text-left">
-            <div class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white/80 px-4 py-2 text-sm text-slate-700 shadow-sm mb-6">
-              <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-              Secure medical imaging workflow
-            </div>
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-tight">
               Analyze Medical Images
               <span class="block text-blue-700">Without the Confusion</span>
@@ -36,15 +32,6 @@
                   @click="toLogin"
               >
                 Login to Start
-              </Button>
-              <Button
-                  variant="secondary"
-                  rounded
-                  size="lg"
-                  class="w-full sm:w-auto"
-                  @click="scrollToHowItWorks"
-              >
-                See How It Works
               </Button>
             </div>
             <div class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
@@ -161,40 +148,6 @@
         </Card>
       </div>
     </section>
-    <section class="bg-slate-900 text-white">
-      <div class="max-w-7xl mx-auto px-6 py-20">
-        <div class="grid lg:grid-cols-2 gap-10 items-start">
-          <div>
-            <h2 class="text-3xl sm:text-4xl font-bold">
-              Clear tools, not black boxes
-            </h2>
-            <p class="mt-4 text-lg text-slate-300 leading-8">
-              Each analysis tool should explain what goes in, what happens, and what comes out so users know what to expect before they run anything.
-            </p>
-          </div>
-          <div class="rounded-3xl border border-white/10 bg-white/5 p-8">
-            <h3 class="text-xl font-semibold">N4 Bias Field Correction</h3>
-            <p class="mt-3 text-slate-300 leading-7">
-              This tool helps correct uneven brightness in MRI images so the final scan is more consistent and easier to review.
-            </p>
-            <div class="mt-6 space-y-3 text-sm">
-              <div class="rounded-2xl bg-white/5 border border-white/10 p-4">
-                <span class="font-semibold text-white">Input:</span>
-                <span class="text-slate-300"> Raw DICOM image series</span>
-              </div>
-              <div class="rounded-2xl bg-white/5 border border-white/10 p-4">
-                <span class="font-semibold text-white">Process:</span>
-                <span class="text-slate-300"> Automated correction reduces intensity shading artifacts</span>
-              </div>
-              <div class="rounded-2xl bg-white/5 border border-white/10 p-4">
-                <span class="font-semibold text-white">Output:</span>
-                <span class="text-slate-300"> Corrected image set and downloadable report</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
     <section class="max-w-7xl mx-auto px-6 py-20">
       <div class="rounded-3xl border border-slate-300 bg-white p-10 shadow-sm text-center">
         <h2 class="text-3xl font-bold text-slate-900">Ready to get started?</h2>
@@ -233,18 +186,11 @@ const userStore = useUserStore();
 
 const toLogin = async (): Promise<void> => {
   await navigateTo("/login");
-};
+}
 
 const toDashboard = async (): Promise<void> => {
   await navigateTo("/dashboard");
-};
-
-const scrollToHowItWorks = (): void => {
-  const section = document.getElementById("how-it-works");
-  if (section) {
-    section.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-};
+}
 </script>
 
 <style scoped>

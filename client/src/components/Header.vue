@@ -1,5 +1,5 @@
 <template>
-  <header class="w-full bg-linear-to-r from-slate-900 to-slate-800 text-white border-b border-white/10 backdrop-blur">
+  <header class="relative z-50 w-full bg-linear-to-r from-slate-900 to-slate-800 text-white border-b border-white/10 backdrop-blur">
     <div class="max-w-7xl mx-auto px-6">
       <div class="h-16 flex items-center justify-between">
         <div class="flex items-center gap-3 min-w-0">
@@ -62,86 +62,16 @@
           </template>
         </div>
       </div>
-
-      <!-- BREADCRUMBS -->
-      <div class="h-11 flex items-center bg-slate-800/60 border-t border-white/10 rounded-b-xl px-2" v-if="userStore.isLoggedIn">
-        <nav aria-label="Breadcrumb" class="min-w-0">
-          <ol class="flex items-center gap-2 text-sm">
-            <li>
-              <NuxtLink
-                  to="/dashboard"
-                  class="text-white/50 hover:text-white transition"
-              >
-                Dashboard
-              </NuxtLink>
-            </li>
-            <template v-for="(crumb, index) in breadcrumbs" :key="crumb.to">
-              <li class="text-white/20">/</li>
-              <li>
-                <NuxtLink
-                    v-if="index !== breadcrumbs.length - 1"
-                    :to="crumb.to"
-                    class="text-white/50 hover:text-white transition"
-                >
-                  {{ crumb.label }}
-                </NuxtLink>
-                <span
-                    v-else
-                    class="text-white font-medium"
-                >
-                  {{ crumb.label }}
-                </span>
-              </li>
-            </template>
-          </ol>
-        </nav>
-      </div>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
-import { navigateTo, useRoute } from "nuxt/app";
+import { navigateTo } from "nuxt/app";
 import { useUserStore } from "~/stores/user";
 import DropdownMenu from "~/components/DropdownMenu.vue";
 
 const userStore = useUserStore();
-const route = useRoute();
-
-const formatLabel = (segment: string): string => {
-  const customLabels: Record<string, string> = {
-    dicom: "DICOM Viewer",
-    "dicom-upload": "DICOM Upload",
-    profile: "Profile",
-    tools: "Tools",
-    analytics: "Tool Analytics",
-    admin: "Admin Center",
-  };
-
-  if (customLabels[segment]) {
-    return customLabels[segment];
-  }
-
-  return segment
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
-const breadcrumbs = computed(() => {
-  const segments = route.path.split("/").filter(Boolean);
-
-  if (segments.length === 0) {
-    return [];
-  }
-
-  segments.shift();
-
-  return segments.map((segment, index) => ({
-    label: formatLabel(segment),
-    to: "/dashboard/" + segments.slice(0, index + 1).join("/"),
-  }));
-});
 
 const handleLogout = async (close: () => void): Promise<void> => {
   close();

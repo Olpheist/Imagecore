@@ -327,12 +327,22 @@ public class AnalysisJobService {
             return;
         }
 
-        // create a new DicomImage catalog entry for the corrected image set
+        String binaryMaskImportJobId = outputNode.path("healthImagingBinaryMaskImportJobId").asText(null);
+        boolean isMultiOutput = binaryMaskImportJobId != null;
+
         DicomImage original = job.getImage();
+        String toolName = job.getTool().getName();
+
+        String primaryS3Key     = isMultiOutput ? "results/" + job.getId() + "/dicom-masked/" : "results/" + job.getId() + "/dicom/";
+        String primaryFilename  = isMultiOutput
+                ? original.getFilename() + " [Otsu Mask]"
+                : original.getFilename() + " [N4 Corrected]";
+        String primarySeriesDesc = isMultiOutput ? toolName + " Masked Intensity" : toolName + " Corrected";
+
         DicomImage corrected = DicomImage.builder()
                 .user(original.getUser())
-                .s3Key("results/" + job.getId() + "/dicom/")
-                .filename("N4 Corrected - " + original.getFilename())
+                .s3Key(primaryS3Key)
+                .filename(primaryFilename)
                 .fileSize(0L)
                 .healthImagingJobId(healthImagingImportJobId)
                 .importStatus(ImportStatus.SUBMITTED)
@@ -343,16 +353,36 @@ public class AnalysisJobService {
                 .physician(original.getPhysician())
                 .studyInstanceUid(original.getStudyInstanceUid())
                 .studyDescription(original.getStudyDescription())
-                .seriesDescription("N4 Bias Field Corrected")
+                .seriesDescription(primarySeriesDesc)
                 .build();
         corrected = dicomImageRepository.save(corrected);
 
-        // publish the event so DicomImportJobListener polls HealthImaging until
-        // the import completes and populateMetadata runs, same as a regular upload
         eventPublisher.publishEvent(new DicomImportSubmittedEvent(corrected.getId()));
-
-        // also attempt an immediate sync as a fast path for quick imports
         healthImagingService.syncImportStatus(corrected);
+
+        if (isMultiOutput) {
+            DicomImage binaryMask = DicomImage.builder()
+                    .user(original.getUser())
+                    .s3Key("results/" + job.getId() + "/dicom-binary/")
+                    .filename(original.getFilename() + " [Otsu Binary Mask]")
+                    .fileSize(0L)
+                    .healthImagingJobId(binaryMaskImportJobId)
+                    .importStatus(ImportStatus.SUBMITTED)
+                    .modality(original.getModality())
+                    .bodyPart(original.getBodyPart())
+                    .patientId(original.getPatientId())
+                    .studyDate(original.getStudyDate())
+                    .physician(original.getPhysician())
+                    .studyInstanceUid(original.getStudyInstanceUid())
+                    .studyDescription(original.getStudyDescription())
+                    .seriesDescription(toolName + " Binary Mask")
+                    .build();
+            binaryMask = dicomImageRepository.save(binaryMask);
+            eventPublisher.publishEvent(new DicomImportSubmittedEvent(binaryMask.getId()));
+            healthImagingService.syncImportStatus(binaryMask);
+            log.info("Analysis job {} created binary mask DicomImage {} for HealthImaging job {}",
+                    job.getId(), binaryMask.getId(), binaryMaskImportJobId);
+        }
 
         job.setStatus(JobStatus.COMPLETED);
         job.setUpdatedAt(Instant.now());

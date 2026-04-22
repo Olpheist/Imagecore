@@ -14,6 +14,8 @@ import itk
 import numpy as np
 import pydicom
 import pytest
+from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
+from pydicom.uid import ExplicitVRLittleEndian, generate_uid
 
 from otsu_threshold.pipeline import (
     _build_direction_matrix,
@@ -40,34 +42,48 @@ def _make_image(z=8, y=32, x=32, spacing=(1.0, 1.0, 1.0)):
     return img
 
 
-def _make_frame_descriptors(n_slices=3, study_uid="1.2.3.4.5"):
-    # Minimal per-slice metadata dicts, matching what load_from_s3_dicom returns
-    # Used to test write_masked_dicom_series without actually hitting S3
-    raw = {
-        "00100010": {"vr": "PN", "Value": [{"Alphabetic": "Test^Patient"}]},
-        "00100020": {"vr": "LO", "Value": ["TEST-001"]},
-        "00100030": {"vr": "DA", "Value": ["19800101"]},
-        "00100040": {"vr": "CS", "Value": ["O"]},
-        "0020000D": {"vr": "UI", "Value": [study_uid]},
-        "00080020": {"vr": "DA", "Value": ["20260420"]},
-        "00080030": {"vr": "TM", "Value": ["120000"]},
-        "00080050": {"vr": "SH", "Value": ["ACC-001"]},
-        "00200010": {"vr": "SH", "Value": ["1"]},
-        "00081030": {"vr": "LO", "Value": ["Test Study"]},
-        "00080060": {"vr": "CS", "Value": ["MR"]},
-    }
-    return [
-        {
-            "frame_id": f"frame-{i:04d}",
-            "instance_number": i + 1,
-            "image_position": [0.0, 0.0, float(i)],
-            "image_orientation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-            "pixel_spacing": [1.0, 1.0],
-            "slice_thickness": 1.0,
-            "raw_dicom": raw,
-        }
-        for i in range(n_slices)
-    ]
+def _make_datasets(n_slices=3, study_uid="1.2.3.4.5", rows=16, cols=16):
+    # Minimal pydicom FileDataset objects matching what load_from_s3_dicom returns.
+    # Uses 16-bit uint pixels to match typical MRI data. Used to test
+    # write_masked_dicom_series and write_binary_mask_dicom_series without S3
+    datasets = []
+    series_uid = generate_uid()
+    for i in range(n_slices):
+        file_meta = FileMetaDataset()
+        file_meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.4"
+        sop_uid = generate_uid()
+        file_meta.MediaStorageSOPInstanceUID = sop_uid
+        file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+
+        ds = FileDataset("", {}, file_meta=file_meta, preamble=b"\x00" * 128)
+        ds.is_implicit_VR = False
+        ds.is_little_endian = True
+
+        ds.SOPClassUID = "1.2.840.10008.5.1.4.1.1.4"
+        ds.SOPInstanceUID = sop_uid
+        ds.StudyInstanceUID = study_uid
+        ds.SeriesInstanceUID = series_uid
+        ds.Modality = "MR"
+        ds.PatientName = "Test^Patient"
+        ds.PatientID = "TEST-001"
+        ds.SeriesDescription = "T1"
+        ds.SeriesNumber = 1
+        ds.InstanceNumber = i + 1
+        ds.RescaleSlope = 1.0
+        ds.RescaleIntercept = 0.0
+
+        ds.BitsAllocated = 16
+        ds.BitsStored = 16
+        ds.HighBit = 15
+        ds.PixelRepresentation = 0
+        ds.SamplesPerPixel = 1
+        ds.PhotometricInterpretation = "MONOCHROME2"
+        ds.Rows = rows
+        ds.Columns = cols
+        ds.PixelData = np.ones((rows, cols), dtype=np.uint16).tobytes()
+
+        datasets.append(ds)
+    return datasets
 
 
 # ---------------------------------------------------------------------------
@@ -201,62 +217,63 @@ class TestNormalizeToUint8:
 
 class TestWriteMaskedDicomSeries:
     def test_writes_one_file_per_slice(self):
-        arr = np.ones((3, 16, 16), dtype=np.float32)
+        arr = np.ones((3, 16, 16), dtype=np.float32) * 500.0
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = write_masked_dicom_series(arr, _make_frame_descriptors(3), Path(tmp) / "out")
+            out_dir = write_masked_dicom_series(arr, _make_datasets(3), Path(tmp) / "out")
             assert len(sorted(out_dir.glob("*.dcm"))) == 3
 
     def test_study_uid_preserved(self):
         # StudyInstanceUID has to stay the same so HealthImaging links the output
         # to the same study as the original upload
         study_uid = "1.2.840.99999.1234"
-        arr = np.ones((2, 16, 16), dtype=np.float32)
+        arr = np.ones((2, 16, 16), dtype=np.float32) * 500.0
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = write_masked_dicom_series(arr, _make_frame_descriptors(2, study_uid), Path(tmp) / "out")
+            out_dir = write_masked_dicom_series(arr, _make_datasets(2, study_uid), Path(tmp) / "out")
             ds = pydicom.dcmread(str(sorted(out_dir.glob("*.dcm"))[0]))
             assert str(ds.StudyInstanceUID) == study_uid
 
     def test_series_description_contains_otsu_mask(self):
-        arr = np.ones((2, 16, 16), dtype=np.float32)
+        arr = np.ones((2, 16, 16), dtype=np.float32) * 500.0
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = write_masked_dicom_series(arr, _make_frame_descriptors(2), Path(tmp) / "out")
+            out_dir = write_masked_dicom_series(arr, _make_datasets(2), Path(tmp) / "out")
             ds = pydicom.dcmread(str(sorted(out_dir.glob("*.dcm"))[0]))
             assert "[Otsu Mask]" in ds.SeriesDescription
 
     def test_image_type_is_derived_secondary(self):
-        arr = np.ones((2, 16, 16), dtype=np.float32)
+        arr = np.ones((2, 16, 16), dtype=np.float32) * 500.0
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = write_masked_dicom_series(arr, _make_frame_descriptors(2), Path(tmp) / "out")
+            out_dir = write_masked_dicom_series(arr, _make_datasets(2), Path(tmp) / "out")
             ds = pydicom.dcmread(str(sorted(out_dir.glob("*.dcm"))[0]))
             assert "DERIVED" in ds.ImageType
             assert "SECONDARY" in ds.ImageType
 
     def test_all_slices_share_series_uid(self):
-        arr = np.ones((3, 16, 16), dtype=np.float32)
+        arr = np.ones((3, 16, 16), dtype=np.float32) * 500.0
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = write_masked_dicom_series(arr, _make_frame_descriptors(3), Path(tmp) / "out")
+            out_dir = write_masked_dicom_series(arr, _make_datasets(3), Path(tmp) / "out")
             uids = {str(pydicom.dcmread(str(f)).SeriesInstanceUID) for f in out_dir.glob("*.dcm")}
             assert len(uids) == 1
 
     def test_sop_instance_uids_are_unique(self):
-        arr = np.ones((3, 16, 16), dtype=np.float32)
+        arr = np.ones((3, 16, 16), dtype=np.float32) * 500.0
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = write_masked_dicom_series(arr, _make_frame_descriptors(3), Path(tmp) / "out")
+            out_dir = write_masked_dicom_series(arr, _make_datasets(3), Path(tmp) / "out")
             uids = [str(pydicom.dcmread(str(f)).SOPInstanceUID) for f in sorted(out_dir.glob("*.dcm"))]
             assert len(uids) == len(set(uids))
 
-    def test_bits_allocated_is_8(self):
-        # Output is uint8 DICOM, so BitsAllocated must be 8
-        arr = np.ones((2, 16, 16), dtype=np.float32)
+    def test_original_bit_depth_preserved(self):
+        # Masked intensity preserves the original bit depth so HealthImaging sees
+        # a conformant MR image file (not a downgraded uint8)
+        arr = np.ones((2, 16, 16), dtype=np.float32) * 500.0
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = write_masked_dicom_series(arr, _make_frame_descriptors(2), Path(tmp) / "out")
+            out_dir = write_masked_dicom_series(arr, _make_datasets(2), Path(tmp) / "out")
             ds = pydicom.dcmread(str(sorted(out_dir.glob("*.dcm"))[0]))
-            assert ds.BitsAllocated == 8
+            assert ds.BitsAllocated == 16
 
     def test_pixel_dimensions_match_input(self):
-        arr = np.ones((2, 24, 32), dtype=np.float32)
+        arr = np.ones((2, 24, 32), dtype=np.float32) * 500.0
         with tempfile.TemporaryDirectory() as tmp:
-            out_dir = write_masked_dicom_series(arr, _make_frame_descriptors(2), Path(tmp) / "out")
+            out_dir = write_masked_dicom_series(arr, _make_datasets(2, rows=24, cols=32), Path(tmp) / "out")
             ds = pydicom.dcmread(str(sorted(out_dir.glob("*.dcm"))[0]))
             assert ds.Rows == 24
             assert ds.Columns == 32

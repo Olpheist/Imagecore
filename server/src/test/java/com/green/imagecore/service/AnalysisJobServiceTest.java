@@ -508,6 +508,109 @@ class AnalysisJobServiceTest {
         }
 
         @Test
+        @DisplayName("sets seriesDescription to origSeriesDescription + [N4 Corrected] for single-output tool")
+        void setsSeriesDescriptionForN4Output() {
+            image.setSeriesDescription("T1 MPRAGE");
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-job-999\"}");
+            when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+                DicomImage d = inv.getArgument(0); d.setId(77L); return d;
+            });
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(healthImagingService.syncImportStatus(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<DicomImage> captor = ArgumentCaptor.forClass(DicomImage.class);
+            verify(dicomImageRepository).save(captor.capture());
+            assertThat(captor.getValue().getSeriesDescription()).isEqualTo("T1 MPRAGE [N4 Corrected]");
+        }
+
+        @Test
+        @DisplayName("falls back to filename in output name when original has no series description")
+        void fallsBackToFilenameInOutputNameWhenNoSeriesDescription() {
+            // image.seriesDescription is null; filename is "brain.dcm" from setUpJob
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-job-999\"}");
+            when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+                DicomImage d = inv.getArgument(0); d.setId(77L); return d;
+            });
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(healthImagingService.syncImportStatus(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<DicomImage> captor = ArgumentCaptor.forClass(DicomImage.class);
+            verify(dicomImageRepository).save(captor.capture());
+            assertThat(captor.getValue().getSeriesDescription()).isEqualTo("brain.dcm [N4 Corrected]");
+        }
+
+        @Test
+        @DisplayName("creates two DicomImage records for Otsu multi-output (masked intensity + binary mask)")
+        void createsTwoDicomImagesForOtsuMultiOutput() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-masked-001\",\"healthImagingBinaryMaskImportJobId\":\"hi-binary-002\"}");
+            when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+                DicomImage d = inv.getArgument(0); d.setId(77L); return d;
+            });
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(healthImagingService.syncImportStatus(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            verify(dicomImageRepository, times(2)).save(any(DicomImage.class));
+        }
+
+        @Test
+        @DisplayName("Otsu masked intensity and binary mask get correct S3 keys and series descriptions")
+        void otsuOutputHasCorrectS3KeysAndSeriesDescriptions() {
+            image.setSeriesDescription("T1 MPRAGE");
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-masked-001\",\"healthImagingBinaryMaskImportJobId\":\"hi-binary-002\"}");
+            when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+                DicomImage d = inv.getArgument(0); d.setId(77L); return d;
+            });
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(healthImagingService.syncImportStatus(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<DicomImage> captor = ArgumentCaptor.forClass(DicomImage.class);
+            verify(dicomImageRepository, times(2)).save(captor.capture());
+            DicomImage masked = captor.getAllValues().get(0);
+            DicomImage binary = captor.getAllValues().get(1);
+
+            assertThat(masked.getS3Key()).isEqualTo("results/42/dicom-masked/");
+            assertThat(masked.getSeriesDescription()).isEqualTo("T1 MPRAGE [Otsu Mask]");
+            assertThat(masked.getHealthImagingJobId()).isEqualTo("hi-masked-001");
+
+            assertThat(binary.getS3Key()).isEqualTo("results/42/dicom-binary/");
+            assertThat(binary.getSeriesDescription()).isEqualTo("T1 MPRAGE [Otsu Binary Mask]");
+            assertThat(binary.getHealthImagingJobId()).isEqualTo("hi-binary-002");
+        }
+
+        @Test
+        @DisplayName("Otsu publishes DicomImportSubmittedEvent for both masked intensity and binary mask")
+        void otsuPublishesTwoImportEvents() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-masked-001\",\"healthImagingBinaryMaskImportJobId\":\"hi-binary-002\"}");
+            when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+                DicomImage d = inv.getArgument(0); d.setId(77L); return d;
+            });
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(healthImagingService.syncImportStatus(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            verify(eventPublisher, times(2)).publishEvent(any(DicomImportSubmittedEvent.class));
+        }
+
+        @Test
         @DisplayName("does nothing when ECS returns no task for the ARN")
         void doesNothingWhenEcsTaskNotFound() {
             when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));

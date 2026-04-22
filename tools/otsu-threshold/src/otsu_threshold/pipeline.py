@@ -39,6 +39,7 @@ Supported local input formats (anything itk can read):
 """
 
 import argparse
+import copy
 import json
 import os
 import sys
@@ -99,47 +100,11 @@ def _build_direction_matrix(image_orientation: list[float]) -> np.ndarray:
     return np.column_stack([row, col, normal])
 
 
-def _get_tag(raw: dict, tag: str, default=None):
-    # Pull the first value from a DICOM JSON tag dict
-    # Handles the PN (person name) nested dict format too
-    entry = raw.get(tag)
-    if not entry:
-        return default
-    values = entry.get("Value", [])
-    if not values:
-        return default
-    val = values[0]
-    if isinstance(val, dict) and "Alphabetic" in val:
-        return val["Alphabetic"]
-    return val
-
-
-def _ds_to_raw_dicom(ds) -> dict:
-    # Convert a pydicom Dataset to the DICOM JSON format we use in frame_descriptors
-    # We skip private tags and sequences since we only need the standard module tags
-    import pydicom
-    raw = {}
-    for elem in ds:
-        if elem.tag.is_private or elem.VR == "SQ":
-            continue
-        tag_str = f"{elem.tag.group:04X}{elem.tag.element:04X}"
-        val = elem.value
-        if elem.VR == "PN":
-            values = [{"Alphabetic": str(val)}]
-        elif isinstance(val, bytes):
-            continue  # skip raw binary blobs like PixelData
-        elif hasattr(val, "__iter__") and not isinstance(val, str):
-            values = [str(v) if isinstance(v, pydicom.uid.UID) else v for v in val]
-        else:
-            values = [str(val) if isinstance(val, pydicom.uid.UID) else val]
-        raw[tag_str] = {"vr": elem.VR, "Value": values}
-    return raw
-
-
 def load_from_s3_dicom(bucket: str, prefix: str) -> tuple:
-    # Download all the .dcm files from S3, sort them by slice position, stack
-    # into a 3D float32 ITK image, and return it along with frame_descriptors
-    # so write_masked_dicom_series can copy the tags without holding pydicom objects
+    # Download all the .dcm files from S3, sort them by slice position, and stack
+    # into a 3D float32 ITK image. Returns (itk_image, datasets) so the write
+    # functions can deepcopy the original datasets and swap pixel data, preserving
+    # all original DICOM tags intact for HealthImaging import
     # RescaleSlope/Intercept applied so Otsu sees real-valued intensities
     import pydicom
 
@@ -211,23 +176,7 @@ def load_from_s3_dicom(bucket: str, prefix: str) -> tuple:
     itk_direction = itk.matrix_from_array(direction.astype(np.float64))
     image_3d.SetDirection(itk_direction)
 
-    frame_descriptors = []
-    for i, ds in enumerate(datasets):
-        image_pos = [float(v) for v in getattr(ds, "ImagePositionPatient", [0.0, 0.0, float(i)])]
-        image_ori = [float(v) for v in getattr(ds, "ImageOrientationPatient", [1, 0, 0, 0, 1, 0])]
-        pix_sp = [float(v) for v in getattr(ds, "PixelSpacing", [1.0, 1.0])]
-        thickness = getattr(ds, "SliceThickness", None)
-        frame_descriptors.append({
-            "frame_id": f"frame-{i:04d}",
-            "instance_number": int(getattr(ds, "InstanceNumber", i + 1)),
-            "image_position": image_pos,
-            "image_orientation": image_ori,
-            "pixel_spacing": pix_sp,
-            "slice_thickness": float(thickness) if thickness is not None else None,
-            "raw_dicom": _ds_to_raw_dicom(ds),
-        })
-
-    return image_3d, frame_descriptors
+    return image_3d, datasets
 
 
 # ---------------------------------------------------------------------------
@@ -307,12 +256,12 @@ def _build_dataset_from_frame(fd: dict, sop_uid: str, series_uid: str):
 
 def write_masked_dicom_series(
     masked_arr: np.ndarray,
-    frame_descriptors: list,
+    datasets: list,
     out_dir: Path,
 ) -> Path:
-    # Build one DICOM file per slice from the frame_descriptor metadata and
-    # the normalized uint8 pixel data. StudyInstanceUID is preserved so
-    # HealthImaging keeps this series in the same study
+    # Deepcopy each original pydicom dataset and replace only the pixel data,
+    # preserving every original tag (patient, study, MR IOD attributes, etc.)
+    # so HealthImaging accepts the import. Same approach as N4
     import pydicom
     from pydicom.uid import generate_uid
 
@@ -321,30 +270,38 @@ def write_masked_dicom_series(
 
     series_uid = generate_uid()
 
-    for i, (slice_float, fd) in enumerate(zip(masked_arr, frame_descriptors)):
-        sop_uid = generate_uid()
-        ds = _build_dataset_from_frame(fd, sop_uid, series_uid)
+    for i, (ds_orig, slice_float) in enumerate(zip(datasets, masked_arr)):
+        ds = copy.deepcopy(ds_orig)
 
-        raw = fd["raw_dicom"]
-        orig_desc = str(_get_tag(raw, "0008103E") or "")
+        sop_uid = generate_uid()
+        ds.SOPInstanceUID = sop_uid
+        if hasattr(ds, "file_meta") and ds.file_meta is not None:
+            ds.file_meta.MediaStorageSOPInstanceUID = sop_uid
+
+        ds.SeriesInstanceUID = series_uid
+        orig_desc = str(getattr(ds_orig, "SeriesDescription", "") or "")
         ds.SeriesDescription = (orig_desc + " [Otsu Mask]").strip()
         try:
-            orig_series_num = int(_get_tag(raw, "00200011") or 0)
+            ds.SeriesNumber = int(getattr(ds_orig, "SeriesNumber", 0) or 0) + 900
         except (ValueError, TypeError):
-            orig_series_num = 0
-        ds.SeriesNumber = str(orig_series_num + 900)
+            ds.SeriesNumber = 900
         ds.ImageType = ["DERIVED", "SECONDARY"]
 
-        pixel_data = normalize_to_uint8(slice_float)
-        ds.BitsAllocated = 8
-        ds.BitsStored = 8
-        ds.HighBit = 7
-        ds.PixelRepresentation = 0
-        ds.SamplesPerPixel = 1
-        ds.PhotometricInterpretation = "MONOCHROME2"
-        ds.Rows = pixel_data.shape[0]
-        ds.Columns = pixel_data.shape[1]
-        ds.PixelData = pixel_data.tobytes()
+        # Convert float32 back to original stored integer dtype, preserving
+        # the original bit depth and rescale parameters so HealthImaging sees
+        # a conformant file. Background voxels are 0.0 in float space which
+        # maps to 0 in stored space when slope=1, intercept=0 (typical MRI)
+        slope = float(getattr(ds_orig, "RescaleSlope", 1.0))
+        intercept = float(getattr(ds_orig, "RescaleIntercept", 0.0))
+        bits = int(getattr(ds_orig, "BitsAllocated", 16))
+        pixel_rep = int(getattr(ds_orig, "PixelRepresentation", 0))
+        if pixel_rep == 0:
+            dtype = np.uint16 if bits == 16 else np.uint8
+            lo, hi = 0, 2 ** bits - 1
+        else:
+            dtype = np.int16 if bits == 16 else np.int8
+            lo, hi = -(2 ** (bits - 1)), 2 ** (bits - 1) - 1
+        ds.PixelData = np.clip(np.round((slice_float - intercept) / slope), lo, hi).astype(dtype).tobytes()
 
         pydicom.dcmwrite(str(out_dir / f"slice_{i:04d}.dcm"), ds)
 
@@ -354,14 +311,13 @@ def write_masked_dicom_series(
 def write_binary_mask_dicom_series(
     original_arr: np.ndarray,
     threshold: float,
-    frame_descriptors: list,
+    datasets: list,
     out_dir: Path,
 ) -> Path:
-    # Same structure as write_masked_dicom_series but stores a pure binary mask:
-    # 255 where voxel > threshold, 0 everywhere else. This is what the Otsu filter
-    # would normally produce as its primary output, and is useful for viewing the
-    # segmentation result directly in the DICOM viewer
-    # SeriesNumber offset is +901 to distinguish from the masked intensity series at +900
+    # Same deepcopy approach as write_masked_dicom_series — all original tags
+    # preserved, only pixel data and identity fields changed. Pixel values are
+    # 255 (foreground) or 0 (background). BitsAllocated overridden to 8 since
+    # the binary mask is always single-byte regardless of original bit depth
     import pydicom
     from pydicom.uid import generate_uid
 
@@ -370,30 +326,28 @@ def write_binary_mask_dicom_series(
 
     series_uid = generate_uid()
 
-    for i, (slice_arr, fd) in enumerate(zip(original_arr, frame_descriptors)):
-        sop_uid = generate_uid()
-        ds = _build_dataset_from_frame(fd, sop_uid, series_uid)
+    for i, (ds_orig, slice_arr) in enumerate(zip(datasets, original_arr)):
+        ds = copy.deepcopy(ds_orig)
 
-        raw = fd["raw_dicom"]
-        orig_desc = str(_get_tag(raw, "0008103E") or "")
+        sop_uid = generate_uid()
+        ds.SOPInstanceUID = sop_uid
+        if hasattr(ds, "file_meta") and ds.file_meta is not None:
+            ds.file_meta.MediaStorageSOPInstanceUID = sop_uid
+
+        ds.SeriesInstanceUID = series_uid
+        orig_desc = str(getattr(ds_orig, "SeriesDescription", "") or "")
         ds.SeriesDescription = (orig_desc + " [Otsu Binary Mask]").strip()
         try:
-            orig_series_num = int(_get_tag(raw, "00200011") or 0)
+            ds.SeriesNumber = int(getattr(ds_orig, "SeriesNumber", 0) or 0) + 901
         except (ValueError, TypeError):
-            orig_series_num = 0
-        ds.SeriesNumber = str(orig_series_num + 901)
+            ds.SeriesNumber = 901
         ds.ImageType = ["DERIVED", "SECONDARY"]
 
-        pixel_data = (slice_arr > threshold).astype(np.uint8) * 255
         ds.BitsAllocated = 8
         ds.BitsStored = 8
         ds.HighBit = 7
         ds.PixelRepresentation = 0
-        ds.SamplesPerPixel = 1
-        ds.PhotometricInterpretation = "MONOCHROME2"
-        ds.Rows = pixel_data.shape[0]
-        ds.Columns = pixel_data.shape[1]
-        ds.PixelData = pixel_data.tobytes()
+        ds.PixelData = ((slice_arr > threshold).astype(np.uint8) * 255).tobytes()
 
         pydicom.dcmwrite(str(out_dir / f"slice_{i:04d}.dcm"), ds)
 
@@ -755,8 +709,8 @@ def main():
     if s3_input_bucket and s3_input_prefix:
         stem = Path(s3_input_prefix.rstrip("/")).name
         print(f"  Loading        : s3://{s3_input_bucket}/{s3_input_prefix}", flush=True)
-        original, frame_descriptors = load_from_s3_dicom(s3_input_bucket, s3_input_prefix)
-        print(f"  Loaded {len(frame_descriptors)} slices", flush=True)
+        original, datasets = load_from_s3_dicom(s3_input_bucket, s3_input_prefix)
+        print(f"  Loaded {len(datasets)} slices", flush=True)
         source_label = f"s3://{s3_input_bucket}/{s3_input_prefix}"
         source_format = "dicom (s3)"
     else:
@@ -766,7 +720,7 @@ def main():
         stem = input_path.name.split(".")[0]
         print(f"  Loading        : {input_path}", flush=True)
         original = load_as_float(input_path)
-        frame_descriptors = None
+        datasets = None
         source_label = str(input_path)
         source_format = "".join(input_path.suffixes).lower()
 
@@ -822,13 +776,13 @@ def main():
     # Write both DICOM series, stage on S3, trigger two HealthImaging import jobs,
     # and write output.json with both job IDs so the Spring app can catalog
     # two image sets per Otsu job. Only runs on the S3 DICOM input path (ECS)
-    if frame_descriptors is not None:
+    if datasets is not None:
         s3_prefix = args.s3_prefix or f"otsu-threshold/{stem}"
         base_uri = f"s3://{args.s3_bucket}/{s3_prefix.rstrip('/')}"
 
         print("  Writing DICOM  : masked intensity series", flush=True)
         masked_dicom_dir = write_masked_dicom_series(
-            masked_arr, frame_descriptors, out_dir / "masked-dicom"
+            masked_arr, datasets, out_dir / "masked-dicom"
         )
         masked_input_uri = upload_dicom_to_s3(
             masked_dicom_dir, args.s3_bucket, f"{s3_prefix}/dicom-masked"
@@ -844,7 +798,7 @@ def main():
 
         print("  Writing DICOM  : binary mask series", flush=True)
         binary_dicom_dir = write_binary_mask_dicom_series(
-            original_arr, threshold, frame_descriptors, out_dir / "binary-dicom"
+            original_arr, threshold, datasets, out_dir / "binary-dicom"
         )
         binary_input_uri = upload_dicom_to_s3(
             binary_dicom_dir, args.s3_bucket, f"{s3_prefix}/dicom-binary"
@@ -873,7 +827,7 @@ def main():
 
     print("\nDone.")
     print(f"  PDF report      : {pdf_path}")
-    if frame_descriptors is not None:
+    if datasets is not None:
         print(f"  Masked job ID   : {masked_job_id}")
         print(f"  Binary job ID   : {binary_job_id}")
 

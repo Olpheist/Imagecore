@@ -10,7 +10,10 @@ export default defineNuxtConfig({
   css: ['./assets/css/main.css'],
   app: {
     head: {
-      title: "ImageCore" // default page title
+      title: "ImageCore",
+      script: [
+        { src: "https://accounts.google.com/gsi/client", async: true, defer: true }
+      ]
     }
   },
   vite: {

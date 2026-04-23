@@ -28,6 +28,8 @@ logging:
   pattern:
     console: "%clr([%d{HH:mm:ss.SSS}]){faint} %clr(%-5level){bold} %clr([%X{user:-\\}]){yellow} %clr(%logger){cyan} - %msg%n"
 app:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:dev-google-client-id}
   stripe:
     secret-key: ${STRIPE_SECRET_KEY:dev}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:dev}

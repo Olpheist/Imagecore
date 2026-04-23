@@ -4,7 +4,7 @@ import { useUserStore } from "~/stores/user";
 // but you need to be authenticated to access any of the api routes
 export default defineNuxtRouteMiddleware(async (to) => {
     const authPages = ["/login", "/register"];
-    const publicPages = ["/", "/forgot-password", "/reset-password"];
+    const publicPages = ["/", "/forgot-password", "/reset-password", "/privacy", "/terms"];
 
     const userStore = useUserStore();
 

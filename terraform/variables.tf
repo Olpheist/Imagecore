@@ -116,3 +116,8 @@ variable "ecs_desired_count" {
   type        = number
   default     = 2
 }
+
+variable "google_client_id" {
+  description = "Google Client ID for OAuth authentication"
+  type = string
+}

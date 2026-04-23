@@ -138,3 +138,9 @@ variable "health_imaging_import_role_arn" {
   description = "ARN of the IAM role passed to HealthImaging for S3 import jobs"
   type        = string
 }
+
+variable "google_client_id" {
+  description = "Google Client ID for OAuth authentication"
+  type        = string
+  sensitive = true
+}

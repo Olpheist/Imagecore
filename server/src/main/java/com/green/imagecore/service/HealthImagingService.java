@@ -382,7 +382,7 @@ public class HealthImagingService {
             // Study level — all keyword names, not hex codes
             JsonNode studyDicom = root.path("Study").path("DICOM");
             image.setStudyInstanceUid(namedTag(studyDicom, "StudyInstanceUID"));
-            if (image.getStudyDescription() == null) image.setStudyDescription(namedTag(studyDicom, "StudyDescription"));
+            image.setStudyDescription(namedTag(studyDicom, "StudyDescription"));
             image.setPhysician(namedTag(studyDicom, "ReferringPhysicianName"));
 
             String studyDateStr = namedTag(studyDicom, "StudyDate");
@@ -398,7 +398,7 @@ public class HealthImagingService {
                 image.setSeriesInstanceUid(seriesEntry.getKey());
 
                 JsonNode seriesDicom = seriesEntry.getValue().path("DICOM");
-                if (image.getSeriesDescription() == null) image.setSeriesDescription(namedTag(seriesDicom, "SeriesDescription"));
+                image.setSeriesDescription(namedTag(seriesDicom, "SeriesDescription"));
                 image.setModality(namedTag(seriesDicom, "Modality"));
                 image.setBodyPart(namedTag(seriesDicom, "BodyPartExamined"));
 

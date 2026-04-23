@@ -20,8 +20,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -94,7 +92,6 @@ public class DicomUploadService {
                         .fileSize(file.getSize())
                         .fileCount(1)
                         .importStatus(ImportStatus.PENDING)
-                        .seriesDescription(readSeriesDescription(file))
                         .build()
         );
 
@@ -190,7 +187,6 @@ public class DicomUploadService {
                         .fileSize(totalSize)
                         .fileCount(files.size())
                         .importStatus(ImportStatus.PENDING)
-                        .seriesDescription(readSeriesDescription(files.get(0)))
                         .build()
         );
 
@@ -205,57 +201,6 @@ public class DicomUploadService {
 
         eventPublisher.publishEvent(new DicomImportSubmittedEvent(saved.getId()));
         return saved;
-    }
-
-    // reads tag (0008,103E) SeriesDescription from an Explicit VR Little Endian DICOM file.
-    // returns null (without throwing) if the file can't be parsed or the tag is absent.
-    private String readSeriesDescription(MultipartFile file) {
-        try (InputStream in = file.getInputStream()) {
-            in.skipNBytes(132); // 128-byte preamble + "DICM" magic
-            while (true) {
-                byte[] tag = in.readNBytes(4);
-                if (tag.length < 4) break;
-                int group   = (tag[0] & 0xFF) | ((tag[1] & 0xFF) << 8);
-                int element = (tag[2] & 0xFF) | ((tag[3] & 0xFF) << 8);
-                if (group > 0x0008) break;
-
-                byte[] vrBytes = in.readNBytes(2);
-                if (vrBytes.length < 2) break;
-                String vr = new String(vrBytes, StandardCharsets.US_ASCII);
-
-                int length;
-                if (isLongVr(vr)) {
-                    in.skipNBytes(2); // reserved
-                    byte[] lenBytes = in.readNBytes(4);
-                    if (lenBytes.length < 4) break;
-                    length = (lenBytes[0] & 0xFF) | ((lenBytes[1] & 0xFF) << 8)
-                           | ((lenBytes[2] & 0xFF) << 16) | ((lenBytes[3] & 0xFF) << 24);
-                } else {
-                    byte[] lenBytes = in.readNBytes(2);
-                    if (lenBytes.length < 2) break;
-                    length = (lenBytes[0] & 0xFF) | ((lenBytes[1] & 0xFF) << 8);
-                }
-
-                if (length < 0) break; // guard against malformed/implicit-VR files
-
-                if (group == 0x0008 && element == 0x103E) {
-                    String value = new String(in.readNBytes(length), StandardCharsets.ISO_8859_1).trim();
-                    return value.isEmpty() ? null : value;
-                }
-
-                in.skipNBytes(length);
-            }
-        } catch (Exception e) {
-            log.warn("Could not read SeriesDescription from upload: {}", e.getMessage());
-        }
-        return null;
-    }
-
-    private static boolean isLongVr(String vr) {
-        return switch (vr) {
-            case "OB", "OD", "OF", "OL", "OW", "SQ", "UC", "UN", "UR", "UT" -> true;
-            default -> false;
-        };
     }
 
     /**

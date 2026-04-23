@@ -508,9 +508,8 @@ class AnalysisJobServiceTest {
         }
 
         @Test
-        @DisplayName("sets seriesDescription to origSeriesDescription + [N4 Corrected] for single-output tool")
+        @DisplayName("sets seriesDescription to N4 Bias Field Corrected for single-output tool")
         void setsSeriesDescriptionForN4Output() {
-            image.setSeriesDescription("T1 MPRAGE");
             when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
             stubDescribeTasks("STOPPED", 0);
             stubOutputJson("{\"healthImagingImportJobId\":\"hi-job-999\"}");
@@ -524,13 +523,13 @@ class AnalysisJobServiceTest {
 
             ArgumentCaptor<DicomImage> captor = ArgumentCaptor.forClass(DicomImage.class);
             verify(dicomImageRepository).save(captor.capture());
-            assertThat(captor.getValue().getSeriesDescription()).isEqualTo("T1 MPRAGE [N4 Corrected]");
+            assertThat(captor.getValue().getSeriesDescription()).isEqualTo("N4 Bias Field Corrected");
         }
 
         @Test
-        @DisplayName("falls back to filename in output name when original has no series description")
-        void fallsBackToFilenameInOutputNameWhenNoSeriesDescription() {
-            // image.seriesDescription is null; filename is "brain.dcm" from setUpJob
+        @DisplayName("prefixes original filename with N4 Corrected - for single-output tool")
+        void setsFilenameWithN4PrefixForSingleOutputTool() {
+            // filename is "brain.dcm" from setUpJob
             when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
             stubDescribeTasks("STOPPED", 0);
             stubOutputJson("{\"healthImagingImportJobId\":\"hi-job-999\"}");
@@ -544,7 +543,7 @@ class AnalysisJobServiceTest {
 
             ArgumentCaptor<DicomImage> captor = ArgumentCaptor.forClass(DicomImage.class);
             verify(dicomImageRepository).save(captor.capture());
-            assertThat(captor.getValue().getSeriesDescription()).isEqualTo("brain.dcm [N4 Corrected]");
+            assertThat(captor.getValue().getFilename()).isEqualTo("N4 Corrected - brain.dcm");
         }
 
         @Test
@@ -565,9 +564,8 @@ class AnalysisJobServiceTest {
         }
 
         @Test
-        @DisplayName("Otsu masked intensity and binary mask get correct S3 keys and series descriptions")
+        @DisplayName("Otsu masked intensity and binary mask get correct S3 keys, filenames, and series descriptions")
         void otsuOutputHasCorrectS3KeysAndSeriesDescriptions() {
-            image.setSeriesDescription("T1 MPRAGE");
             when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
             stubDescribeTasks("STOPPED", 0);
             stubOutputJson("{\"healthImagingImportJobId\":\"hi-masked-001\",\"healthImagingBinaryMaskImportJobId\":\"hi-binary-002\"}");
@@ -585,11 +583,13 @@ class AnalysisJobServiceTest {
             DicomImage binary = captor.getAllValues().get(1);
 
             assertThat(masked.getS3Key()).isEqualTo("results/42/dicom-masked/");
-            assertThat(masked.getSeriesDescription()).isEqualTo("T1 MPRAGE [Otsu Mask]");
+            assertThat(masked.getFilename()).isEqualTo("Otsu Mask - brain.dcm");
+            assertThat(masked.getSeriesDescription()).isEqualTo("Otsu Mask");
             assertThat(masked.getHealthImagingJobId()).isEqualTo("hi-masked-001");
 
             assertThat(binary.getS3Key()).isEqualTo("results/42/dicom-binary/");
-            assertThat(binary.getSeriesDescription()).isEqualTo("T1 MPRAGE [Otsu Binary Mask]");
+            assertThat(binary.getFilename()).isEqualTo("Otsu Binary Mask - brain.dcm");
+            assertThat(binary.getSeriesDescription()).isEqualTo("Otsu Binary Mask");
             assertThat(binary.getHealthImagingJobId()).isEqualTo("hi-binary-002");
         }
 

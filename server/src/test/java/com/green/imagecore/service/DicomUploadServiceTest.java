@@ -19,8 +19,6 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
@@ -303,36 +301,6 @@ class DicomUploadServiceTest {
     }
 
 
-    // readSeriesDescription
-
-    @Test
-    void upload_SetsSeriesDescriptionFromDicomTag_WhenPresent() {
-        DicomImage result = dicomUploadService.upload(
-                validDicomFileWithSeriesDescription("scan.dcm", "T1 MPRAGE"), 42L);
-
-        assertEquals("T1 MPRAGE", result.getSeriesDescription());
-    }
-
-    @Test
-    void upload_SetsSeriesDescriptionToNull_WhenTagAbsent() {
-        DicomImage result = dicomUploadService.upload(validDicomFile("scan.dcm"), 42L);
-
-        assertNull(result.getSeriesDescription());
-    }
-
-    @Test
-    void uploadBatch_SetsSeriesDescriptionFromFirstFile() {
-        List<org.springframework.web.multipart.MultipartFile> files = List.of(
-                validDicomFileWithSeriesDescription("scan1.dcm", "Ax T2 FLAIR"),
-                validDicomFile("scan2.dcm")
-        );
-
-        DicomImage result = dicomUploadService.uploadBatch(files, 42L);
-
-        assertEquals("Ax T2 FLAIR", result.getSeriesDescription());
-    }
-
-
     // helper DICOM files
 
     private MockMultipartFile validDicomFile(String filename) {
@@ -341,26 +309,6 @@ class DicomUploadServiceTest {
         content[129] = 'I';
         content[130] = 'C';
         content[131] = 'M';
-        return new MockMultipartFile("file", filename, "application/dicom", content);
-    }
-
-    // builds a minimal Explicit VR LE DICOM with tag (0008,103E) SeriesDescription set
-    private MockMultipartFile validDicomFileWithSeriesDescription(String filename, String seriesDesc) {
-        byte[] valueBytes = seriesDesc.getBytes(StandardCharsets.ISO_8859_1);
-        if (valueBytes.length % 2 != 0) {
-            valueBytes = Arrays.copyOf(valueBytes, valueBytes.length + 1);
-            valueBytes[valueBytes.length - 1] = ' ';
-        }
-        int len = valueBytes.length;
-        byte[] content = new byte[132 + 8 + len];
-        content[128] = 'D'; content[129] = 'I'; content[130] = 'C'; content[131] = 'M';
-        // tag (0008,103E) little-endian
-        content[132] = 0x08; content[133] = 0x00; content[134] = 0x3E; content[135] = 0x10;
-        // VR "LO"
-        content[136] = 'L'; content[137] = 'O';
-        // length little-endian
-        content[138] = (byte)(len & 0xFF); content[139] = (byte)((len >> 8) & 0xFF);
-        System.arraycopy(valueBytes, 0, content, 140, len);
         return new MockMultipartFile("file", filename, "application/dicom", content);
     }
 }

@@ -1,5 +1,6 @@
 package com.green.imagecore.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -12,10 +13,14 @@ public class GoogleTokenVerifier {
     private final RestClient restClient;
     private final String googleClientId;
 
+    @Autowired
     public GoogleTokenVerifier(@Value("${app.google.client-id}") String googleClientId) {
-        this.restClient = RestClient.builder()
-                .baseUrl("https://oauth2.googleapis.com")
-                .build();
+        this(RestClient.builder(), googleClientId);
+    }
+
+    // Package-private for testing via MockRestServiceServer
+    GoogleTokenVerifier(RestClient.Builder builder, String googleClientId) {
+        this.restClient = builder.baseUrl("https://oauth2.googleapis.com").build();
         this.googleClientId = googleClientId;
     }
 

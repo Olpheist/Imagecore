@@ -2,38 +2,20 @@
   <div class="min-h-screen flex flex-col">
     <section class="relative overflow-hidden border-b border-slate-300 bg-linear-to-b from-slate-100 via-slate-50 to-slate-200">
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.08),transparent_45%)]"></div>
+
       <div class="relative max-w-7xl mx-auto px-6 py-20">
         <div class="grid lg:grid-cols-2 gap-12 items-center">
+
           <div class="text-center lg:text-left">
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-tight">
               Analyze Medical Images
               <span class="block text-blue-700">Without the Confusion</span>
             </h1>
+
             <p class="mt-6 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-8">
               ImageCore helps clinicians and researchers upload scans, choose analysis tools, and review results in one simple workflow.
             </p>
-            <div class="mt-8 flex flex-col sm:flex-row items-center lg:items-start gap-4">
-              <Button
-                  v-if="userStore.isLoggedIn"
-                  variant="success"
-                  rounded
-                  size="lg"
-                  class="w-full sm:w-auto"
-                  @click="toDashboard"
-              >
-                Go to Dashboard
-              </Button>
-              <Button
-                  v-else
-                  variant="success"
-                  rounded
-                  size="lg"
-                  class="w-full sm:w-auto"
-                  @click="toLogin"
-              >
-                Login to Start
-              </Button>
-            </div>
+
             <div class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
               <div class="rounded-2xl border border-slate-300 bg-white/80 p-4 shadow-sm">
                 <div class="text-sm font-semibold text-slate-900">Simple Uploads</div>
@@ -49,13 +31,26 @@
               </div>
             </div>
           </div>
-          <div class="flex justify-center lg:justify-end">
+
+          <div class="flex flex-col items-center lg:items-end gap-6">
+
+            <div
+                class="w-full max-w-md cursor-pointer rounded-2xl bg-slate-900 px-8 py-5 text-white text-lg font-semibold shadow-[0_10px_30px_rgba(15,23,42,0.25)] hover:bg-slate-800 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(15,23,42,0.35)] transition"
+                @click="userStore.isLoggedIn ? toDashboard() : toLogin()"
+            >
+              <div class="flex items-center justify-between">
+                <span>
+                  {{ userStore.isLoggedIn ? 'Go to Dashboard' : 'Start Analyzing Images' }}
+                </span>
+                <span class="text-xl opacity-80">→</span>
+              </div>
+            </div>
+
             <div class="w-full max-w-2xl rounded-3xl border border-slate-300 bg-white shadow-2xl overflow-hidden">
               <div class="border-b border-slate-200 bg-slate-900 px-5 py-4">
                 <div class="flex items-center gap-3">
                   <img
                       src="/web-app-manifest-512x512.png"
-                      alt="ImageCore logo"
                       class="w-10 h-10 rounded-xl object-contain bg-white p-1"
                   />
                   <div>
@@ -64,45 +59,45 @@
                   </div>
                 </div>
               </div>
+
               <div class="p-6 bg-slate-50">
                 <div class="space-y-4">
                   <div class="flex items-start gap-4 rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold">
-                      1
-                    </div>
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold">1</div>
                     <div>
-                      <h3 class="font-semibold text-slate-900">Upload a Scan</h3>
-                      <p class="mt-1 text-sm text-slate-600">Add a DICOM series or image file from your device.</p>
+                      <div class="font-semibold text-slate-900">Upload a Scan</div>
+                      <div class="text-sm text-slate-600">Add a DICOM series or image file from your device.</div>
                     </div>
                   </div>
+
                   <div class="flex items-start gap-4 rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 font-bold">
-                      2
-                    </div>
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 font-bold">2</div>
                     <div>
-                      <h3 class="font-semibold text-slate-900">Choose a Tool</h3>
-                      <p class="mt-1 text-sm text-slate-600">Select an analysis with a plain-language explanation of what it does.</p>
+                      <div class="font-semibold text-slate-900">Choose a Tool</div>
+                      <div class="text-sm text-slate-600">Select an analysis with a plain-language explanation.</div>
                     </div>
                   </div>
+
                   <div class="flex items-start gap-4 rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-bold">
-                      3
-                    </div>
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-bold">3</div>
                     <div>
-                      <h3 class="font-semibold text-slate-900">Review Results</h3>
-                      <p class="mt-1 text-sm text-slate-600">Open processed images, compare outputs, and download reports.</p>
+                      <div class="font-semibold text-slate-900">Review Results</div>
+                      <div class="text-sm text-slate-600">Open processed images and download reports.</div>
                     </div>
                   </div>
                 </div>
+
                 <div class="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4">
                   <div class="text-sm font-semibold text-blue-900">Example Tool</div>
-                  <p class="mt-1 text-sm text-blue-800">
-                    N4 Bias Field Correction improves MRI image consistency by reducing intensity shading artifacts.
-                  </p>
+                  <div class="text-sm text-blue-800">
+                    N4 Bias Field Correction improves MRI consistency by reducing intensity shading artifacts.
+                  </div>
                 </div>
               </div>
             </div>
+
           </div>
+
         </div>
       </div>
     </section>
@@ -182,10 +177,10 @@
     </section>
     <section class="relative w-full px-6 py-20 overflow-hidden">
       <div class="absolute inset-0 -z-10 bg-linear-to-br from-slate-50 via-white to-slate-100"></div>
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-slate-200/70"></div>
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-linear-to-b from-transparent to-slate-200/70"></div>
 
       <div class="relative max-w-4xl mx-auto overflow-hidden rounded-3xl bg-linear-to-br from-slate-800 via-slate-700 to-slate-800 text-white border border-white/10 p-6 sm:p-8 shadow-[0_25px_60px_rgba(0,0,0,0.35)] text-center">
-        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/30 to-transparent"></div>
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/30 to-transparent"></div>
 
         <div class="absolute inset-0 pointer-events-none">
           <div class="absolute -top-16 -left-16 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"></div>

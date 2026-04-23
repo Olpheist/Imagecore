@@ -123,6 +123,7 @@ jobs:
           TF_VAR_send_grid_password: ${{ secrets.EMAIL_PASSWORD }}
           TF_VAR_stripe_webhook_secret: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+          TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
 
       - name: Force New Deployment
         run: |

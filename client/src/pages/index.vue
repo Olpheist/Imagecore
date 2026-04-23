@@ -180,10 +180,13 @@
         </Card>
       </div>
     </section>
-    <section class="relative max-w-7xl mx-auto px-6 py-20 overflow-hidden">
+    <section class="relative w-full px-6 py-20 overflow-hidden">
       <div class="absolute inset-0 -z-10 bg-linear-to-br from-slate-50 via-white to-slate-100"></div>
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-slate-200/70"></div>
 
-      <div class="relative overflow-hidden rounded-4xl bg-linear-to-br from-slate-800 via-slate-700 to-slate-800 text-white border border-white/10 p-10 sm:p-14 shadow-[0_25px_50px_rgba(0,0,0,0.25)] text-center">
+      <div class="relative max-w-4xl mx-auto overflow-hidden rounded-3xl bg-linear-to-br from-slate-800 via-slate-700 to-slate-800 text-white border border-white/10 p-6 sm:p-8 shadow-[0_25px_60px_rgba(0,0,0,0.35)] text-center">
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/30 to-transparent"></div>
+
         <div class="absolute inset-0 pointer-events-none">
           <div class="absolute -top-16 -left-16 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"></div>
           <div class="absolute -bottom-20 -right-16 h-48 w-48 rounded-full bg-violet-500/20 blur-3xl"></div>
@@ -201,22 +204,22 @@
           </div>
         </div>
 
-        <div class="relative z-10 mx-auto max-w-3xl">
-          <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+        <div class="relative z-10 mx-auto max-w-xl">
+          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             Ready to get started?
           </h2>
 
-          <p class="mt-4 text-lg leading-8 text-white/70">
+          <p class="mt-3 text-base text-white/70">
             Upload your first image, choose an analysis tool, and review results in one place.
           </p>
 
-          <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+          <div class="mt-6 flex flex-col sm:flex-row justify-center gap-3">
             <Button
                 v-if="userStore.isLoggedIn"
                 variant="success"
                 rounded
-                size="lg"
-                class="min-w-50 shadow-lg"
+                size="md"
+                class="min-w-40 shadow-lg"
                 @click="toDashboard"
             >
               Open Dashboard
@@ -225,8 +228,8 @@
                 v-else
                 variant="success"
                 rounded
-                size="lg"
-                class="min-w-50 shadow-lg"
+                size="md"
+                class="min-w-40 shadow-lg"
                 @click="toLogin"
             >
               Login

@@ -26,7 +26,7 @@ public class UserAuthenticationService implements UserDetailsService {
     public UserDetails toUserDetails(User user) {
         return org.springframework.security.core.userdetails.User
                 .withUsername(user.getUsername())
-                .password(user.getPasswordHash())
+                .password(user.getPasswordHash() != null ? user.getPasswordHash() : "")
                 .disabled(!user.isEnabled())
                 .authorities(
                         user.getUserRoles()

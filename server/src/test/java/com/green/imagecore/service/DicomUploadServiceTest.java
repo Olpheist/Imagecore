@@ -19,6 +19,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
@@ -301,7 +302,7 @@ class DicomUploadServiceTest {
     }
 
 
-    // helper DICOM files
+    // helper DICOM file
 
     private MockMultipartFile validDicomFile(String filename) {
         byte[] content = new byte[200];

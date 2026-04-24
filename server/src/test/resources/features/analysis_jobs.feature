@@ -31,3 +31,10 @@ Feature: Analysis job submission and report download
     When the job user submits a job for their image using the n4 tool
     And the report has been uploaded to S3
     Then requesting the report returns a presigned URI
+
+  Scenario: Latest job query returns the most recently submitted job
+    When the job user submits a job for their image using the n4 tool
+    Then the latest job for that image is the submitted job
+
+  Scenario: Latest job query returns nothing when no jobs have been submitted
+    Then the latest job for that image is absent

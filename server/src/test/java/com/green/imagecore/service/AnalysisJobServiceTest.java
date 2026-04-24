@@ -1,5 +1,6 @@
 package com.green.imagecore.service;
 
+import com.green.imagecore.dto.AnalysisJobDto;
 import com.green.imagecore.entities.AnalysisJob;
 import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.JobStatus;
@@ -381,6 +382,50 @@ class AnalysisJobServiceTest {
                     .hasMessageContaining("20");
 
             verifyNoInteractions(s3Presigner);
+        }
+    }
+
+
+    // findLatestJobForImage()
+
+    @Nested
+    @DisplayName("findLatestJobForImage()")
+    class FindLatestJobForImage {
+
+        @Test
+        @DisplayName("returns the most recent job when one exists for the image")
+        void returnsMostRecentJobWhenPresent() {
+            AnalysisJob job = buildJob(30L, image);
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(analysisJobRepository.findFirstByImageIdOrderByCreatedAtDesc(10L)).thenReturn(Optional.of(job));
+
+            Optional<AnalysisJobDto> result = analysisJobService.findLatestJobForImage(10L, 1L);
+
+            assertThat(result).isPresent();
+            assertThat(result.get().getId()).isEqualTo(30L);
+        }
+
+        @Test
+        @DisplayName("returns empty when no jobs have been submitted for the image yet")
+        void returnsEmptyWhenNoJobsExist() {
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(image));
+            when(analysisJobRepository.findFirstByImageIdOrderByCreatedAtDesc(10L)).thenReturn(Optional.empty());
+
+            Optional<AnalysisJobDto> result = analysisJobService.findLatestJobForImage(10L, 1L);
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException without querying jobs when image is not owned by user")
+        void throwsWhenImageNotOwnedByUser() {
+            when(dicomImageRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> analysisJobService.findLatestJobForImage(10L, 1L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("10");
+
+            verifyNoInteractions(analysisJobRepository);
         }
     }
 

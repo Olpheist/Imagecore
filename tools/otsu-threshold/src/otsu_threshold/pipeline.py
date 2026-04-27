@@ -257,7 +257,7 @@ def apply_otsu_mask(image: itk.Image, threshold: float) -> np.ndarray:
 # DICOM output pipeline
 # ---------------------------------------------------------------------------
 
-def _build_dataset_from_frame(fd: dict, sop_uid: str, series_uid: str):
+def _build_dataset_from_frame(fd: dict, sop_uid: str, series_uid: str, study_uid: str):
     # Build a minimal but valid pydicom FileDataset from a frame_descriptor
     # Pulls patient/study tags from raw_dicom and spatial metadata from the
     # frame_descriptor fields. The caller sets the derived/pixel fields
@@ -281,7 +281,7 @@ def _build_dataset_from_frame(fd: dict, sop_uid: str, series_uid: str):
     ds.PatientBirthDate = str(_get_tag(raw, "00100030") or "")
     ds.PatientSex = str(_get_tag(raw, "00100040") or "")
 
-    ds.StudyInstanceUID = str(_get_tag(raw, "0020000D") or generate_uid())
+    ds.StudyInstanceUID = study_uid
     ds.StudyDate = str(_get_tag(raw, "00080020") or "")
     ds.StudyTime = str(_get_tag(raw, "00080030") or "")
     ds.AccessionNumber = str(_get_tag(raw, "00080050") or "")
@@ -309,10 +309,11 @@ def write_masked_dicom_series(
     masked_arr: np.ndarray,
     frame_descriptors: list,
     out_dir: Path,
+    study_uid: str,
 ) -> Path:
     # Build one DICOM file per slice from the frame_descriptor metadata and
-    # the normalized uint8 pixel data. StudyInstanceUID is preserved so
-    # HealthImaging keeps this series in the same study
+    # the normalized uint8 pixel data. Uses the caller-supplied study_uid so
+    # the masked and binary series share the same study
     import pydicom
     from pydicom.uid import generate_uid
 
@@ -323,7 +324,7 @@ def write_masked_dicom_series(
 
     for i, (slice_float, fd) in enumerate(zip(masked_arr, frame_descriptors)):
         sop_uid = generate_uid()
-        ds = _build_dataset_from_frame(fd, sop_uid, series_uid)
+        ds = _build_dataset_from_frame(fd, sop_uid, series_uid, study_uid)
 
         raw = fd["raw_dicom"]
         orig_desc = str(_get_tag(raw, "0008103E") or "")
@@ -356,6 +357,7 @@ def write_binary_mask_dicom_series(
     threshold: float,
     frame_descriptors: list,
     out_dir: Path,
+    study_uid: str,
 ) -> Path:
     # Same structure as write_masked_dicom_series but stores a pure binary mask:
     # 255 where voxel > threshold, 0 everywhere else. This is what the Otsu filter
@@ -372,7 +374,7 @@ def write_binary_mask_dicom_series(
 
     for i, (slice_arr, fd) in enumerate(zip(original_arr, frame_descriptors)):
         sop_uid = generate_uid()
-        ds = _build_dataset_from_frame(fd, sop_uid, series_uid)
+        ds = _build_dataset_from_frame(fd, sop_uid, series_uid, study_uid)
 
         raw = fd["raw_dicom"]
         orig_desc = str(_get_tag(raw, "0008103E") or "")
@@ -826,9 +828,14 @@ def main():
         s3_prefix = (args.s3_prefix or f"otsu-threshold/{stem}").rstrip("/")
         base_uri = f"s3://{args.s3_bucket}/{s3_prefix.rstrip('/')}"
 
+        # generate one study UID shared by both output series so they appear in
+        # the same study in HealthImaging, separate from the original image set
+        from pydicom.uid import generate_uid
+        study_uid = generate_uid()
+
         print("  Writing DICOM  : masked intensity series", flush=True)
         masked_dicom_dir = write_masked_dicom_series(
-            masked_arr, frame_descriptors, out_dir / "masked-dicom"
+            masked_arr, frame_descriptors, out_dir / "masked-dicom", study_uid
         )
         masked_input_uri = upload_dicom_to_s3(
             masked_dicom_dir, args.s3_bucket, f"{s3_prefix}/dicom-masked"
@@ -844,7 +851,7 @@ def main():
 
         print("  Writing DICOM  : binary mask series", flush=True)
         binary_dicom_dir = write_binary_mask_dicom_series(
-            original_arr, threshold, frame_descriptors, out_dir / "binary-dicom"
+            original_arr, threshold, frame_descriptors, out_dir / "binary-dicom", study_uid
         )
         binary_input_uri = upload_dicom_to_s3(
             binary_dicom_dir, args.s3_bucket, f"{s3_prefix}/dicom-binary"

@@ -1,8 +1,11 @@
 package com.green.imagecore.service;
 
+import com.green.imagecore.entities.Role;
+import com.green.imagecore.entities.RoleType;
 import com.green.imagecore.entities.User;
 import com.green.imagecore.entities.subscription.SubscriptionTier;
 import com.green.imagecore.entities.subscription.SubscriptionTierCode;
+import com.green.imagecore.repositories.RoleRepository;
 import com.green.imagecore.repositories.UserRepository;
 import com.green.imagecore.repositories.subscription.SubscriptionTierRepository;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,9 @@ class GoogleAuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private RoleRepository roleRepository;
+
+    @Mock
     private SubscriptionTierRepository subscriptionTierRepository;
 
     @InjectMocks
@@ -43,11 +49,16 @@ class GoogleAuthServiceTest {
         freeTier.setId(1L);
         freeTier.setCode(SubscriptionTierCode.FREE);
 
+        Role patientRole = new Role();
+        patientRole.setId(1L);
+        patientRole.setName(RoleType.PATIENT);
+
         when(tokenVerifier.verify(FAKE_TOKEN)).thenReturn(TOKEN_INFO);
         when(userRepository.findByGoogleId(TOKEN_INFO.sub())).thenReturn(Optional.empty());
         when(userRepository.findByEmail(TOKEN_INFO.email())).thenReturn(Optional.empty());
         when(userRepository.existsByUsername("user")).thenReturn(false);
         when(subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)).thenReturn(Optional.of(freeTier));
+        when(roleRepository.findByName(RoleType.PATIENT)).thenReturn(Optional.of(patientRole));
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArguments()[0]);
 
         User result = googleAuthService.authenticateWithGoogle(FAKE_TOKEN);
@@ -56,6 +67,8 @@ class GoogleAuthServiceTest {
         assertEquals("user@gmail.com", result.getEmail());
         assertEquals("google-sub-123", result.getGoogleId());
         assertNull(result.getPasswordHash());
+        assertEquals(1, result.getUserRoles().size());
+        assertEquals(RoleType.PATIENT, result.getUserRoles().iterator().next().getRole().getName());
         verify(userRepository).save(any(User.class));
     }
 
@@ -112,16 +125,39 @@ class GoogleAuthServiceTest {
         freeTier.setId(1L);
         freeTier.setCode(SubscriptionTierCode.FREE);
 
+        Role patientRole = new Role();
+        patientRole.setId(1L);
+        patientRole.setName(RoleType.PATIENT);
+
         when(tokenVerifier.verify(FAKE_TOKEN)).thenReturn(TOKEN_INFO);
         when(userRepository.findByGoogleId(TOKEN_INFO.sub())).thenReturn(Optional.empty());
         when(userRepository.findByEmail(TOKEN_INFO.email())).thenReturn(Optional.empty());
         when(userRepository.existsByUsername("user")).thenReturn(true);
         when(userRepository.existsByUsername("user2")).thenReturn(false);
         when(subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)).thenReturn(Optional.of(freeTier));
+        when(roleRepository.findByName(RoleType.PATIENT)).thenReturn(Optional.of(patientRole));
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArguments()[0]);
 
         User result = googleAuthService.authenticateWithGoogle(FAKE_TOKEN);
 
         assertEquals("user2", result.getUsername());
+    }
+
+    @Test
+    void authenticateWithGoogle_NewUser_PatientRoleNotFound_Throws() {
+        SubscriptionTier freeTier = new SubscriptionTier();
+        freeTier.setId(1L);
+        freeTier.setCode(SubscriptionTierCode.FREE);
+
+        when(tokenVerifier.verify(FAKE_TOKEN)).thenReturn(TOKEN_INFO);
+        when(userRepository.findByGoogleId(TOKEN_INFO.sub())).thenReturn(Optional.empty());
+        when(userRepository.findByEmail(TOKEN_INFO.email())).thenReturn(Optional.empty());
+        when(subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)).thenReturn(Optional.of(freeTier));
+        when(roleRepository.findByName(RoleType.PATIENT)).thenReturn(Optional.empty());
+
+        assertThrows(IllegalStateException.class,
+                () -> googleAuthService.authenticateWithGoogle(FAKE_TOKEN));
+
+        verify(userRepository, never()).save(any());
     }
 }

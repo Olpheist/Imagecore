@@ -136,6 +136,22 @@ public class ImageController {
     }
 
     /**
+     * Returns the most recently submitted analysis job for the given image, or 404 if none exists.
+     * Used by the catalog page on mount to restore job state after navigation.
+     */
+    @GetMapping("/{imageId}/jobs/latest")
+    @PreAuthorize("hasAnyRole('CLINICIAN', 'RESEARCHER')")
+    public ResponseEntity<AnalysisJobDto> getLatestJob(
+            @PathVariable Long imageId,
+            Authentication authentication
+    ) {
+        Long userId = parseUserId(authentication);
+        return analysisJobService.findLatestJobForImage(imageId, userId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
      * Returns a 302 redirect to a 15-minute presigned S3 URL for the job's PDF report.
      * Returns 404 if the image or job does not exist, is not owned by the user, or the
      * report has not been uploaded yet (tool may still be running).

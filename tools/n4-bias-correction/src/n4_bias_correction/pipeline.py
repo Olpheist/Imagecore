@@ -2,10 +2,20 @@
 pipeline.py - N4 Bias Field Correction Tool
 
 Corrects B1 field inhomogeneity in MRI volumes using the ITK N4 algorithm.
-Produces a PDF report with side-by-side comparison of the original, corrected,
+B1 inhomogeneity causes the same tissue type to appear brighter on one side of
+the image than the other, which skews downstream analysis (including Otsu
+thresholding). N4 estimates and removes this smooth intensity gradient, producing
+a corrected volume where tissue intensities are spatially consistent.
+
+Produces a PDF report with a side-by-side comparison of the original, corrected,
 and bias field middle slices. The corrected volume is written as a DICOM series
-(deep-copied from the originals with only pixel data replaced) and reimported
-into HealthImaging under the same Study Instance UID.
+and reimported into HealthImaging under the same Study Instance UID.
+
+Intended workflow for Run Tool Workflow:
+    Run N4 first on the raw image set, then run Otsu Threshold on the corrected
+    output. N4 flattens the intensity field so Otsu sees a clean bimodal histogram
+    (background vs. tissue) rather than a smeared unimodal distribution caused by
+    the bias field.
 
 Usage (ECS / S3 source, via environment variables):
     ORIGINAL_S3_BUCKET=<bucket> ORIGINAL_S3_PREFIX=<prefix>
@@ -13,7 +23,7 @@ Usage (ECS / S3 source, via environment variables):
     IMPORT_ROLE_ARN=<arn>
     n4-bias-correction
 
-Usage (local file, for development):
+Usage (local file, for development -- PDF report only, no DICOM output):
     n4-bias-correction --input <image_path> [--output-dir <dir>] [--shrink-factor <n>]
 
 Supported local input formats (anything itk can read):
@@ -822,7 +832,7 @@ def main():
     # HealthImaging import job, and writes output.json so the Spring app can
     # discover the import job ID after the ECS task stops and create a catalog entry.
     if datasets is not None:
-        s3_prefix = args.s3_prefix or f"n4-corrected/{stem}"
+        s3_prefix = (args.s3_prefix or f"n4-corrected/{stem}").rstrip("/")
 
         print("  Writing DICOM  : corrected series")
         dicom_dir = write_corrected_dicom_series(

@@ -55,6 +55,15 @@
           </Button>
         </form>
         <Error :error="error" dismissible @close="error = null" />
+
+        <div class="flex items-center gap-2 my-2">
+          <hr class="flex-1 border-gray-200" />
+          <span class="text-xs text-gray-400">or</span>
+          <hr class="flex-1 border-gray-200" />
+        </div>
+
+        <div ref="googleButtonRef" class="flex justify-center" />
+
         <div class="text-center text-sm text-gray-600">
           Already have an account?
           <button
@@ -71,12 +80,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, onMounted } from "vue";
 import { navigateTo } from "nuxt/app";
 import type { AuthResponse } from "~/models/auth";
 import { useApiFetch } from "~/composables/useApiFetch";
 import { useUserStore } from "~/stores/user";
 import type { ApiError } from "~/models/error";
+import { useGoogleSignIn } from "~/composables/useGoogleSignIn";
 
 useHead({
   title: "Register",
@@ -96,6 +106,18 @@ const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 const error = ref<ApiError | null>(null);
 const loading = ref(false);
+const googleButtonRef = ref<HTMLElement | null>(null);
+
+const { initButton } = useGoogleSignIn({
+  onSuccess: () => navigateTo("/"),
+  onError: (err) => { error.value = err; },
+});
+
+onMounted(() => {
+  if (googleButtonRef.value) {
+    initButton(googleButtonRef.value);
+  }
+});
 
 const onRegister = async (): Promise<void> => {
   error.value = null;

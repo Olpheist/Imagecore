@@ -164,6 +164,10 @@ resource "aws_ecs_task_definition" "main" {
       {
         name  = "AWS_ECS_SECURITY_GROUP_IDS"
         value = var.app_security_group_id
+      },
+      {
+        name  = "GOOGLE_CLIENT_ID"
+        value = var.google_client_id
       }
     ]
     

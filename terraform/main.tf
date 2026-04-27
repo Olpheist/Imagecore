@@ -111,4 +111,6 @@ module "ecs" {
   stripe_webhook_secret = var.stripe_webhook_secret
   stripe_secret_key = var.stripe_secret_key
 
+  # Google Client ID for OAuth
+  google_client_id = var.google_client_id
 }

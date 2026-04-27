@@ -1,5 +1,6 @@
 package com.green.imagecore.bdd;
 
+import com.green.imagecore.dto.AnalysisJobDto;
 import com.green.imagecore.entities.*;
 import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.exception.ResourceNotFoundException;
@@ -30,6 +31,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.List;
+import java.util.Optional;
 
 import java.util.function.Consumer;
 
@@ -259,6 +261,21 @@ public class AnalysisJobSteps {
         }
         assertThat(thrownException).isInstanceOf(ResourceNotFoundException.class);
         assertThat(thrownException.getMessage()).contains(messageFragment);
+    }
+
+    @Then("the latest job for that image is the submitted job")
+    public void the_latest_job_for_that_image_is_the_submitted_job() {
+        Optional<AnalysisJobDto> latest = analysisJobService.findLatestJobForImage(
+                importedImage.getId(), jobUser.getId());
+        assertThat(latest).isPresent();
+        assertThat(latest.get().getId()).isEqualTo(submittedJob.getId());
+    }
+
+    @Then("the latest job for that image is absent")
+    public void the_latest_job_for_that_image_is_absent() {
+        Optional<AnalysisJobDto> latest = analysisJobService.findLatestJobForImage(
+                importedImage.getId(), jobUser.getId());
+        assertThat(latest).isEmpty();
     }
 
     @Then("requesting the report returns a presigned URI")

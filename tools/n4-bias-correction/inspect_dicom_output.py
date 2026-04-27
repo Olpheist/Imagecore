@@ -129,7 +129,7 @@ def main():
         help="Path to a single .dcm file or a directory containing a DICOM series",
     )
     parser.add_argument("--output-dir", default="output", metavar="DIR")
-    parser.add_argument("--shrink-factor", type=int, default=2, metavar="N")
+    parser.add_argument("--shrink-factor", type=int, default=1, metavar="N")
     args = parser.parse_args()
 
     input_path = Path(args.input)

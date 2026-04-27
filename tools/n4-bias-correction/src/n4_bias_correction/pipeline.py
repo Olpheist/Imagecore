@@ -331,15 +331,13 @@ def write_corrected_dicom_series(
 
     All original DICOM tags (patient, study, series, spatial metadata, MR IOD
     required tags, etc.) are preserved intact. Only these fields change:
+        StudyInstanceUID   - fresh UID so HealthImaging creates an independent image set
         SeriesInstanceUID  - new UID shared across all corrected slices
         SOPInstanceUID     - new UID per slice
         SeriesDescription  - original description + " [N4 Corrected]"
         SeriesNumber       - original + 900 (sorts after source series)
         ImageType          - ["DERIVED", "SECONDARY"]
         PixelData          - N4-corrected values, rescaled back to original dtype
-
-    StudyInstanceUID is kept identical so HealthImaging associates the corrected
-    series with the same study as the original upload.
 
     Returns the output directory containing the .dcm files.
     """
@@ -349,12 +347,14 @@ def write_corrected_dicom_series(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    study_uid = generate_uid()
     series_uid = generate_uid()
 
     for i, (ds_orig, slice_float) in enumerate(zip(datasets, corrected_arr)):
         ds = copy.deepcopy(ds_orig)
 
-        # Assign new series and instance identities
+        # Assign new study, series, and instance identities
+        ds.StudyInstanceUID = study_uid
         ds.SeriesInstanceUID = series_uid
         sop_uid = generate_uid()
         ds.SOPInstanceUID = sop_uid
@@ -418,8 +418,7 @@ def start_healthimaging_import(
     Trigger a HealthImaging DICOM import job and return the job ID.
 
     HealthImaging fetches the DICOM files from input_s3_uri using import_role_arn,
-    converts them to HTJ2K, and stores them under the same Study Instance UID as
-    the original series, keeping it associated with the same study in HealthImaging.
+    converts them to HTJ2K, and creates a new image set for the corrected series.
     """
     client = boto3.client("medical-imaging", **({"region_name": region} if region else {}))
     response = client.start_dicom_import_job(

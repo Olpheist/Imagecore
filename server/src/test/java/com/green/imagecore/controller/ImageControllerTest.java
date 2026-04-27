@@ -1,6 +1,7 @@
 package com.green.imagecore.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.green.imagecore.dto.AnalysisJobDto;
 import com.green.imagecore.dto.DicomSeriesGroupDto;
 import com.green.imagecore.entities.AnalysisJob;
 import com.green.imagecore.entities.DicomImage;
@@ -26,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -271,6 +273,37 @@ class ImageControllerTest {
     }
 
 
+    // GET /api/images/{imageId}/jobs/latest
+
+    @Test
+    void getLatestJob_Returns200WithJobDto_WhenJobExists() throws Exception {
+        when(analysisJobService.findLatestJobForImage(eq(1L), eq(42L))).thenReturn(Optional.of(stubJobDto(10L)));
+
+        mockMvc.perform(get("/api/images/1/jobs/latest").principal(authTokenForUser("42")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void getLatestJob_Returns404_WhenNoJobExists() throws Exception {
+        when(analysisJobService.findLatestJobForImage(eq(1L), eq(42L))).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/images/1/jobs/latest").principal(authTokenForUser("42")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getLatestJob_PassesCorrectIdsToService() throws Exception {
+        when(analysisJobService.findLatestJobForImage(anyLong(), anyLong())).thenReturn(Optional.of(stubJobDto(5L)));
+
+        mockMvc.perform(get("/api/images/3/jobs/latest").principal(authTokenForUser("99")))
+                .andExpect(status().isOk());
+
+        verify(analysisJobService).findLatestJobForImage(3L, 99L);
+    }
+
+
     // GET /api/images/{imageId}/jobs/{jobId}/report
 
     @Test
@@ -327,6 +360,17 @@ class ImageControllerTest {
                 .status(JobStatus.PENDING)
                 .updatedAt(Instant.parse("2026-01-01T00:00:00Z"))
                 .build();
+    }
+
+    private AnalysisJobDto stubJobDto(Long id) {
+        AnalysisJobDto dto = new AnalysisJobDto();
+        dto.setId(id);
+        dto.setImageId(1L);
+        dto.setToolId(5L);
+        dto.setToolName("brain-segmentation");
+        dto.setStatus("PENDING");
+        dto.setCreatedAt("2026-01-01T00:00:00Z");
+        return dto;
     }
 
     private DicomImage stubImage(Long id, String filename, Long fileSize, ImportStatus status) {

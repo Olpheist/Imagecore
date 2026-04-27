@@ -8,12 +8,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface AnalysisJobRepository extends JpaRepository<AnalysisJob, Long> {
 
     List<AnalysisJob> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     List<AnalysisJob> findByImageIdOrderByCreatedAtDesc(Long imageId);
+
+    Optional<AnalysisJob> findFirstByImageIdOrderByCreatedAtDesc(Long imageId);
 
     List<AnalysisJob> findByStatusIn(List<JobStatus> statuses);
 

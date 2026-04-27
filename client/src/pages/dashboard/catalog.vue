@@ -63,7 +63,7 @@
           </span>
         </template>
         <template #cell-actions="{ row }">
-          <div class="flex gap-1.5 flex-nowrap">
+          <div class="flex gap-1.5 flex-wrap items-center">
             <Button
               variant="primary"
               size="sm"
@@ -94,12 +94,26 @@
             >
               Run Tool Workflow
             </Button>
+            <!-- Spinner shown while the tool is PENDING, SUBMITTED, or RUNNING -->
+            <div
+              v-if="isJobActive(lastJobByGroupKey.get(row.key))"
+              class="flex items-center gap-1 text-xs text-violet-600 font-medium"
+              :title="`Tool is ${lastJobByGroupKey.get(row.key)!.status.toLowerCase()}`"
+            >
+              <svg class="w-3.5 h-3.5 animate-spin flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span>{{ lastJobByGroupKey.get(row.key)!.status }}</span>
+            </div>
+            <!-- Download Report: visible once a job exists; disabled until it completes -->
             <Button
               v-if="lastJobByGroupKey.get(row.key)"
               size="sm"
               rounded
               class="!bg-purple-400 hover:!bg-purple-500 text-white"
-              title="Download the analysis report (available once the tool finishes)"
+              :disabled="lastJobByGroupKey.get(row.key)!.status !== 'COMPLETED'"
+              :title="lastJobByGroupKey.get(row.key)!.status !== 'COMPLETED' ? 'Report available once the tool finishes' : 'Download the analysis report'"
               @click="onDownloadReport(row)"
             >
               Download Report
@@ -195,7 +209,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useDicomCatalogStore } from '~/stores/dicomCatalog';
 import { useApiFetch } from '~/composables/useApiFetch';
@@ -249,9 +263,33 @@ async function fetchTools(): Promise<void> {
 }
 
 // Job submission state
-const jobError          = ref<ApiError | null>(null);
+const jobError           = ref<ApiError | null>(null);
 const submittingGroupKey = ref<string | null>(null);
 const lastJobByGroupKey  = ref<Map<string, AnalysisJobDto>>(new Map());
+
+function isJobActive(job: AnalysisJobDto | undefined): job is AnalysisJobDto {
+  return job !== undefined && ['PENDING', 'SUBMITTED', 'RUNNING'].includes(job.status);
+}
+
+async function fetchLatestJob(group: DicomImageSetGroup): Promise<void> {
+  const imageId = group.imageIds[0];
+  try {
+    const job = await useApiFetch<AnalysisJobDto>(`/images/${imageId}/jobs/latest`);
+    lastJobByGroupKey.value = new Map(lastJobByGroupKey.value).set(group.key, job);
+  } catch (e: unknown) {
+    // 404 means no job has been submitted yet for this image — that's fine
+    if ((e as ApiError).status !== 404) throw e;
+  }
+}
+
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+async function pollActiveJobs(): Promise<void> {
+  const activeGroups = catalogStore.seriesGroups.filter(g =>
+    isJobActive(lastJobByGroupKey.value.get(g.key))
+  );
+  await Promise.all(activeGroups.map(fetchLatestJob));
+}
 
 // Delete state
 const showDeleteModal = ref(false);
@@ -326,8 +364,14 @@ async function confirmDelete() {
   }
 }
 
-onMounted(() => {
-  catalogStore.fetchImages();
+onMounted(async () => {
+  await catalogStore.fetchImages();
   fetchTools();
+  await Promise.all(catalogStore.seriesGroups.map(fetchLatestJob));
+  pollInterval = setInterval(pollActiveJobs, 10_000);
+});
+
+onUnmounted(() => {
+  if (pollInterval) clearInterval(pollInterval);
 });
 </script>

@@ -2,7 +2,9 @@ package com.green.imagecore.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.green.imagecore.dto.AnalysisJobDto;
 import com.green.imagecore.entities.AnalysisJob;
+import com.green.imagecore.mapper.AnalysisJobMapper;
 import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.ImportStatus;
 import com.green.imagecore.entities.JobStatus;
@@ -36,6 +38,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -149,6 +152,14 @@ public class AnalysisJobService {
      * @return a presigned URI valid for 15 minutes
      * @throws ResourceNotFoundException if the image, job, or report object does not exist
      */
+    @Transactional(readOnly = true)
+    public Optional<AnalysisJobDto> findLatestJobForImage(Long imageId, Long userId) {
+        dicomImageRepository.findByIdAndUserId(imageId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Image not found with id: " + imageId));
+        return analysisJobRepository.findFirstByImageIdOrderByCreatedAtDesc(imageId)
+                .map(AnalysisJobMapper::toDto);
+    }
+
     public URI generateReportPresignedUrl(Long imageId, Long jobId, Long userId) {
         dicomImageRepository.findByIdAndUserId(imageId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Image not found with id: " + imageId));

@@ -832,7 +832,7 @@ def main():
     # HealthImaging import job, and writes output.json so the Spring app can
     # discover the import job ID after the ECS task stops and create a catalog entry.
     if datasets is not None:
-        s3_prefix = args.s3_prefix or f"n4-corrected/{stem}"
+        s3_prefix = (args.s3_prefix or f"n4-corrected/{stem}").rstrip("/")
 
         print("  Writing DICOM  : corrected series")
         dicom_dir = write_corrected_dicom_series(

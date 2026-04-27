@@ -823,7 +823,7 @@ def main():
     # and write output.json with both job IDs so the Spring app can catalog
     # two image sets per Otsu job. Only runs on the S3 DICOM input path (ECS)
     if frame_descriptors is not None:
-        s3_prefix = args.s3_prefix or f"otsu-threshold/{stem}"
+        s3_prefix = (args.s3_prefix or f"otsu-threshold/{stem}").rstrip("/")
         base_uri = f"s3://{args.s3_bucket}/{s3_prefix.rstrip('/')}"
 
         print("  Writing DICOM  : masked intensity series", flush=True)

@@ -1,9 +1,13 @@
 package com.green.imagecore.service;
 
+import com.green.imagecore.entities.Role;
+import com.green.imagecore.entities.RoleType;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.entities.UserRole;
 import com.green.imagecore.entities.subscription.SubscriptionTier;
 import com.green.imagecore.entities.subscription.SubscriptionTierCode;
 import com.green.imagecore.entities.subscription.UserSubscription;
+import com.green.imagecore.repositories.RoleRepository;
 import com.green.imagecore.repositories.UserRepository;
 import com.green.imagecore.repositories.subscription.SubscriptionTierRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +22,7 @@ public class GoogleAuthService {
 
     private final GoogleTokenVerifier tokenVerifier;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final SubscriptionTierRepository subscriptionTierRepository;
 
     @Transactional
@@ -43,11 +48,16 @@ public class GoogleAuthService {
         SubscriptionTier freeTier = subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)
                 .orElseThrow(() -> new IllegalStateException("FREE subscription tier not found"));
 
+        Role patientRole = roleRepository.findByName(RoleType.PATIENT)
+                .orElseThrow(() -> new IllegalStateException("PATIENT role not found"));
+
         User user = new User();
         user.setEmail(tokenInfo.email().toLowerCase());
         user.setUsername(deriveUsername(tokenInfo.email()));
         user.setGoogleId(tokenInfo.sub());
         user.setEnabled(true);
+
+        user.getUserRoles().add(new UserRole(user, patientRole));
 
         UserSubscription subscription = new UserSubscription();
         subscription.setUser(user);

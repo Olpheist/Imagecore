@@ -84,7 +84,14 @@ public class DicomImportJobListener {
             }
         }
 
-        log.warn("Import for image {} did not complete within {} minutes — giving up",
+        log.warn("Import for image {} did not complete within {} minutes — marking FAILED",
                 imageId, maxPollAttempts * pollIntervalMs / 60_000);
+        DicomImage image = dicomImageRepository.findById(imageId).orElse(null);
+        if (image != null
+                && image.getImportStatus() != ImportStatus.COMPLETED
+                && image.getImportStatus() != ImportStatus.FAILED) {
+            image.setImportStatus(ImportStatus.FAILED);
+            dicomImageRepository.save(image);
+        }
     }
 }

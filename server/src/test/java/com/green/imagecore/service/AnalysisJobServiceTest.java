@@ -505,6 +505,70 @@ class AnalysisJobServiceTest {
         }
 
         @Test
+        @DisplayName("N4 tool creates corrected image at results/{id}/dicom/ with N4 labels")
+        void n4ToolUsesCorrectS3PathAndLabels() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-job-n4\"}");
+            when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+                DicomImage d = inv.getArgument(0);
+                d.setId(77L);
+                return d;
+            });
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(healthImagingService.syncImportStatus(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<DicomImage> captor = ArgumentCaptor.forClass(DicomImage.class);
+            verify(dicomImageRepository, times(1)).save(captor.capture());
+            DicomImage saved = captor.getValue();
+            assertThat(saved.getS3Key()).isEqualTo("results/42/dicom/");
+            assertThat(saved.getFilename()).isEqualTo("N4 Corrected - brain.dcm");
+            assertThat(saved.getSeriesDescription()).isEqualTo("N4 Bias Field Corrected");
+            verify(eventPublisher, times(1)).publishEvent(any(DicomImportSubmittedEvent.class));
+        }
+
+        @Test
+        @DisplayName("Otsu tool creates masked and binary mask images with correct paths and labels, publishes two events, marks job COMPLETED")
+        void otsuToolCreatesTwoImagesWithCorrectLabels() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-masked-001\",\"healthImagingBinaryMaskImportJobId\":\"hi-binary-002\"}");
+            int[] idSeq = {100};
+            when(dicomImageRepository.save(any(DicomImage.class))).thenAnswer(inv -> {
+                DicomImage d = inv.getArgument(0);
+                d.setId((long) idSeq[0]++);
+                return d;
+            });
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            when(healthImagingService.syncImportStatus(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            ArgumentCaptor<DicomImage> dicomCaptor = ArgumentCaptor.forClass(DicomImage.class);
+            verify(dicomImageRepository, times(2)).save(dicomCaptor.capture());
+            List<DicomImage> saved = dicomCaptor.getAllValues();
+
+            DicomImage masked = saved.get(0);
+            assertThat(masked.getS3Key()).isEqualTo("results/42/dicom-masked/");
+            assertThat(masked.getFilename()).isEqualTo("Otsu Masked - brain.dcm");
+            assertThat(masked.getSeriesDescription()).isEqualTo("Otsu Threshold Masked");
+            assertThat(masked.getHealthImagingJobId()).isEqualTo("hi-masked-001");
+
+            DicomImage binary = saved.get(1);
+            assertThat(binary.getS3Key()).isEqualTo("results/42/dicom-binary/");
+            assertThat(binary.getFilename()).isEqualTo("Otsu Binary Mask - brain.dcm");
+            assertThat(binary.getSeriesDescription()).isEqualTo("Otsu Threshold Binary Mask");
+            assertThat(binary.getHealthImagingJobId()).isEqualTo("hi-binary-002");
+
+            verify(eventPublisher, times(2)).publishEvent(any(DicomImportSubmittedEvent.class));
+            ArgumentCaptor<AnalysisJob> jobCaptor = ArgumentCaptor.forClass(AnalysisJob.class);
+            verify(analysisJobRepository, atLeastOnce()).save(jobCaptor.capture());
+            assertThat(jobCaptor.getAllValues()).anyMatch(j -> j.getStatus() == JobStatus.COMPLETED);
+        }
+
+        @Test
         @DisplayName("marks job FAILED when ECS task exits with non-zero exit code")
         void savesJobAsFailedOnNonZeroExitCode() {
             when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));

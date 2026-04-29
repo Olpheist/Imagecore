@@ -60,7 +60,7 @@
               rounded
               class="!w-10 !h-10 !p-0 inline-flex items-center justify-center"
               :disabled="row.status !== 'COMPLETED'"
-              :title="row.status !== 'COMPLETED' ? 'Image not ready' : 'View image'"
+              :title="'View image'"
               @click="viewInViewer(row)"
           >
             <svg
@@ -164,6 +164,7 @@
                 class="inline-flex items-center justify-center"
                 :disabled="deletingKey === row.key"
                 title="Delete image set"
+                aria-label="Delete"
                 @click="onDeleteClick(row)"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -226,7 +227,7 @@
       </p>
       <template #footer>
         <Button variant="secondary" rounded hover @click="showDeleteModal = false">Cancel</Button>
-        <Button variant="danger" rounded hover :disabled="deletingKey !== null" @click="confirmDelete">
+        <Button variant="danger" rounded hover :disabled="deletingKey !== null" @click="confirmDelete" title="Confirm delete">
           {{ deletingKey !== null ? 'Deleting…' : 'Delete' }}
         </Button>
       </template>

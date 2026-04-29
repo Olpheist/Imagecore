@@ -655,10 +655,10 @@ def main():
     parser.add_argument(
         "--shrink-factor",
         type=int,
-        default=2,
+        default=1,
         metavar="N",
-        help="Uniform shrink factor applied before N4 estimation (default: 2). "
-             "Use 1 to run at full resolution (slower).",
+        help="Uniform shrink factor applied before N4 estimation (default: 1). "
+             "Use values > 1 for faster estimation at lower resolution.",
     )
     parser.add_argument(
         "--s3-bucket",

@@ -15,6 +15,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     Optional<User> findByGoogleId(String googleId);
 
+    @Query("""
+    select u from User u
+    left join fetch u.userRoles ur
+    left join fetch ur.role r
+    where u.googleId = :googleId""")
+    Optional<User> findByGoogleIdWithRoles(@Param("googleId") String googleId);
+
+    @Query("""
+    select u from User u
+    left join fetch u.userRoles ur
+    left join fetch ur.role r
+    where u.email = :email""")
+    Optional<User> findByEmailWithRoles(@Param("email") String email);
+
     // Need a specific query with joins because of the lazy loading
     @Query("""
     select u from User u

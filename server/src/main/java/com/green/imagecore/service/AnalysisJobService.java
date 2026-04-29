@@ -338,12 +338,18 @@ public class AnalysisJobService {
             return;
         }
 
-        // create a new DicomImage catalog entry for the corrected image set
+        // Otsu writes a second job ID for the binary mask; presence of this field
+        // distinguishes it from single-output tools like N4
+        String binaryMaskJobId = outputNode.path("healthImagingBinaryMaskImportJobId").asText(null);
+        boolean isOtsu = binaryMaskJobId != null;
+
         DicomImage original = job.getImage();
+
+        // primary corrected image: masked intensity series for Otsu, corrected series for N4
         DicomImage corrected = DicomImage.builder()
                 .user(original.getUser())
-                .s3Key("results/" + job.getId() + "/dicom/")
-                .filename("N4 Corrected - " + original.getFilename())
+                .s3Key("results/" + job.getId() + (isOtsu ? "/dicom-masked/" : "/dicom/"))
+                .filename((isOtsu ? "Otsu Masked - " : "N4 Corrected - ") + original.getFilename())
                 .fileSize(0L)
                 .healthImagingJobId(healthImagingImportJobId)
                 .importStatus(ImportStatus.SUBMITTED)
@@ -354,21 +360,39 @@ public class AnalysisJobService {
                 .physician(original.getPhysician())
                 .studyInstanceUid(original.getStudyInstanceUid())
                 .studyDescription(original.getStudyDescription())
-                .seriesDescription("N4 Bias Field Corrected")
+                .seriesDescription(isOtsu ? "Otsu Threshold Masked" : "N4 Bias Field Corrected")
                 .build();
         corrected = dicomImageRepository.save(corrected);
-
-        // publish the event so DicomImportJobListener polls HealthImaging until
-        // the import completes and populateMetadata runs, same as a regular upload
         eventPublisher.publishEvent(new DicomImportSubmittedEvent(corrected.getId()));
-
-        // also attempt an immediate sync as a fast path for quick imports
         healthImagingService.syncImportStatus(corrected);
+
+        // Otsu also produces a binary mask series; catalog it as a second image set
+        if (isOtsu) {
+            DicomImage binaryMask = DicomImage.builder()
+                    .user(original.getUser())
+                    .s3Key("results/" + job.getId() + "/dicom-binary/")
+                    .filename("Otsu Binary Mask - " + original.getFilename())
+                    .fileSize(0L)
+                    .healthImagingJobId(binaryMaskJobId)
+                    .importStatus(ImportStatus.SUBMITTED)
+                    .modality(original.getModality())
+                    .bodyPart(original.getBodyPart())
+                    .patientId(original.getPatientId())
+                    .studyDate(original.getStudyDate())
+                    .physician(original.getPhysician())
+                    .studyInstanceUid(original.getStudyInstanceUid())
+                    .studyDescription(original.getStudyDescription())
+                    .seriesDescription("Otsu Threshold Binary Mask")
+                    .build();
+            binaryMask = dicomImageRepository.save(binaryMask);
+            eventPublisher.publishEvent(new DicomImportSubmittedEvent(binaryMask.getId()));
+            healthImagingService.syncImportStatus(binaryMask);
+        }
 
         job.setStatus(JobStatus.COMPLETED);
         job.setUpdatedAt(Instant.now());
         analysisJobRepository.save(job);
-        log.info("Analysis job {} completed, created corrected DicomImage {} for HealthImaging job {}",
-                job.getId(), corrected.getId(), healthImagingImportJobId);
+        log.info("Analysis job {} completed for HealthImaging job {}",
+                job.getId(), healthImagingImportJobId);
     }
 }

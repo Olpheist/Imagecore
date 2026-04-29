@@ -29,12 +29,12 @@ public class GoogleAuthService {
     public User authenticateWithGoogle(String idToken) {
         GoogleTokenInfo tokenInfo = tokenVerifier.verify(idToken);
 
-        Optional<User> byGoogleId = userRepository.findByGoogleId(tokenInfo.sub());
+        Optional<User> byGoogleId = userRepository.findByGoogleIdWithRoles(tokenInfo.sub());
         if (byGoogleId.isPresent()) {
             return byGoogleId.get();
         }
 
-        Optional<User> byEmail = userRepository.findByEmail(tokenInfo.email());
+        Optional<User> byEmail = userRepository.findByEmailWithRoles(tokenInfo.email());
         if (byEmail.isPresent()) {
             User user = byEmail.get();
             user.setGoogleId(tokenInfo.sub());

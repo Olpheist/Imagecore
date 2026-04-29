@@ -54,8 +54,8 @@ class GoogleAuthServiceTest {
         patientRole.setName(RoleType.PATIENT);
 
         when(tokenVerifier.verify(FAKE_TOKEN)).thenReturn(TOKEN_INFO);
-        when(userRepository.findByGoogleId(TOKEN_INFO.sub())).thenReturn(Optional.empty());
-        when(userRepository.findByEmail(TOKEN_INFO.email())).thenReturn(Optional.empty());
+        when(userRepository.findByGoogleIdWithRoles(TOKEN_INFO.sub())).thenReturn(Optional.empty());
+        when(userRepository.findByEmailWithRoles(TOKEN_INFO.email())).thenReturn(Optional.empty());
         when(userRepository.existsByUsername("user")).thenReturn(false);
         when(subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)).thenReturn(Optional.of(freeTier));
         when(roleRepository.findByName(RoleType.PATIENT)).thenReturn(Optional.of(patientRole));
@@ -80,13 +80,13 @@ class GoogleAuthServiceTest {
         existingUser.setEmail("user@gmail.com");
 
         when(tokenVerifier.verify(FAKE_TOKEN)).thenReturn(TOKEN_INFO);
-        when(userRepository.findByGoogleId(TOKEN_INFO.sub())).thenReturn(Optional.of(existingUser));
+        when(userRepository.findByGoogleIdWithRoles(TOKEN_INFO.sub())).thenReturn(Optional.of(existingUser));
 
         User result = googleAuthService.authenticateWithGoogle(FAKE_TOKEN);
 
         assertEquals(1L, result.getId());
         verify(userRepository, never()).save(any());
-        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository, never()).findByEmailWithRoles(any());
     }
 
     @Test
@@ -97,8 +97,8 @@ class GoogleAuthServiceTest {
         existingUser.setGoogleId(null);
 
         when(tokenVerifier.verify(FAKE_TOKEN)).thenReturn(TOKEN_INFO);
-        when(userRepository.findByGoogleId(TOKEN_INFO.sub())).thenReturn(Optional.empty());
-        when(userRepository.findByEmail(TOKEN_INFO.email())).thenReturn(Optional.of(existingUser));
+        when(userRepository.findByGoogleIdWithRoles(TOKEN_INFO.sub())).thenReturn(Optional.empty());
+        when(userRepository.findByEmailWithRoles(TOKEN_INFO.email())).thenReturn(Optional.of(existingUser));
         when(userRepository.save(existingUser)).thenReturn(existingUser);
 
         User result = googleAuthService.authenticateWithGoogle(FAKE_TOKEN);
@@ -116,7 +116,7 @@ class GoogleAuthServiceTest {
         assertThrows(ResponseStatusException.class,
                 () -> googleAuthService.authenticateWithGoogle(FAKE_TOKEN));
 
-        verify(userRepository, never()).findByGoogleId(any());
+        verify(userRepository, never()).findByGoogleIdWithRoles(any());
     }
 
     @Test
@@ -130,8 +130,8 @@ class GoogleAuthServiceTest {
         patientRole.setName(RoleType.PATIENT);
 
         when(tokenVerifier.verify(FAKE_TOKEN)).thenReturn(TOKEN_INFO);
-        when(userRepository.findByGoogleId(TOKEN_INFO.sub())).thenReturn(Optional.empty());
-        when(userRepository.findByEmail(TOKEN_INFO.email())).thenReturn(Optional.empty());
+        when(userRepository.findByGoogleIdWithRoles(TOKEN_INFO.sub())).thenReturn(Optional.empty());
+        when(userRepository.findByEmailWithRoles(TOKEN_INFO.email())).thenReturn(Optional.empty());
         when(userRepository.existsByUsername("user")).thenReturn(true);
         when(userRepository.existsByUsername("user2")).thenReturn(false);
         when(subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)).thenReturn(Optional.of(freeTier));
@@ -150,8 +150,8 @@ class GoogleAuthServiceTest {
         freeTier.setCode(SubscriptionTierCode.FREE);
 
         when(tokenVerifier.verify(FAKE_TOKEN)).thenReturn(TOKEN_INFO);
-        when(userRepository.findByGoogleId(TOKEN_INFO.sub())).thenReturn(Optional.empty());
-        when(userRepository.findByEmail(TOKEN_INFO.email())).thenReturn(Optional.empty());
+        when(userRepository.findByGoogleIdWithRoles(TOKEN_INFO.sub())).thenReturn(Optional.empty());
+        when(userRepository.findByEmailWithRoles(TOKEN_INFO.email())).thenReturn(Optional.empty());
         when(subscriptionTierRepository.findByCode(SubscriptionTierCode.FREE)).thenReturn(Optional.of(freeTier));
         when(roleRepository.findByName(RoleType.PATIENT)).thenReturn(Optional.empty());
 

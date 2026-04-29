@@ -1,12 +1,12 @@
 <template>
-  <div class="w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+  <div class="w-full bg-white border border-slate-200 rounded-2xl shadow-sm">
     <table class="w-full table-fixed text-sm">
       <thead>
       <tr class="border-b border-slate-100">
         <th
             v-for="col in columns"
             :key="col.key"
-            class="text-left px-5 py-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wider"
+            class="px-5 py-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wider"
             :class="col.class"
         >
           {{ col.label }}

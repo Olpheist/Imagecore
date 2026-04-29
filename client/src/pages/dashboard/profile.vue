@@ -64,6 +64,75 @@
                 {{ user?.createdAt ? formatDate(user.createdAt) : "—" }}
               </div>
             </div>
+
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-600">
+                Subscription
+              </label>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900">
+                {{ subscriptionTier }}
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-600">
+                Auto Renew
+              </label>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900">
+                {{ user?.subscription?.autoRenew ? "Enabled" : "Disabled" }}
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-600">
+                Current Period Start
+              </label>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900">
+                {{ user?.subscription?.currentPeriodStart ? formatDate(user.subscription.currentPeriodStart) : "—" }}
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-600">
+                Current Period End
+              </label>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900">
+                {{ user?.subscription?.currentPeriodEnd ? formatDate(user.subscription.currentPeriodEnd) : "—" }}
+              </div>
+            </div>
+            <div v-if="user?.subscription" class="mt-8 rounded-3xl border border-slate-200 bg-slate-50 px-6 py-5">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 class="text-base font-semibold text-slate-900">
+                    Manage Subscription
+                  </h3>
+                  <p class="mt-1 text-sm text-slate-500">
+                    {{ subscriptionActionText }}
+                  </p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                  <Button
+                      v-if="isFree"
+                      :disabled="billingLoading"
+                      @click="handleUpgrade"
+                  >
+                    {{ billingLoading ? "Loading..." : "Upgrade to Pro" }}
+                  </Button>
+                  <Button
+                      v-if="isPro && user.subscription.autoRenew"
+                      variant="danger"
+                      :disabled="billingLoading"
+                      @click="handleCancelAutoRenew"
+                  >
+                    {{ billingLoading ? "Loading..." : "Cancel Auto Renew" }}
+                  </Button>
+                  <Button
+                      v-if="isPro && !user.subscription.autoRenew"
+                      :disabled="billingLoading"
+                      @click="handleResumeAutoRenew"
+                  >
+                    {{ billingLoading ? "Loading..." : "Resume Auto Renew" }}
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
           <button
               class="text-blue-600 hover:underline font-medium mt-2"
@@ -79,7 +148,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { useApiFetch } from "~/composables/useApiFetch";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "~/stores/user";
 import {navigateTo} from "nuxt/app";
@@ -116,6 +186,79 @@ const formatDate = (iso: string): string => {
 
 const onForgotPassword = async (): Promise<void> => {
   await navigateTo("/forgot-password");
+};
+
+const subscriptionTier = computed(() => {
+  const tierCode = user.value?.subscription?.tierCode;
+  if (!tierCode) return "Free";
+  return tierCode.charAt(0).toUpperCase() + tierCode.slice(1).toLowerCase();
+});
+
+const billingLoading = ref(false);
+
+const isPro = computed(() => {
+  return user.value?.subscription?.tierCode === "PRO";
+});
+
+const isFree = computed(() => {
+  return user.value?.subscription?.tierCode === "FREE";
+});
+
+const subscriptionActionText = computed(() => {
+  if (isFree.value) return "Upgrade your account to unlock Pro tools.";
+  if (isPro.value && user.value?.subscription?.autoRenew) return "Your Pro subscription is active and will renew automatically.";
+  if (isPro.value && !user.value?.subscription?.autoRenew) return "Your Pro subscription is set to end after the current billing period.";
+  return "No subscription action available.";
+});
+
+const handleUpgrade = async (): Promise<void> => {
+  try {
+    billingLoading.value = true;
+
+    const response = await useApiFetch<{ url: string }>("/billing/checkout", {
+      method: "POST",
+    });
+
+    if (response?.url) {
+      window.location.href = response.url;
+    }
+  } catch (e) {
+    console.error("failed to start upgrade", e);
+  } finally {
+    billingLoading.value = false;
+  }
+};
+
+const handleCancelAutoRenew = async (): Promise<void> => {
+  try {
+    billingLoading.value = true;
+
+    await useApiFetch<{ message: string }>("/billing/cancel", {
+      method: "POST",
+    });
+
+    await userStore.fetchMe();
+  } catch (e) {
+    console.error("failed to cancel auto renew", e);
+  } finally {
+    billingLoading.value = false;
+  }
+};
+
+const handleResumeAutoRenew = async (): Promise<void> => {
+  try {
+    billingLoading.value = true;
+
+    await useApiFetch<{ message: string }>("/billing/resume", {
+      method: "POST",
+    });
+
+    await userStore.fetchMe();
+  } catch (e) {
+    console.error("failed to resume auto renew", e);
+  } finally {
+    billingLoading.value = false;
+  }
 };
 
 </script>

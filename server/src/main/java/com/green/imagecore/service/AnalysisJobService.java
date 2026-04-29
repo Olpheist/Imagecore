@@ -9,6 +9,7 @@ import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.ImportStatus;
 import com.green.imagecore.entities.JobStatus;
 import com.green.imagecore.entities.Tool;
+import com.green.imagecore.events.AnalysisJobCompletedEvent;
 import com.green.imagecore.events.DicomImportSubmittedEvent;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.AnalysisJobRepository;
@@ -392,6 +393,7 @@ public class AnalysisJobService {
         job.setStatus(JobStatus.COMPLETED);
         job.setUpdatedAt(Instant.now());
         analysisJobRepository.save(job);
+        eventPublisher.publishEvent(new AnalysisJobCompletedEvent(job.getId(), corrected.getId()));
         log.info("Analysis job {} completed for HealthImaging job {}",
                 job.getId(), healthImagingImportJobId);
     }

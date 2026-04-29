@@ -385,117 +385,11 @@ async function confirmDelete(): Promise<void> {
   }
 }
 
-const mockJobs = new Map<string, AnalysisJobDto>([
-  ['set1', {
-    id: 101,
-    imageId: 1,
-    toolId: 1,
-    toolName: 'N4 Bias Correction',
-    status: 'COMPLETED',
-    ecsTaskArn: null,
-    createdAt: '2026-04-20T11:00:00Z',
-  }],
-  ['set2', {
-    id: 102,
-    imageId: 4,
-    toolId: 2,
-    toolName: 'Tumor Detection',
-    status: 'RUNNING',
-    ecsTaskArn: 'arn:aws:ecs:...',
-    createdAt: '2026-04-18T09:00:00Z',
-  }],
-]);
-
-const mockTools: ToolDto[] = [
-  {
-    toolId: 1,
-    CreatedByUserId: 1,
-    name: 'N4 Bias Correction',
-    category: 'imaging',
-    description: 'Correct intensity non-uniformity',
-    imageTag: 'n4',
-  },
-  {
-    toolId: 2,
-    CreatedByUserId: 1,
-    name: 'Tumor Detection',
-    category: 'analysis',
-    description: 'Detect abnormal regions',
-    imageTag: 'tumor',
-  },
-  {
-    toolId: 3,
-    CreatedByUserId: 1,
-    name: 'Bone Segmentation',
-    category: 'analysis',
-    description: 'Segment skeletal structures',
-    imageTag: 'bone',
-  },
-];
-
-const mockSeriesGroups: DicomImageSetGroup[] = [
-  {
-    key: 'set1',
-    imageSetId: 'imgset-001',
-    displayName: 'Chest CT - Contrast',
-    modality: 'CT',
-    bodyPart: 'CHEST',
-    studyDate: '2026-04-20T10:32:00Z',
-    instanceCount: 128,
-    status: 'COMPLETED',
-    seriesInstanceUid: '1.2.840.113619.2.55.3.604688.123',
-    studyInstanceUid: '1.2.840.113619.2.55.3.604688',
-    imageIds: [1, 2, 3],
-  },
-  {
-    key: 'set2',
-    imageSetId: 'imgset-002',
-    displayName: 'Brain MRI - T1',
-    modality: 'MR',
-    bodyPart: 'BRAIN',
-    studyDate: '2026-04-18T08:12:00Z',
-    instanceCount: 64,
-    status: 'IN_PROGRESS',
-    seriesInstanceUid: '1.2.3.4.5.6.7',
-    studyInstanceUid: '1.2.3.4.5.6',
-    imageIds: [4],
-  },
-  {
-    key: 'set3',
-    imageSetId: 'imgset-003',
-    displayName: 'Abdominal CT',
-    modality: 'CT',
-    bodyPart: 'ABDOMEN',
-    studyDate: '2026-04-15T14:55:00Z',
-    instanceCount: 90,
-    status: 'FAILED',
-    seriesInstanceUid: '1.2.9.9.9',
-    studyInstanceUid: '1.2.9.9',
-    imageIds: [5],
-  },
-  {
-    key: 'set4',
-    imageSetId: null,
-    displayName: 'Pending Upload - X-Ray',
-    modality: 'CR',
-    bodyPart: 'CHEST',
-    studyDate: null,
-    instanceCount: 1,
-    status: 'PENDING',
-    seriesInstanceUid: null,
-    studyInstanceUid: null,
-    imageIds: [6],
-  },
-];
-
 onMounted(async () => {
   await catalogStore.fetchImages();
   await fetchTools();
   await Promise.all(catalogStore.seriesGroups.map(fetchLatestJob));
   pollInterval = setInterval(pollActiveJobs, 10_000);
-  catalogStore.seriesGroups = mockSeriesGroups;
-  tools.value = mockTools;
-  lastJobByGroupKey.value = mockJobs;
 });
 
 onUnmounted(() => {

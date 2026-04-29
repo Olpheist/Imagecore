@@ -99,47 +99,11 @@ def _build_direction_matrix(image_orientation: list[float]) -> np.ndarray:
     return np.column_stack([row, col, normal])
 
 
-def _get_tag(raw: dict, tag: str, default=None):
-    # Pull the first value from a DICOM JSON tag dict
-    # Handles the PN (person name) nested dict format too
-    entry = raw.get(tag)
-    if not entry:
-        return default
-    values = entry.get("Value", [])
-    if not values:
-        return default
-    val = values[0]
-    if isinstance(val, dict) and "Alphabetic" in val:
-        return val["Alphabetic"]
-    return val
-
-
-def _ds_to_raw_dicom(ds) -> dict:
-    # Convert a pydicom Dataset to the DICOM JSON format we use in frame_descriptors
-    # We skip private tags and sequences since we only need the standard module tags
-    import pydicom
-    raw = {}
-    for elem in ds:
-        if elem.tag.is_private or elem.VR == "SQ":
-            continue
-        tag_str = f"{elem.tag.group:04X}{elem.tag.element:04X}"
-        val = elem.value
-        if elem.VR == "PN":
-            values = [{"Alphabetic": str(val)}]
-        elif isinstance(val, bytes):
-            continue  # skip raw binary blobs like PixelData
-        elif hasattr(val, "__iter__") and not isinstance(val, str):
-            values = [str(v) if isinstance(v, pydicom.uid.UID) else v for v in val]
-        else:
-            values = [str(val) if isinstance(val, pydicom.uid.UID) else val]
-        raw[tag_str] = {"vr": elem.VR, "Value": values}
-    return raw
 
 
 def load_from_s3_dicom(bucket: str, prefix: str) -> tuple:
     # Download all the .dcm files from S3, sort them by slice position, stack
     # into a 3D float32 ITK image, and return it along with frame_descriptors
-    # so write_masked_dicom_series can copy the tags without holding pydicom objects
     # RescaleSlope/Intercept applied so Otsu sees real-valued intensities
     import pydicom
 
@@ -224,7 +188,7 @@ def load_from_s3_dicom(bucket: str, prefix: str) -> tuple:
             "image_orientation": image_ori,
             "pixel_spacing": pix_sp,
             "slice_thickness": float(thickness) if thickness is not None else None,
-            "raw_dicom": _ds_to_raw_dicom(ds),
+            "dataset": ds,
         })
 
     return image_3d, frame_descriptors
@@ -257,62 +221,12 @@ def apply_otsu_mask(image: itk.Image, threshold: float) -> np.ndarray:
 # DICOM output pipeline
 # ---------------------------------------------------------------------------
 
-def _build_dataset_from_frame(fd: dict, sop_uid: str, series_uid: str):
-    # Build a minimal but valid pydicom FileDataset from a frame_descriptor
-    # Pulls patient/study tags from raw_dicom and spatial metadata from the
-    # frame_descriptor fields. The caller sets the derived/pixel fields
-    import pydicom
-    from pydicom.dataset import FileDataset, FileMetaDataset
-    from pydicom.uid import ExplicitVRLittleEndian, generate_uid
-
-    raw = fd["raw_dicom"]
-
-    file_meta = FileMetaDataset()
-    file_meta.MediaStorageSOPClassUID = _get_tag(raw, "00080016") or "1.2.840.10008.5.1.4.1.1.4"
-    file_meta.MediaStorageSOPInstanceUID = sop_uid
-    file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
-
-    ds = FileDataset("", {}, file_meta=file_meta, preamble=b"\x00" * 128)
-    ds.is_implicit_VR = False
-    ds.is_little_endian = True
-
-    ds.PatientName = _get_tag(raw, "00100010") or "Unknown"
-    ds.PatientID = str(_get_tag(raw, "00100020") or "")
-    ds.PatientBirthDate = str(_get_tag(raw, "00100030") or "")
-    ds.PatientSex = str(_get_tag(raw, "00100040") or "")
-
-    ds.StudyInstanceUID = str(_get_tag(raw, "0020000D") or generate_uid())
-    ds.StudyDate = str(_get_tag(raw, "00080020") or "")
-    ds.StudyTime = str(_get_tag(raw, "00080030") or "")
-    ds.AccessionNumber = str(_get_tag(raw, "00080050") or "")
-    ds.StudyID = str(_get_tag(raw, "00200010") or "")
-    ds.StudyDescription = str(_get_tag(raw, "00081030") or "")
-
-    ds.Modality = str(_get_tag(raw, "00080060") or "OT")
-    ds.SeriesInstanceUID = series_uid
-    ds.SOPClassUID = file_meta.MediaStorageSOPClassUID
-    ds.SOPInstanceUID = sop_uid
-    ds.SpecificCharacterSet = "ISO_IR 6"
-
-    ds.ImagePositionPatient = [str(v) for v in fd["image_position"]]
-    ds.ImageOrientationPatient = [str(v) for v in fd["image_orientation"]]
-    ds.PixelSpacing = [str(v) for v in fd["pixel_spacing"]]
-    if fd.get("slice_thickness") is not None:
-        ds.SliceThickness = str(fd["slice_thickness"])
-    ds.InstanceNumber = str(fd.get("instance_number", 1))
-    ds.FrameOfReferenceUID = str(_get_tag(raw, "00200052") or generate_uid())
-
-    return ds
-
-
 def write_masked_dicom_series(
     masked_arr: np.ndarray,
     frame_descriptors: list,
     out_dir: Path,
 ) -> Path:
-    # Build one DICOM file per slice from the frame_descriptor metadata and
-    # the normalized uint8 pixel data. StudyInstanceUID is preserved so
-    # HealthImaging keeps this series in the same study
+    import copy
     import pydicom
     from pydicom.uid import generate_uid
 
@@ -323,16 +237,19 @@ def write_masked_dicom_series(
 
     for i, (slice_float, fd) in enumerate(zip(masked_arr, frame_descriptors)):
         sop_uid = generate_uid()
-        ds = _build_dataset_from_frame(fd, sop_uid, series_uid)
+        ds = copy.deepcopy(fd["dataset"])
 
-        raw = fd["raw_dicom"]
-        orig_desc = str(_get_tag(raw, "0008103E") or "")
+        ds.SeriesInstanceUID = series_uid
+        ds.SOPInstanceUID = sop_uid
+        if hasattr(ds, "file_meta") and ds.file_meta is not None:
+            ds.file_meta.MediaStorageSOPInstanceUID = sop_uid
+
+        orig_desc = str(getattr(ds, "SeriesDescription", "") or "")
         ds.SeriesDescription = (orig_desc + " [Otsu Mask]").strip()
         try:
-            orig_series_num = int(_get_tag(raw, "00200011") or 0)
+            ds.SeriesNumber = int(getattr(ds, "SeriesNumber", 0) or 0) + 900
         except (ValueError, TypeError):
-            orig_series_num = 0
-        ds.SeriesNumber = str(orig_series_num + 900)
+            ds.SeriesNumber = 900
         ds.ImageType = ["DERIVED", "SECONDARY"]
 
         pixel_data = normalize_to_uint8(slice_float)
@@ -357,11 +274,7 @@ def write_binary_mask_dicom_series(
     frame_descriptors: list,
     out_dir: Path,
 ) -> Path:
-    # Same structure as write_masked_dicom_series but stores a pure binary mask:
-    # 255 where voxel > threshold, 0 everywhere else. This is what the Otsu filter
-    # would normally produce as its primary output, and is useful for viewing the
-    # segmentation result directly in the DICOM viewer
-    # SeriesNumber offset is +901 to distinguish from the masked intensity series at +900
+    import copy
     import pydicom
     from pydicom.uid import generate_uid
 
@@ -372,16 +285,19 @@ def write_binary_mask_dicom_series(
 
     for i, (slice_arr, fd) in enumerate(zip(original_arr, frame_descriptors)):
         sop_uid = generate_uid()
-        ds = _build_dataset_from_frame(fd, sop_uid, series_uid)
+        ds = copy.deepcopy(fd["dataset"])
 
-        raw = fd["raw_dicom"]
-        orig_desc = str(_get_tag(raw, "0008103E") or "")
+        ds.SeriesInstanceUID = series_uid
+        ds.SOPInstanceUID = sop_uid
+        if hasattr(ds, "file_meta") and ds.file_meta is not None:
+            ds.file_meta.MediaStorageSOPInstanceUID = sop_uid
+
+        orig_desc = str(getattr(ds, "SeriesDescription", "") or "")
         ds.SeriesDescription = (orig_desc + " [Otsu Binary Mask]").strip()
         try:
-            orig_series_num = int(_get_tag(raw, "00200011") or 0)
+            ds.SeriesNumber = int(getattr(ds, "SeriesNumber", 0) or 0) + 901
         except (ValueError, TypeError):
-            orig_series_num = 0
-        ds.SeriesNumber = str(orig_series_num + 901)
+            ds.SeriesNumber = 901
         ds.ImageType = ["DERIVED", "SECONDARY"]
 
         pixel_data = (slice_arr > threshold).astype(np.uint8) * 255

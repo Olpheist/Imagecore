@@ -41,33 +41,64 @@ def _make_image(z=8, y=32, x=32, spacing=(1.0, 1.0, 1.0)):
 
 
 def _make_frame_descriptors(n_slices=3, study_uid="1.2.3.4.5"):
-    # Minimal per-slice metadata dicts, matching what load_from_s3_dicom returns
+    # Minimal per-slice pydicom Datasets, matching what load_from_s3_dicom returns
     # Used to test write_masked_dicom_series without actually hitting S3
-    raw = {
-        "00100010": {"vr": "PN", "Value": [{"Alphabetic": "Test^Patient"}]},
-        "00100020": {"vr": "LO", "Value": ["TEST-001"]},
-        "00100030": {"vr": "DA", "Value": ["19800101"]},
-        "00100040": {"vr": "CS", "Value": ["O"]},
-        "0020000D": {"vr": "UI", "Value": [study_uid]},
-        "00080020": {"vr": "DA", "Value": ["20260420"]},
-        "00080030": {"vr": "TM", "Value": ["120000"]},
-        "00080050": {"vr": "SH", "Value": ["ACC-001"]},
-        "00200010": {"vr": "SH", "Value": ["1"]},
-        "00081030": {"vr": "LO", "Value": ["Test Study"]},
-        "00080060": {"vr": "CS", "Value": ["MR"]},
-    }
-    return [
-        {
+    from pydicom.dataset import FileDataset, FileMetaDataset
+    from pydicom.uid import ExplicitVRLittleEndian, generate_uid
+    import pydicom
+
+    descriptors = []
+    for i in range(n_slices):
+        sop_uid = generate_uid()
+        file_meta = FileMetaDataset()
+        file_meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.4"
+        file_meta.MediaStorageSOPInstanceUID = sop_uid
+        file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+        file_meta.FileMetaInformationVersion = b"\x00\x01"
+        file_meta.ImplementationClassUID = pydicom.uid.PYDICOM_IMPLEMENTATION_UID
+
+        ds = FileDataset("", {}, file_meta=file_meta, preamble=b"\x00" * 128)
+        ds.PatientName = "Test^Patient"
+        ds.PatientID = "TEST-001"
+        ds.PatientBirthDate = "19800101"
+        ds.PatientSex = "O"
+        ds.StudyInstanceUID = study_uid
+        ds.StudyDate = "20260420"
+        ds.StudyTime = "120000"
+        ds.AccessionNumber = "ACC-001"
+        ds.StudyID = "1"
+        ds.StudyDescription = "Test Study"
+        ds.Modality = "MR"
+        ds.SeriesInstanceUID = generate_uid()
+        ds.SeriesDescription = "Test Series"
+        ds.SeriesNumber = 1
+        ds.SOPClassUID = file_meta.MediaStorageSOPClassUID
+        ds.SOPInstanceUID = sop_uid
+        ds.InstanceNumber = i + 1
+        ds.ImagePositionPatient = [0.0, 0.0, float(i)]
+        ds.ImageOrientationPatient = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+        ds.PixelSpacing = [1.0, 1.0]
+        ds.SliceThickness = 1.0
+        ds.BitsAllocated = 16
+        ds.BitsStored = 16
+        ds.HighBit = 15
+        ds.PixelRepresentation = 0
+        ds.SamplesPerPixel = 1
+        ds.PhotometricInterpretation = "MONOCHROME2"
+        ds.Rows = 16
+        ds.Columns = 16
+        ds.PixelData = np.zeros((16, 16), dtype=np.uint16).tobytes()
+
+        descriptors.append({
             "frame_id": f"frame-{i:04d}",
             "instance_number": i + 1,
             "image_position": [0.0, 0.0, float(i)],
             "image_orientation": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
             "pixel_spacing": [1.0, 1.0],
             "slice_thickness": 1.0,
-            "raw_dicom": raw,
-        }
-        for i in range(n_slices)
-    ]
+            "dataset": ds,
+        })
+    return descriptors
 
 
 # ---------------------------------------------------------------------------

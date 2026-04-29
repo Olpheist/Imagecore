@@ -168,13 +168,18 @@ const isResearcher = userStore.hasRole("RESEARCHER");
 const search = ref("");
 const selectedFilter = ref<CardCategory | "All">("All");
 
-const filterOptions: ReadonlyArray<CardCategory | "All"> = [
+const baseOptions: Array<CardCategory | "All"> = [
   "All",
   "Imaging",
   "Tools",
-  "Account",
-  "Admin",
+  "Account"
 ];
+
+if (userStore.isAdmin) {
+  baseOptions.push("Admin");
+}
+
+const filterOptions: ReadonlyArray<CardCategory | "All"> = baseOptions;
 
 const allCards = computed<DashboardCard[]>(() => {
   const cards: DashboardCard[] = [

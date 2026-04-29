@@ -143,6 +143,17 @@
             </DropdownMenu>
 
             <div
+                v-if="isPipelineActive(lastPipelineByGroupKey.get(row.key))"
+                class="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700"
+                :title="`Workflow is ${lastPipelineByGroupKey.get(row.key)!.status.toLowerCase()}`"
+            >
+              <svg class="h-2.5 w-2.5 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span>{{ lastPipelineByGroupKey.get(row.key)!.status }}</span>
+            </div>
+            <div
                 v-if="isJobActive(lastJobByGroupKey.get(row.key))"
                 class="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700"
                 :title="`Tool is ${lastJobByGroupKey.get(row.key)!.status.toLowerCase()}`"
@@ -217,7 +228,135 @@
         </div>
       </div>
     </Modal>
-    <Modal v-model="showDeleteModal" title="Delete Image Set" description="This action cannot be undone." size="sm">
+
+    <!-- Run Tool Workflow Modal -->
+    <Modal
+      v-model="showWorkflowModal"
+      :title="workflowModalTitle"
+      size="md"
+      @update:model-value="onWorkflowModalClose"
+    >
+      <!-- Step header: Run Tools: [tool1] -> [tool2] -->
+      <div class="flex items-center gap-2 mb-4 text-sm font-medium text-gray-700">
+        <span>Run Tools:</span>
+        <span
+          class="px-2 py-0.5 rounded-lg border text-xs"
+          :class="workflowStep1 ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-gray-200 bg-gray-50 text-gray-400'"
+        >{{ workflowStep1?.name ?? 'blank' }}</span>
+        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <span
+          class="px-2 py-0.5 rounded-lg border text-xs"
+          :class="workflowStep2 ? 'border-violet-300 bg-violet-50 text-violet-700' : 'border-gray-200 bg-gray-50 text-gray-400'"
+        >{{ workflowStep2?.name ?? 'blank' }}</span>
+      </div>
+
+      <!-- Selecting step 1 -->
+      <div v-if="workflowStep1 === null">
+        <p class="text-xs text-gray-500 mb-3">Select the first tool</p>
+        <p v-if="toolsLoading" class="text-sm text-gray-400">Loading…</p>
+        <p v-else-if="toolsByCategory.size === 0" class="text-sm text-gray-400">No tools available</p>
+        <div v-else-if="workflowCategory === null" class="flex flex-col gap-2">
+          <button
+            v-for="[category] in toolsByCategory"
+            :key="category"
+            class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between cursor-pointer"
+            @click="workflowCategory = category"
+          >
+            <span class="text-sm font-medium text-gray-800">{{ category }}</span>
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        <div v-else>
+          <button
+            class="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4 cursor-pointer"
+            @click="workflowCategory = null"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+          <div class="flex flex-col gap-2">
+            <button
+              v-for="tool in toolsByCategory.get(workflowCategory)"
+              :key="tool.toolId"
+              class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
+              @click="onWorkflowStep1Select(tool)"
+            >
+              <p class="text-sm font-medium text-gray-800">{{ tool.name }}</p>
+              <p v-if="tool.description" class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ tool.description }}</p>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selecting step 2 -->
+      <div v-else-if="workflowStep2 === null">
+        <p class="text-xs text-gray-500 mb-3">Select the second tool</p>
+        <div v-if="workflowCategory === null" class="flex flex-col gap-2">
+          <button
+            v-for="[category] in toolsByCategory"
+            :key="category"
+            class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between cursor-pointer"
+            @click="workflowCategory = category"
+          >
+            <span class="text-sm font-medium text-gray-800">{{ category }}</span>
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        <div v-else>
+          <button
+            class="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4 cursor-pointer"
+            @click="workflowCategory = null"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+          <div class="flex flex-col gap-2">
+            <button
+              v-for="tool in toolsByCategory.get(workflowCategory)"
+              :key="tool.toolId"
+              class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
+              @click="onWorkflowStep2Select(tool)"
+            >
+              <p class="text-sm font-medium text-gray-800">{{ tool.name }}</p>
+              <p v-if="tool.description" class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ tool.description }}</p>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confirm view -->
+      <div v-else>
+        <p class="text-sm text-gray-700">
+          This will run <span class="font-medium">{{ workflowStep1.name }}</span> on the image, then
+          automatically run <span class="font-medium">{{ workflowStep2.name }}</span> on the output.
+        </p>
+      </div>
+
+      <template v-if="workflowStep1 !== null && workflowStep2 !== null" #footer>
+        <Button variant="secondary" rounded @click="workflowStep2 = null; workflowCategory = null">Back</Button>
+        <Button variant="primary" rounded :disabled="submittingWorkflow" @click="onConfirmWorkflow">
+          {{ submittingWorkflow ? 'Submitting…' : 'Run Workflow' }}
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Delete Confirmation Modal -->
+    <Modal
+      v-model="showDeleteModal"
+      title="Delete Image Set"
+      description="This action cannot be undone."
+      size="sm"
+    >
       <p class="text-sm text-gray-700">
         Are you sure you want to delete
         <span class="font-medium">{{ pendingDelete?.displayName }}</span>?
@@ -243,6 +382,7 @@ import { useApiFetch } from '~/composables/useApiFetch';
 import type { DicomImageSetGroup } from '~/models/dicom';
 import type { ToolDto } from '~/models/tool';
 import type { AnalysisJobDto } from '~/models/analysisJob';
+import type { PipelineDto } from '~/models/pipeline';
 import type { ApiError } from '~/models/error';
 import type { Column } from '~/components/Table.vue';
 import { formatDate } from '~/utils/formatters';
@@ -313,9 +453,48 @@ async function fetchLatestJob(group: DicomImageSetGroup): Promise<void> {
   }
 }
 
-async function pollActiveJobs(): Promise<void> {
-  const activeGroups = catalogStore.seriesGroups.filter((g) => isJobActive(lastJobByGroupKey.value.get(g.key)));
-  await Promise.all(activeGroups.map(fetchLatestJob));
+// Pipeline state
+const lastPipelineByGroupKey = ref<Map<string, PipelineDto>>(new Map());
+
+function isPipelineActive(pipeline: PipelineDto | undefined): pipeline is PipelineDto {
+  return pipeline !== undefined && ['PENDING', 'RUNNING'].includes(pipeline.status);
+}
+
+async function fetchLatestPipeline(group: DicomImageSetGroup): Promise<void> {
+  const imageId = group.imageIds[0];
+  try {
+    const pipeline = await useApiFetch<PipelineDto>(`/images/${imageId}/pipelines/latest`);
+    lastPipelineByGroupKey.value = new Map(lastPipelineByGroupKey.value).set(group.key, pipeline);
+  } catch (e: unknown) {
+    if ((e as ApiError).status !== 404) throw e;
+  }
+}
+
+// Workflow modal state
+const showWorkflowModal  = ref(false);
+const workflowGroup      = ref<DicomImageSetGroup | null>(null);
+const workflowStep1      = ref<ToolDto | null>(null);
+const workflowStep2      = ref<ToolDto | null>(null);
+const workflowCategory   = ref<string | null>(null);
+const submittingWorkflow = ref(false);
+
+const workflowModalTitle = computed(() => {
+  if (workflowStep1.value === null) return 'Select First Tool';
+  if (workflowStep2.value === null) return 'Select Second Tool';
+  return 'Confirm Workflow';
+});
+
+async function pollActive(): Promise<void> {
+  const pipelineGroups = catalogStore.seriesGroups.filter(g =>
+    isPipelineActive(lastPipelineByGroupKey.value.get(g.key))
+  );
+  const jobGroups = catalogStore.seriesGroups.filter(g =>
+    isJobActive(lastJobByGroupKey.value.get(g.key))
+  );
+  await Promise.all([
+    ...pipelineGroups.map(fetchLatestPipeline),
+    ...jobGroups.map(fetchLatestJob),
+  ]);
 }
 
 function viewInViewer(group: DicomImageSetGroup): void {
@@ -362,7 +541,49 @@ function onDownloadReport(group: DicomImageSetGroup): void {
   window.location.href = `/api/images/${imageId}/jobs/${job.id}/report`;
 }
 
-function onRunToolWorkflowClick(_group: DicomImageSetGroup): void {}
+function onRunToolWorkflowClick(group: DicomImageSetGroup) {
+  workflowGroup.value    = group;
+  workflowStep1.value    = null;
+  workflowStep2.value    = null;
+  workflowCategory.value = null;
+  showWorkflowModal.value = true;
+}
+
+function onWorkflowModalClose() {
+  workflowStep1.value    = null;
+  workflowStep2.value    = null;
+  workflowCategory.value = null;
+  workflowGroup.value    = null;
+}
+
+function onWorkflowStep1Select(tool: ToolDto) {
+  workflowStep1.value    = tool;
+  workflowCategory.value = null;
+}
+
+function onWorkflowStep2Select(tool: ToolDto) {
+  workflowStep2.value    = tool;
+  workflowCategory.value = null;
+}
+
+async function onConfirmWorkflow() {
+  if (!workflowGroup.value || !workflowStep1.value || !workflowStep2.value) return;
+  submittingWorkflow.value = true;
+  jobError.value = null;
+  try {
+    const imageId = workflowGroup.value.imageIds[0];
+    const pipeline = await useApiFetch<PipelineDto>(`/images/${imageId}/pipelines`, {
+      method: 'POST',
+      body: { toolIds: [workflowStep1.value.toolId, workflowStep2.value.toolId] },
+    });
+    lastPipelineByGroupKey.value = new Map(lastPipelineByGroupKey.value).set(workflowGroup.value.key, pipeline);
+    showWorkflowModal.value = false;
+  } catch (e: unknown) {
+    jobError.value = e as ApiError;
+  } finally {
+    submittingWorkflow.value = false;
+  }
+}
 
 function onDeleteClick(group: DicomImageSetGroup): void {
   pendingDelete.value = group;
@@ -388,9 +609,12 @@ async function confirmDelete(): Promise<void> {
 
 onMounted(async () => {
   await catalogStore.fetchImages();
-  await fetchTools();
-  await Promise.all(catalogStore.seriesGroups.map(fetchLatestJob));
-  pollInterval = setInterval(pollActiveJobs, 10_000);
+  fetchTools();
+  await Promise.all([
+    ...catalogStore.seriesGroups.map(fetchLatestJob),
+    ...catalogStore.seriesGroups.map(fetchLatestPipeline),
+  ]);
+  pollInterval = setInterval(pollActive, 10_000);
 });
 
 onUnmounted(() => {

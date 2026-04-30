@@ -31,6 +31,9 @@
             </svg>
             Logs
           </NuxtLink>
+          <NuxtLink class="nav-link" to="/dashboard">
+            Back to Dashboard
+          </NuxtLink>
         </nav>
       </aside>
 

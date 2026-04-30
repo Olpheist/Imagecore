@@ -7,12 +7,14 @@
       <div class="flex items-center gap-6 mt-3 sm:mt-0">
         <NuxtLink
             class="hover:text-gray-900 transition"
+            to="/privacy"
         >
           Privacy
         </NuxtLink>
 
         <NuxtLink
             class="hover:text-gray-900 transition"
+            to="/terms"
         >
           Terms
         </NuxtLink>

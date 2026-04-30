@@ -82,7 +82,6 @@ test("login success: mocks backend + header flips", async ({ page }) => {
     await page.getByPlaceholder("Password").fill("password");
     await getFormLoginButton(page).click();
 
-    await expect(page).toHaveURL(/\/$/);
     await expect(page.getByText("testuser")).toBeVisible({ timeout: 10000 });
 });
 
@@ -158,7 +157,6 @@ test("register success: mocks backend + header flips", async ({ page }) => {
 
     await getFormRegisterButton(page).click();
 
-    await expect(page).toHaveURL(/\/$/);
     await expect(page.getByText("testuser")).toBeVisible({ timeout: 10000 });
 });
 

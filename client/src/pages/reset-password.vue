@@ -78,6 +78,10 @@ useHead({
   title: "Reset Password",
 });
 
+definePageMeta({
+  layoutBackground: false,
+});
+
 const route = useRoute();
 
 const token = computed(() => {

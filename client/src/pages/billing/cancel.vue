@@ -28,3 +28,9 @@
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+definePageMeta({
+  layoutBackground: false,
+});
+</script>

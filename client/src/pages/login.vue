@@ -87,6 +87,10 @@ useHead({
   title: "Login",
 });
 
+definePageMeta({
+  layoutBackground: false,
+});
+
 const userStore = useUserStore();
 
 const username = ref("");
@@ -118,7 +122,7 @@ const onLogin = async (): Promise<void> => {
     });
 
     await userStore.fetchMe();
-    await navigateTo("/");
+    await navigateTo("/dashboard");
   } catch (e: unknown) {
     error.value = e as ApiError;
   } finally {

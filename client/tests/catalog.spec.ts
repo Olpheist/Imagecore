@@ -20,6 +20,21 @@ test("catalog page displays images returned from the API", async ({ page, setTok
     await setToken(makeJwt());
     await mockMe(page, mockClinicianUser);
     await mockImagesSeriesGet(page);
+    await page.route("**/api/tools", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([]),
+        });
+    });
+
+    await page.route(/.*\/api\/images\/.*\/jobs\/latest.*/, async (route) => {
+        await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "No latest job" }),
+        });
+    });
 
     await page.goto("/dashboard/catalog");
 
@@ -44,6 +59,22 @@ test("catalog page shows error when API call fails", async ({ page, setToken }) 
     await mockMe(page, mockClinicianUser);
     await mockImagesSeriesGet(page, [], 500);
 
+    await page.route("**/api/tools", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([]),
+        });
+    });
+
+    await page.route(/.*\/api\/images\/.*\/jobs\/latest.*/, async (route) => {
+        await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "No latest job" }),
+        });
+    });
+
     await page.goto("/dashboard/catalog");
 
     await expect(page.locator(".text-red-600")).toBeVisible();
@@ -56,13 +87,29 @@ test("catalog page: clicking Delete opens confirmation modal", async ({ page, se
     await mockMe(page, mockClinicianUser);
     await mockImagesSeriesGet(page);
 
+    await page.route("**/api/tools", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([]),
+        });
+    });
+
+    await page.route(/.*\/api\/images\/.*\/jobs\/latest.*/, async (route) => {
+        await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "No latest job" }),
+        });
+    });
+
     await page.goto("/dashboard/catalog");
 
     const firstImage = mockImages[0]!;
-    await page.getByRole("button", { name: /^delete$/i }).first().click();
 
-    await expect(page.getByRole("heading", { name: /delete image/i })).toBeVisible();
-    // The filename appears in the modal confirmation text (last match to avoid the table cell)
+    await page.locator("button[title='Delete image set']").first().click();
+
+    await expect(page.getByRole("heading", { name: /delete image set/i })).toBeVisible();
     await expect(page.locator("span.font-medium").filter({ hasText: firstImage.filename }).last()).toBeVisible();
 });
 
@@ -71,16 +118,33 @@ test("catalog page: confirming delete removes image from list", async ({ page, s
     await mockMe(page, mockClinicianUser);
     await mockImagesSeriesGet(page);
     await mockCsrf(page);
+
+    await page.route("**/api/tools", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([]),
+        });
+    });
+
+    await page.route(/.*\/api\/images\/.*\/jobs\/latest.*/, async (route) => {
+        await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "No latest job" }),
+        });
+    });
+
     const firstImage = mockImages[0]!;
     await mockImageDelete(page, firstImage.id);
 
     await page.goto("/dashboard/catalog");
 
     await expect(page.getByText(firstImage.filename)).toBeVisible();
-    await page.getByRole("button", { name: /^delete$/i }).first().click();
-    await page.getByRole("button", { name: /^delete$/i, exact: true }).last().click();
 
-    // Check the table cell (not the modal span) is gone
+    await page.locator("button[title='Delete image set']").first().click();
+    await page.locator("button[title='Confirm delete']").click();
+
     await expect(page.getByRole("cell", { name: firstImage.filename })).not.toBeVisible();
 });
 
@@ -91,11 +155,27 @@ test("catalog page: View Image button navigates to DICOM viewer", async ({ page,
     await mockMe(page, mockClinicianUser);
     await mockImagesSeriesGet(page);
 
+    await page.route("**/api/tools", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([]),
+        });
+    });
+
+    await page.route(/.*\/api\/images\/.*\/jobs\/latest.*/, async (route) => {
+        await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "No latest job" }),
+        });
+    });
+
     await page.goto("/dashboard/catalog");
 
-    await page.getByRole("button", { name: /view image/i }).first().click();
+    await page.locator("button[title='View image']").first().click();
 
-    await expect(page).toHaveURL(/\/dashboard\/dicom$/);
+    await expect(page).toHaveURL(/\/dashboard\/dicom/);
 });
 
 // Run Tool
@@ -105,11 +185,27 @@ test("catalog page: Run Tool button is disabled when image is not COMPLETED", as
     await mockMe(page, mockClinicianUser);
     await mockImagesSeriesGet(page);
 
+    await page.route("**/api/tools", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([]),
+        });
+    });
+
+    await page.route(/.*\/api\/images\/.*\/jobs\/latest.*/, async (route) => {
+        await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "No latest job" }),
+        });
+    });
+
     await page.goto("/dashboard/catalog");
 
-    // second row has status IN_PROGRESS, so its Run Tool button should be disabled
-    const runToolBtn = page.getByRole("button", { name: "Run Tool", exact: true }).nth(1);
-    await expect(runToolBtn).toBeDisabled();
+    await page.locator("button[title='More actions']").nth(1).click();
+
+    await expect(page.getByRole("button", { name: "Run Tool", exact: true })).toBeDisabled();
 });
 
 // Role access

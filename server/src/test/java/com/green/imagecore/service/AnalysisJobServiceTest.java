@@ -6,6 +6,7 @@ import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.JobStatus;
 import com.green.imagecore.entities.Tool;
 import com.green.imagecore.entities.User;
+import com.green.imagecore.events.AnalysisJobCompletedEvent;
 import com.green.imagecore.events.DicomImportSubmittedEvent;
 import com.green.imagecore.exception.ResourceNotFoundException;
 import com.green.imagecore.repositories.AnalysisJobRepository;
@@ -471,7 +472,7 @@ class AnalysisJobServiceTest {
         }
 
         @Test
-        @DisplayName("saves corrected DicomImage, publishes DicomImportSubmittedEvent, and marks job COMPLETED on success")
+        @DisplayName("saves corrected DicomImage, publishes DicomImportSubmittedEvent and AnalysisJobCompletedEvent, and marks job COMPLETED on success")
         void savesNewDicomImageAndPublishesEventOnSuccess() {
             when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
             stubDescribeTasks("STOPPED", 0);
@@ -492,11 +493,15 @@ class AnalysisJobServiceTest {
             assertThat(dicomCaptor.getValue().getHealthImagingJobId()).isEqualTo("hi-job-999");
             assertThat(dicomCaptor.getValue().getUser()).isEqualTo(user);
 
-            // DicomImportSubmittedEvent published with the saved image ID so the import listener polls to completion
+            // both events published: DicomImportSubmittedEvent and AnalysisJobCompletedEvent
             ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-            verify(eventPublisher).publishEvent(eventCaptor.capture());
-            assertThat(eventCaptor.getValue()).isInstanceOf(DicomImportSubmittedEvent.class);
-            assertThat(((DicomImportSubmittedEvent) eventCaptor.getValue()).imageId()).isEqualTo(77L);
+            verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
+            List<Object> events = eventCaptor.getAllValues();
+            assertThat(events).anyMatch(e -> e instanceof DicomImportSubmittedEvent
+                    && ((DicomImportSubmittedEvent) e).imageId().equals(77L));
+            assertThat(events).anyMatch(e -> e instanceof AnalysisJobCompletedEvent
+                    && ((AnalysisJobCompletedEvent) e).jobId().equals(42L)
+                    && ((AnalysisJobCompletedEvent) e).correctedImageId().equals(77L));
 
             // job marked COMPLETED
             ArgumentCaptor<AnalysisJob> jobCaptor = ArgumentCaptor.forClass(AnalysisJob.class);
@@ -566,6 +571,13 @@ class AnalysisJobServiceTest {
             ArgumentCaptor<AnalysisJob> jobCaptor = ArgumentCaptor.forClass(AnalysisJob.class);
             verify(analysisJobRepository, atLeastOnce()).save(jobCaptor.capture());
             assertThat(jobCaptor.getAllValues()).anyMatch(j -> j.getStatus() == JobStatus.COMPLETED);
+
+            // AnalysisJobCompletedEvent carries the job ID and the masked-intensity image ID (not binary mask)
+            ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+            verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
+            assertThat(eventCaptor.getAllValues()).anyMatch(e -> e instanceof AnalysisJobCompletedEvent
+                    && ((AnalysisJobCompletedEvent) e).jobId().equals(42L)
+                    && ((AnalysisJobCompletedEvent) e).correctedImageId().equals(100L));
         }
 
         @Test

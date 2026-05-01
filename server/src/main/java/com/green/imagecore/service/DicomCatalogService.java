@@ -67,9 +67,18 @@ public class DicomCatalogService {
         // Preserve insertion order (already newest-first from the query)
         Map<String, List<DicomImage>> byKey = new LinkedHashMap<>();
         for (DicomImage img : images) {
-            String key = img.getImageSetId() != null
-                    ? img.getImageSetId()
-                    : "__pending__" + img.getId();
+            String key;
+            if (img.getS3Key() != null && img.getS3Key().startsWith("results/")) {
+                // Analysis outputs must never be merged with other rows. HealthImaging assigns
+                // the same imageSetId to all imports sharing a StudyInstanceUID, so analysis
+                // outputs and their source image can collide and summing their frameCounts
+                // would double the displayed instance count.
+                key = "__analysis__" + img.getId();
+            } else if (img.getImageSetId() != null) {
+                key = img.getImageSetId();
+            } else {
+                key = "__pending__" + img.getId();
+            }
             byKey.computeIfAbsent(key, k -> new ArrayList<>()).add(img);
         }
 

@@ -316,7 +316,7 @@ class DicomCatalogServiceTest {
     }
 
     @Test
-    void findSeriesGroupsForUser_ComputesInstanceCountAsSumOfFrameCounts() {
+    void findSeriesGroupsForUser_ComputesInstanceCountAsSumOfFrameCounts_ForUploadedImages() {
         DicomImage img1 = buildCompletedImage(1L, 42L, null, null, "imgset-001");
         img1.setFrameCount(10);
         DicomImage img2 = buildCompletedImage(2L, 42L, null, null, "imgset-001");
@@ -325,6 +325,47 @@ class DicomCatalogServiceTest {
 
         assertEquals(15,
                 dicomCatalogService.findSeriesGroupsForUser(42L).get(0).getInstanceCount());
+    }
+
+    @Test
+    void findSeriesGroupsForUser_AnalysisOutputsAreNeverGroupedTogether_EvenWithSameImageSetId() {
+        DicomImage n4 = buildAnalysisImage(10L, 42L, "imgset-merged", "results/1/dicom/");
+        n4.setFrameCount(160);
+        DicomImage masked = buildAnalysisImage(11L, 42L, "imgset-merged", "results/2/dicom-masked/");
+        masked.setFrameCount(160);
+        when(dicomImageRepository.findByUserIdOrderByUploadedAtDesc(42L)).thenReturn(List.of(n4, masked));
+
+        List<DicomSeriesGroupDto> result = dicomCatalogService.findSeriesGroupsForUser(42L);
+
+        assertEquals(2, result.size());
+        assertEquals(160, result.get(0).getInstanceCount());
+        assertEquals(160, result.get(1).getInstanceCount());
+    }
+
+    @Test
+    void findSeriesGroupsForUser_AnalysisOutputUsesAnalysisKey() {
+        DicomImage analysis = buildAnalysisImage(10L, 42L, "imgset-001", "results/1/dicom/");
+        when(dicomImageRepository.findByUserIdOrderByUploadedAtDesc(42L)).thenReturn(List.of(analysis));
+
+        List<DicomSeriesGroupDto> result = dicomCatalogService.findSeriesGroupsForUser(42L);
+
+        assertEquals("__analysis__10", result.get(0).getKey());
+        assertEquals("imgset-001", result.get(0).getImageSetId());
+    }
+
+    @Test
+    void findSeriesGroupsForUser_DoesNotMergeAnalysisOutputWithUploadHavingSameImageSetId() {
+        DicomImage upload = buildCompletedImage(1L, 42L, null, null, "imgset-001");
+        upload.setFrameCount(160);
+        DicomImage analysis = buildAnalysisImage(2L, 42L, "imgset-001", "results/1/dicom/");
+        analysis.setFrameCount(160);
+        when(dicomImageRepository.findByUserIdOrderByUploadedAtDesc(42L)).thenReturn(List.of(upload, analysis));
+
+        List<DicomSeriesGroupDto> result = dicomCatalogService.findSeriesGroupsForUser(42L);
+
+        assertEquals(2, result.size());
+        assertEquals(160, result.get(0).getInstanceCount());
+        assertEquals(160, result.get(1).getInstanceCount());
     }
 
     @Test
@@ -502,6 +543,22 @@ class DicomCatalogServiceTest {
         img.setS3Key(s3Key);
         img.setUploadedAt(Instant.parse("2026-01-01T00:00:00Z"));
         return img;
+    }
+
+    private DicomImage buildAnalysisImage(Long id, Long userId, String imageSetId, String s3Key) {
+        User user = new User();
+        user.setId(userId);
+
+        return DicomImage.builder()
+                .id(id)
+                .user(user)
+                .filename("corrected.dcm")
+                .fileSize(0L)
+                .fileCount(1)
+                .s3Key(s3Key)
+                .importStatus(ImportStatus.COMPLETED)
+                .imageSetId(imageSetId)
+                .build();
     }
 
     /**

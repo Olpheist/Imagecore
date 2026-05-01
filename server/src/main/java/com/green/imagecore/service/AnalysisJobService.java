@@ -344,6 +344,17 @@ public class AnalysisJobService {
         String binaryMaskJobId = outputNode.path("healthImagingBinaryMaskImportJobId").asText(null);
         boolean isOtsu = binaryMaskJobId != null;
 
+        // Skip row creation if output rows already exist for this import job.
+        // syncImportStatus can throw after rows are saved but before the job is marked COMPLETED,
+        // so on the next poll this guard prevents a second set of duplicate rows from being created.
+        if (dicomImageRepository.existsByHealthImagingJobId(healthImagingImportJobId)) {
+            log.warn("Analysis job {} already has output rows, marking COMPLETED without re-creating", job.getId());
+            job.setStatus(JobStatus.COMPLETED);
+            job.setUpdatedAt(Instant.now());
+            analysisJobRepository.save(job);
+            return;
+        }
+
         DicomImage original = job.getImage();
 
         // primary corrected image: masked intensity series for Otsu, corrected series for N4

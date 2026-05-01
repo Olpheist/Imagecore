@@ -2,8 +2,6 @@ package com.green.imagecore.repositories;
 
 import com.green.imagecore.entities.DicomImage;
 import com.green.imagecore.entities.ImportStatus;
-import com.green.imagecore.entities.User;
-import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -44,6 +42,8 @@ public interface DicomImageRepository extends JpaRepository<DicomImage, Long> {
            nativeQuery = true)
     Optional<DicomImage> findByImageSetIdAndUserId(@Param("imageSetId") String imageSetId,
                                                    @Param("userId") Long userId);
+
+    boolean existsByHealthImagingJobId(String healthImagingJobId);
 
 //    List<List<DicomImage>> findAllBySeriesInstanceUidAndUserId(String seriesInstanceUid, Long userId, Limit limit);
 }

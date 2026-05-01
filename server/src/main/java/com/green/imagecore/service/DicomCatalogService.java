@@ -56,7 +56,7 @@ public class DicomCatalogService {
 
     /**
      * Returns one {@link DicomSeriesGroupDto} per HealthImaging imageSet owned by the user.
-     * Images that share the same {@code imageSetId} are collapsed into a single row.
+     * Images that share the same imageSetId are collapsed into a single row.
      * Images still pending import (no imageSetId yet) each appear as their own row.
      * Rows are ordered by the upload date of their earliest DB record (newest first).
      */

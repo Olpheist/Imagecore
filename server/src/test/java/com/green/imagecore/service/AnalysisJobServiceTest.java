@@ -629,6 +629,24 @@ class AnalysisJobServiceTest {
         }
 
         @Test
+        @DisplayName("skips output row creation and marks job COMPLETED when rows already exist for the healthImagingJobId")
+        void skipsOutputCreationWhenRowsAlreadyExistForHealthImagingJobId() {
+            when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));
+            stubDescribeTasks("STOPPED", 0);
+            stubOutputJson("{\"healthImagingImportJobId\":\"hi-job-999\"}");
+            when(dicomImageRepository.existsByHealthImagingJobId("hi-job-999")).thenReturn(true);
+            when(analysisJobRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            analysisJobService.pollActiveJobs();
+
+            verify(dicomImageRepository, never()).save(any(DicomImage.class));
+            verifyNoInteractions(eventPublisher);
+            ArgumentCaptor<AnalysisJob> captor = ArgumentCaptor.forClass(AnalysisJob.class);
+            verify(analysisJobRepository, atLeastOnce()).save(captor.capture());
+            assertThat(captor.getAllValues()).anyMatch(j -> j.getStatus() == JobStatus.COMPLETED);
+        }
+
+        @Test
         @DisplayName("does nothing when ECS returns no task for the ARN")
         void doesNothingWhenEcsTaskNotFound() {
             when(analysisJobRepository.findByStatusIn(anyList())).thenReturn(List.of(job));

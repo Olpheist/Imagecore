@@ -6,3 +6,5 @@ server/src/main/resources/static/
 terraform/.terraform/
 *.egg-info/
 *build/
+.mcp.json
+global-bundle.pem

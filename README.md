@@ -4,6 +4,8 @@ A full-stack medical imaging platform for uploading, viewing, and analyzing DICO
 
 Built as a University of Iowa software engineering team project by [Brandon Rea](https://github.com/Olpheist), [Sam Motto](https://github.com/sdmotto), and [Cavan Riley](https://github.com/CavRiley).
 
+![ImageCore DICOM viewer showing axial, sagittal, and coronal views of an MRI study, with N4-corrected and Otsu-segmented results in the study list](docs/images/viewer.png)
+
 ## Features
 
 - **Authentication and roles:** username/password registration with JWT sessions, Google sign-in, password reset, and role-based access (`ADMIN`, `CLINICIAN`, `RESEARCHER`)
@@ -11,14 +13,34 @@ Built as a University of Iowa software engineering team project by [Brandon Rea]
 - **Image catalog:** browse uploaded series with modality, body part, study date, instance count, and import status
 - **DICOM viewer:** in-browser viewing built on Cornerstone3D
 - **Analysis tools:** Dockerized Python tools that run as AWS ECS Fargate tasks
-  - **N4 bias field correction:** corrects intensity inhomogeneity in MR images
-  - **Otsu threshold:** automatic threshold segmentation
+  - **N4 bias field correction:** corrects MRI intensity non-uniformity with the N4ITK algorithm
+  - **Otsu threshold:** segments MRI volumes into a masked intensity image and a binary mask
   - **Slice report:** generates a PDF report with metadata and a representative slice
 - **Tool pipelines:** chain multiple tools so each step runs on the previous step's output
 - **Result tracking:** job status polling, corrected images registered back into the catalog, and downloadable PDF reports via presigned S3 URLs
 - **Subscriptions:** Stripe-backed subscription tiers
 - **Admin center:** user and role management, plus paginated audit logs of every API request
 - **API docs:** interactive Swagger UI for every endpoint
+
+## Analysis Tools
+
+Each tool runs in its own container, and its output is imported back into HealthImaging as a new series. That means results show up in the catalog and viewer, and they can be used as input to the next tool.
+
+### N4 Bias Field Correction
+
+Corrects the low-frequency intensity non-uniformity (bias field) that MRI scanners introduce, using the N4ITK algorithm.
+
+![N4 bias field correction: original, corrected, and estimated bias field](docs/images/n4-bias-correction.png)
+
+Each run also produces a PDF report with the image properties and the correction parameters used:
+
+<img src="docs/images/n4-report.png" alt="N4 report table with image size, spacing, origin, pixel type, and correction parameters" width="600">
+
+### Otsu Threshold
+
+Segments MRI volumes with Otsu thresholding. It produces a masked intensity image and a binary mask, and it is meant to run after N4 correction as a pipeline step.
+
+![Otsu threshold: original, masked intensity, and binary mask](docs/images/otsu-threshold.png)
 
 ## Tech Stack
 

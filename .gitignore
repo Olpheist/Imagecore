@@ -8,3 +8,5 @@ terraform/.terraform/
 *build/
 .mcp.json
 global-bundle.pem
+*.tfstate
+*.tfstate.*
